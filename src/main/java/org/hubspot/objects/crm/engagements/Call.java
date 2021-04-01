@@ -82,7 +82,6 @@ public class Call {
         long second = (durationMilliseconds / 1000) % 60;
         long minute = (durationMilliseconds / (1000 * 60)) % 60;
         long hour = (durationMilliseconds / (1000 * 60 * 60)) % 24;
-        ;
         duration = String.format("%02d:%02d:%02d.%d", hour, minute, second, millis);
     }
 

@@ -6,6 +6,7 @@ import org.hubspot.utils.HubSpotUtils;
 import org.json.JSONObject;
 
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 
@@ -19,25 +20,25 @@ public class HSContact {
     private static final Logger logger = LogManager.getLogger();
     private HashMap<String, String> properties = new HashMap<>();
     private long id;
-    private List<Object> engagements;
+    private List<Long> engagementIds;
 
     public HSContact() {
     }
 
-    public void addNote(String note) {
-        this.engagements.add(note);
+    public void addEngagementId(long engagementId) {
+        this.engagementIds.add(engagementId);
     }
 
     public String getEmail() {
         return this.properties.get("email");
     }
 
-    public List<Object> getEngagements() {
-        return engagements;
+    public List<Long> getEngagementIds() {
+        return engagementIds;
     }
 
-    public void setEngagements(List<Object> engagements) {
-        this.engagements = engagements;
+    public void setEngagementIds(List<Long> engagementIds) {
+        this.engagementIds = engagementIds;
     }
 
     public String getFirstname() {
@@ -100,9 +101,28 @@ public class HSContact {
 
     @Override
     public String toString() {
-        return "HSContact{" +
-                "properties=" + properties +
-                ", id=" + id +
-                '}';
+        StringBuilder builder = new StringBuilder();
+        builder.append("ID: ").append(id).append("\n");
+        builder.append("Properties {\n");
+        for (Iterator<String> iterator = properties.keySet().iterator(); iterator.hasNext(); ) {
+            String key = iterator.next();
+            String property = properties.get(key);
+            if(!iterator.hasNext()){
+                builder.append("\t").append(key).append(" = ").append(property).append("\n");
+            }else {
+                builder.append("\t").append(key).append(" = ").append(property).append(",\n");
+            }
+        }
+        builder.append("}\nEngagement IDs {\n");
+        for (Iterator<Long> iterator = engagementIds.iterator(); iterator.hasNext(); ) {
+            long engagementId = iterator.next();
+            if(!iterator.hasNext()){
+                builder.append("\t").append(engagementId).append(",\n");
+            } else {
+                builder.append("\t").append(engagementId).append("\n");
+            }
+        }
+        builder.append("}");
+        return builder.toString();
     }
 }

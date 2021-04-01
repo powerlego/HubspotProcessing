@@ -22,7 +22,7 @@ public class EngagementsWriter {
 
     private static final Path engagementsFolder = Paths.get("./contacts/engagements/");
 
-    public static void write(long id, List<Object> engagements) {
+    public static void write(long id, List<?> engagements) {
         try {
             Files.createDirectories(engagementsFolder);
         } catch (IOException e) {

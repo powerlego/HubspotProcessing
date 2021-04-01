@@ -24,24 +24,42 @@ public class HttpService {
     private static final Logger logger = LogManager.getLogger();
 
     private final String apiKey;
-    private final String apiBase;
 
     public HttpService(String apiKey, String apiBase) {
         this.apiKey = apiKey;
-        this.apiBase = apiBase;
+        Unirest.config().automaticRetries(true).socketTimeout(0).defaultBaseUrl(apiBase);
     }
 
-    public Object deleteRequest(String url) throws HubSpotException {
-        try {
-            HttpResponse<JsonNode> resp = Unirest
-                    .delete(apiBase + url)
-                    .queryString("hapikey", apiKey)
-                    .asJson();
-
-            return checkResponse(resp);
-        } catch (UnirestException e) {
-            throw new HubSpotException("Cannot make delete request: \n URL: " + url, e);
+    public Object getRequest(String url, Map<String, Object> queryParams) throws HubSpotException {
+        while (true) {
+            try {
+                HttpResponse<JsonNode> resp = Unirest
+                        .get(url)
+                        .queryString(queryParams)
+                        .queryString("hapikey", apiKey)
+                        .asJson();
+                Object response = getObject(resp);
+                if (response != null) return response;
+            } catch (UnirestException e) {
+                throw new HubSpotException("Can not get data\n URL:" + url, e);
+            }
         }
+    }
+
+    private Object getObject(HttpResponse<JsonNode> resp) throws HubSpotException {
+        try {
+            JSONObject response = (JSONObject) checkResponse(resp);
+            return new org.json.JSONObject(Objects.requireNonNull(response).toString());
+        } catch (HubSpotException e) {
+            if (e.getCode() == 502) {
+                Utils.sleep(2);
+            } else if (e.getCode() == 429) {
+                Utils.sleep(2);
+            } else {
+                throw e;
+            }
+        }
+        return null;
     }
 
     private Object checkResponse(HttpResponse<JsonNode> resp) throws HubSpotException {
@@ -66,44 +84,11 @@ public class HttpService {
         }
     }
 
-    public Object getRequest(String url, Map<String, Object> queryParams) throws HubSpotException {
-        while (true) {
-            try {
-                HttpResponse<JsonNode> resp = Unirest
-                        .get(apiBase + url)
-                        .queryString(queryParams)
-                        .queryString("hapikey", apiKey)
-                        .asJson();
-                Object response = getObject(resp);
-                if (response != null) return response;
-            } catch (UnirestException e) {
-                throw new HubSpotException("Can not get data\n URL:" + url, e);
-            }
-        }
-    }
-
-    private Object getObject(HttpResponse<JsonNode> resp) throws HubSpotException {
-        try {
-            JSONObject response = (JSONObject) checkResponse(resp);
-            return new org.json.JSONObject(Objects.requireNonNull(response).toString());
-        } catch (HubSpotException e) {
-            if (e.getCode() == 502) {
-                Utils.sleep(2);
-            }
-            else if (e.getCode() == 429){
-                Utils.sleep(2);
-            } else{
-                throw e;
-            }
-        }
-        return null;
-    }
-
     public Object getRequest(String url, String properties) throws HubSpotException {
         while (true) {
             try {
                 HttpResponse<JsonNode> resp = Unirest
-                        .get(apiBase + url)
+                        .get(url)
                         .queryString("properties", properties)
                         .queryString("hapikey", apiKey)
                         .asJson();
@@ -120,7 +105,7 @@ public class HttpService {
         while (true) {
             try {
                 HttpResponse<JsonNode> resp = Unirest
-                        .get(apiBase + url)
+                        .get(url)
                         .queryString("hapikey", apiKey)
                         .asJson();
                 Object response = getObject(resp);
@@ -128,45 +113,6 @@ public class HttpService {
             } catch (UnirestException e) {
                 throw new HubSpotException("Can not get data\n URL:" + url, e);
             }
-        }
-    }
-
-    public Object postRequest(String url, String properties) throws HubSpotException {
-        return postRequest(url, properties, "application/json");
-    }
-
-    public Object postRequest(String url, String properties, String contentType) throws HubSpotException {
-        if (Strings.isNullOrEmpty(contentType)) {
-            contentType = "application/json";
-        }
-        try {
-            HttpResponse<JsonNode> resp = Unirest
-                    .post(apiBase + url)
-                    .queryString("hapikey", apiKey)
-                    .header("accept", "application/json")
-                    .header("Content-Type", contentType)
-                    .body(properties)
-                    .asJson();
-
-            return checkResponse(resp);
-        } catch (UnirestException e) {
-            throw new HubSpotException("Cannot make a request: \n" + properties, e);
-        }
-    }
-
-    public Object putRequest(String url, String properties) throws HubSpotException {
-        try {
-            HttpResponse<JsonNode> resp = Unirest
-                    .put(apiBase + url)
-                    .header("accept", "application/json")
-                    .header("Content-Type", "application/json")
-                    .queryString("hapikey", apiKey)
-                    .body(properties)
-                    .asJson();
-
-            return checkResponse(resp);
-        } catch (UnirestException e) {
-            throw new HubSpotException("Can not get data", e);
         }
     }
 }

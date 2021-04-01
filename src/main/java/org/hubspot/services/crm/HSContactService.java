@@ -5,7 +5,6 @@ import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.PropertiesLoader;
 import org.hubspot.objects.crm.HSContact;
 import org.hubspot.objects.crm.CRMProperties;
-import org.hubspot.objects.crm.engagements.EngagementsProcessor;
 import org.hubspot.services.HttpService;
 import org.hubspot.utils.CustomThreadFactory;
 import org.hubspot.utils.HubSpotException;
@@ -54,10 +53,21 @@ public class HSContactService {
         AtomicInteger completed = new AtomicInteger();
         ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("ContactGrabber"));
         ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        long startTime = System.nanoTime();
         Runnable progress = ()->{
-            logger.info(completed.get());
+            long currTime = System.nanoTime();
+            long elapsed = currTime-startTime;
+            long durationInMills = TimeUnit.NANOSECONDS.toMillis(elapsed);
+            long millis = durationInMills % 1000;
+            long second = (durationInMills / 1000) % 60;
+            long minute = (durationInMills / (1000 * 60)) % 60;
+            long hour = (durationInMills / (1000 * 60 * 60)) % 24;
+            String duration = String.format("%02d:%02d:%02d.%d", hour, minute, second, millis);
+            String formatInfo = "%s%-6s\t%s%s";
+            String info = String.format(formatInfo,"Completed: ", completed.get(), "Elapsed Time: ", duration);
+            logger.debug(info);
         };
-        scheduledExecutorService.scheduleAtFixedRate(progress,0, 5, TimeUnit.SECONDS);
+        scheduledExecutorService.scheduleAtFixedRate(progress,0, 10, TimeUnit.SECONDS);
         while (true) {
             JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
             Runnable process = ()-> {
@@ -74,7 +84,6 @@ public class HSContactService {
             }
             after = jsonObject.getJSONObject("paging").getJSONObject("next").getString("after");
             map.put("after", after);
-            Utils.sleep(2);
         }
         executorService.shutdown();
         try {
@@ -112,11 +121,11 @@ public class HSContactService {
             }
         }
         try {
-            HSContact.setEngagements(getEngagements(id));
+            HSContact.setEngagementIds(getEngagements(id));
 
         }catch (HubSpotException e){
             logger.warn("Could not get engagements for contact id "+id+"\nReason: "+e.getMessage());
-            HSContact.setEngagements(new LinkedList<>());
+            HSContact.setEngagementIds(new LinkedList<>());
         }
         return HSContact;
     }
@@ -138,11 +147,11 @@ public class HSContactService {
         }
     }
 
-    public List<Object> getEngagements(long id) throws HubSpotException{
+    public List<Long> getEngagements(long id) throws HubSpotException{
         String url = "/crm-associations/v1/associations/" + id + "/HUBSPOT_DEFINED/9";
         Map<String, Object> queryParam = new HashMap<>();
-        queryParam.put("limit", 5);
-        List<Object> notes = Collections.synchronizedList(new LinkedList<>());
+        queryParam.put("limit", 10);
+        List<Long> notes = Collections.synchronizedList(new LinkedList<>());
         long offset;
         ExecutorService executorService = Executors.newFixedThreadPool(10, new CustomThreadFactory(id+"_engagements"));
         try {
@@ -151,7 +160,7 @@ public class HSContactService {
                 JSONArray jsonNotes = jsonObject.getJSONArray("results");
                 Runnable runnable = ()-> {
                     for (int i = 0; i < jsonNotes.length(); i++) {
-                        String noteUrl = "/engagements/v1/engagements/" + jsonNotes.getLong(i);
+                        /*String noteUrl = "/engagements/v1/engagements/" + jsonNotes.getLong(i);
                         JSONObject jsonNote = null;
                         try {
                             jsonNote = (JSONObject) httpService.getRequest(noteUrl);
@@ -162,9 +171,8 @@ public class HSContactService {
                         Object o = null;
                         if(jsonNote != null) {
                             o = EngagementsProcessor.process(jsonNote);
-                        }
-                        notes.add(o);
-                        Utils.sleep(1);
+                        }*/
+                        notes.add(jsonNotes.getLong(i));
                     }
                 };
                 executorService.submit(runnable);
@@ -173,7 +181,7 @@ public class HSContactService {
                 }
                 offset = jsonObject.getLong("offset");
                 queryParam.put("offset", offset);
-                Utils.sleep(2500L);
+                Utils.sleep(500L);
             }
             executorService.shutdown();
             try{
