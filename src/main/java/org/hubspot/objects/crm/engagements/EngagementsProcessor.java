@@ -2,12 +2,17 @@ package org.hubspot.objects.crm.engagements;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.hubspot.utils.CustomThreadFactory;
+import org.hubspot.utils.HttpService;
+import org.hubspot.utils.HubSpotException;
 import org.hubspot.utils.Utils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.LinkedList;
-import java.util.List;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Nicholas Curl
@@ -17,14 +22,116 @@ public class EngagementsProcessor {
      * The instance of the logger
      */
     private static final Logger logger = LogManager.getLogger();
-
     private static final int WORDWRAP = 80;
 
-    public EngagementsProcessor() {
-
+    public static List<Long> getAllEngagementIds(HttpService httpService, long id) throws HubSpotException {
+        String url = "/crm-associations/v1/associations/" + id + "/HUBSPOT_DEFINED/9";
+        Map<String, Object> queryParam = new HashMap<>();
+        queryParam.put("limit", 10);
+        List<Long> notes = Collections.synchronizedList(new LinkedList<>());
+        long offset;
+        ExecutorService executorService = Executors.newFixedThreadPool(10, new CustomThreadFactory(id + "_engagementIds"));
+        try {
+            while (true) {
+                JSONObject jsonObject = (JSONObject) httpService.getRequest(url, queryParam);
+                JSONArray ids = jsonObject.getJSONArray("results");
+                Runnable runnable = () -> {
+                    for (int i = 0; i < ids.length(); i++) {
+                        notes.add(ids.getLong(i));
+                    }
+                };
+                executorService.submit(runnable);
+                if (!jsonObject.getBoolean("hasMore")) {
+                    break;
+                }
+                offset = jsonObject.getLong("offset");
+                queryParam.put("offset", offset);
+                Utils.sleep(500L);
+            }
+            executorService.shutdown();
+            try {
+                executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            } catch (InterruptedException e) {
+                logger.warn("Thread interrupted", e);
+            }
+            return notes;
+        } catch (HubSpotException e) {
+            if (e.getMessage().equalsIgnoreCase("Not Found")) {
+                return null;
+            } else {
+                throw e;
+            }
+        }
     }
 
-    public static Object process(JSONObject jsonObject) {
+    public static List<Object> getAllEngagements(HttpService httpService, long id) throws HubSpotException {
+        String url = "/crm-associations/v1/associations/" + id + "/HUBSPOT_DEFINED/9";
+        Map<String, Object> queryParam = new HashMap<>();
+        queryParam.put("limit", 10);
+        List<Object> notes = Collections.synchronizedList(new LinkedList<>());
+        long offset;
+        ExecutorService executorService = Executors.newFixedThreadPool(10, new CustomThreadFactory(id + "_engagements"));
+        try {
+            while (true) {
+                JSONObject jsonObject = (JSONObject) httpService.getRequest(url, queryParam);
+                JSONArray jsonNotes = jsonObject.getJSONArray("results");
+                Runnable runnable = () -> {
+                    for (int i = 0; i < jsonNotes.length(); i++) {
+                        long engagementId = jsonNotes.getLong(i);
+                        try {
+                            notes.add(getEngagement(httpService, engagementId));
+                        } catch (HubSpotException e) {
+                            logger.warn("Unable to get engagement id " + engagementId + " for contact id " + id, e);
+                        }
+                    }
+                };
+                executorService.submit(runnable);
+                if (!jsonObject.getBoolean("hasMore")) {
+                    break;
+                }
+                offset = jsonObject.getLong("offset");
+                queryParam.put("offset", offset);
+                Utils.sleep(500L);
+            }
+            executorService.shutdown();
+            try {
+                executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+            } catch (InterruptedException e) {
+                logger.warn("Thread interrupted", e);
+            }
+            return notes;
+        } catch (HubSpotException e) {
+            if (e.getMessage().equalsIgnoreCase("Not Found")) {
+                return null;
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    public static Object getEngagement(HttpService service, long id) throws HubSpotException {
+        String noteUrl = "/engagements/v1/engagements/" + id;
+        try {
+            JSONObject jsonNote = (JSONObject) service.getRequest(noteUrl);
+            if (jsonNote == null) {
+                throw new HubSpotException("Unable to grab engagement");
+            }
+            Object o = process(jsonNote);
+            if (o == null) {
+                throw new HubSpotException("Invalid engagement type");
+            } else {
+                return o;
+            }
+        } catch (HubSpotException e) {
+            if (e.getMessage().equalsIgnoreCase("Not Found")) {
+                return null;
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    private static Object process(JSONObject jsonObject) throws HubSpotException {
         JSONObject engagement = jsonObject.getJSONObject("engagement");
         String type = engagement.getString("type");
         JSONObject metadata = jsonObject.getJSONObject("metadata");
@@ -61,17 +168,17 @@ public class EngagementsProcessor {
                 List<Email.Details> bcc = new LinkedList<>();
                 for (int i = 0; i < jsonTo.length(); i++) {
                     JSONObject jsonDetails = jsonTo.getJSONObject(i);
-                    to.add(jsonDetailsDetection(jsonDetails));
+                    to.add(emailDetails(jsonDetails));
                 }
                 for (int i = 0; i < jsonCc.length(); i++) {
                     JSONObject jsonDetails = jsonCc.getJSONObject(i);
-                    cc.add(jsonDetailsDetection(jsonDetails));
+                    cc.add(emailDetails(jsonDetails));
                 }
                 for (int i = 0; i < jsonBcc.length(); i++) {
                     JSONObject jsonDetails = jsonBcc.getJSONObject(i);
-                    bcc.add(jsonDetailsDetection(jsonDetails));
+                    bcc.add(emailDetails(jsonDetails));
                 }
-                Email.Details from = jsonDetailsDetection(jsonFrom);
+                Email.Details from = emailDetails(jsonFrom);
                 emailBody = emailBody.replaceAll("\r", "");
                 if (emailBody.contains("From:")) {
                     String[] bodySplit = emailBody.split("From:");
@@ -175,7 +282,7 @@ public class EngagementsProcessor {
         }
     }
 
-    private static Email.Details jsonDetailsDetection(JSONObject jsonDetails) {
+    private static Email.Details emailDetails(JSONObject jsonDetails) {
         String firstName = "";
         String lastName = "";
         String email = "";
@@ -190,5 +297,4 @@ public class EngagementsProcessor {
         }
         return new Email.Details(firstName, lastName, email);
     }
-
 }

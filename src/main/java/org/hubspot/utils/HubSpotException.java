@@ -11,9 +11,7 @@ public class HubSpotException extends Exception {
      * The instance of the logger
      */
     private static final Logger logger = LogManager.getLogger();
-
     private int code;
-
     private String rawMessage;
 
     public HubSpotException(String message) {

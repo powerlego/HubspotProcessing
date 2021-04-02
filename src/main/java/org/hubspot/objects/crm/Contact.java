@@ -13,7 +13,7 @@ import java.util.Map;
 /**
  * @author Nicholas Curl
  */
-public class HSContact {
+public class Contact {
     /**
      * The instance of the logger
      */
@@ -21,16 +21,17 @@ public class HSContact {
     private HashMap<String, String> properties = new HashMap<>();
     private long id;
     private List<Long> engagementIds;
+    private List<Object> engagements;
 
-    public HSContact() {
+    public Contact() {
+    }
+
+    public void addEngagement(Object engagement) {
+        this.engagements.add(engagement);
     }
 
     public void addEngagementId(long engagementId) {
         this.engagementIds.add(engagementId);
-    }
-
-    public String getEmail() {
-        return this.properties.get("email");
     }
 
     public List<Long> getEngagementIds() {
@@ -41,12 +42,16 @@ public class HSContact {
         this.engagementIds = engagementIds;
     }
 
-    public String getFirstname() {
-        return this.properties.get("firstname");
+    public List<Object> getEngagements() {
+        return engagements;
     }
 
-    public void setFirstname(String firstname) {
-        this.properties.put("firstname", firstname);
+    public void setEngagements(List<Object> engagements) {
+        this.engagements = engagements;
+    }
+
+    public String getFirstname() {
+        return this.properties.get("firstname");
     }
 
     public long getId() {
@@ -59,10 +64,6 @@ public class HSContact {
 
     public String getLastname() {
         return this.properties.get("lastname");
-    }
-
-    public void setLastname(String lastname) {
-        this.properties.put("lastname", lastname);
     }
 
     public String getProperty(String property) {
@@ -87,7 +88,6 @@ public class HSContact {
 
     public JSONObject toJson() {
         HashMap<String, String> properties = new HashMap<>(getProperties());
-        properties.remove("id");
         return HubSpotUtils.mapToJson(properties);
     }
 
@@ -107,19 +107,19 @@ public class HSContact {
         for (Iterator<String> iterator = properties.keySet().iterator(); iterator.hasNext(); ) {
             String key = iterator.next();
             String property = properties.get(key);
-            if(!iterator.hasNext()){
+            if (!iterator.hasNext()) {
                 builder.append("\t").append(key).append(" = ").append(property).append("\n");
-            }else {
+            } else {
                 builder.append("\t").append(key).append(" = ").append(property).append(",\n");
             }
         }
         builder.append("}\nEngagement IDs {\n");
         for (Iterator<Long> iterator = engagementIds.iterator(); iterator.hasNext(); ) {
             long engagementId = iterator.next();
-            if(!iterator.hasNext()){
-                builder.append("\t").append(engagementId).append(",\n");
-            } else {
+            if (!iterator.hasNext()) {
                 builder.append("\t").append(engagementId).append("\n");
+            } else {
+                builder.append("\t").append(engagementId).append(",\n");
             }
         }
         builder.append("}");

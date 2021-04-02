@@ -17,26 +17,6 @@ public class HubSpotUtils {
      */
     private static final Logger logger = LogManager.getLogger();
 
-    public static JSONObject getJsonObject(String property, Object value) {
-        return new JSONObject()
-                .put("property", property)
-                .put("value", value);
-    }
-
-    public static void putJsonObject(JSONArray ja, String property, String value){
-        if(!Strings.isNullOrEmpty(value) && !value.equals("null")){
-            ja.put(getJsonObject(property, value));
-        }
-    }
-
-    public static JSONObject putJsonObject(JSONObject jo, String property, Object value){
-        if(!Strings.isNullOrEmpty(value + "") && !value.equals("null")){
-            jo.put(property, value);
-        }
-
-        return jo;
-    }
-
     public static String mapToJsonString(Map<String, String> map) {
         return mapToJson(map).toString();
     }
@@ -44,5 +24,25 @@ public class HubSpotUtils {
     public static JSONObject mapToJson(Map<String, String> map) {
         JSONObject jo = new JSONObject(map);
         return new JSONObject().put("properties", jo);
+    }
+
+    public static JSONObject putJsonObject(JSONObject jo, String property, Object value) {
+        if (!Strings.isNullOrEmpty(value + "") && !value.equals("null")) {
+            jo.put(property, value);
+        }
+
+        return jo;
+    }
+
+    public static void putJsonObject(JSONArray ja, String property, String value) {
+        if (!Strings.isNullOrEmpty(value) && !value.equals("null")) {
+            ja.put(getJsonObject(property, value));
+        }
+    }
+
+    public static JSONObject getJsonObject(String property, Object value) {
+        return new JSONObject()
+                .put("property", property)
+                .put("value", value);
     }
 }

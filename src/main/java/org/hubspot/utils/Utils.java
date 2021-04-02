@@ -17,7 +17,6 @@ public class Utils {
      */
     private static final Logger logger = LogManager.getLogger();
 
-
     public static String createLineDivider(int length) {
         return "\n" + "-".repeat(Math.max(0, length)) + "\n";
     }
@@ -51,23 +50,23 @@ public class Utils {
         return string;
     }
 
-    public static String propertyListToString(List<String> properties){
+    public static String propertyListToString(List<String> properties) {
         String propertyString = properties.toString();
         propertyString = propertyString.replace("[", "");
-        propertyString = propertyString.replace("]","");
-        propertyString = propertyString.replace(" ","");
+        propertyString = propertyString.replace("]", "");
+        propertyString = propertyString.replace(" ", "");
         return propertyString;
     }
 
-    public static void sleep(long milliseconds){
-        try{
-            Thread.sleep(milliseconds);
-        } catch (InterruptedException e){
-            Thread.currentThread().interrupt();
-        }
+    public static void sleep(int seconds) {
+        sleep((long) 1000 * seconds);
     }
 
-    public static void sleep(int seconds){
-        sleep((long)1000*seconds);
+    public static void sleep(long milliseconds) {
+        try {
+            Thread.sleep(milliseconds);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 }

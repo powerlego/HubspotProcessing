@@ -2,8 +2,9 @@ package org.hubspot.objects.crm;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.hubspot.services.HttpService;
+import org.hubspot.utils.HttpService;
 import org.hubspot.utils.HubSpotException;
+import org.hubspot.utils.Utils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -20,22 +21,13 @@ public class CRMProperties {
      * The instance of the logger
      */
     private static final Logger logger = LogManager.getLogger();
-    private final HttpService service;
-    private final List<String> propertyNames;
-    private final Map<String, Object> properties;
-    private final String url;
+    private static final String urlBase = "/crm/v3/properties/";
 
-    public CRMProperties(HttpService service, Types type) {
-        this.service = service;
-        this.url = "/crm/v3/properties/" + type.getValue();
-        this.propertyNames = new LinkedList<>();
-        this.properties = new HashMap<>();
-        getAllProperties();
-    }
-
-    private void getAllProperties() {
+    public static PropertyData getAllProperties(HttpService service, CRMObjectType type) {
+        Map<String, Object> properties = new HashMap<>();
+        List<String> propertyNames = new LinkedList<>();
         try {
-            JSONObject jsonObject = (JSONObject) service.getRequest(url);
+            JSONObject jsonObject = (JSONObject) service.getRequest(urlBase + type.getValue());
             JSONArray results = jsonObject.getJSONArray("results");
             for (Object o : results) {
                 if (o instanceof JSONObject) {
@@ -49,34 +41,62 @@ public class CRMProperties {
             logger.fatal("Unable to get properties", e);
             System.exit(-1);
         }
+        return new PropertyData(propertyNames, properties);
     }
 
-    public Map<String, Object> getProperties() {
-        return properties;
+    public static PropertyData getPropertiesByGroupName(HttpService service, CRMObjectType type, String groupName) {
+        Map<String, Object> properties = new HashMap<>();
+        List<String> propertyNames = new LinkedList<>();
+        try {
+            JSONObject jsonObject = (JSONObject) service.getRequest(urlBase + type.getValue());
+            JSONArray results = jsonObject.getJSONArray("results");
+            for (Object o : results) {
+                if (o instanceof JSONObject) {
+                    JSONObject o1 = (JSONObject) o;
+                    String name = "";
+                    String jsonGroupName = "";
+                    if (o1.has("groupName")) {
+                        jsonGroupName = o1.getString("groupName");
+                    }
+                    if (jsonGroupName.equalsIgnoreCase(groupName)) {
+                        if (o1.has("name")) {
+                            name = o1.getString("name");
+                        }
+                        propertyNames.add(name);
+                        properties.put(name, o1);
+                    }
+                }
+            }
+        } catch (HubSpotException e) {
+            logger.fatal("Unable to get properties", e);
+            System.exit(-1);
+        }
+        return new PropertyData(propertyNames, properties);
     }
 
-    public Object getProperty(String key) {
-        return properties.get(key);
-    }
+    public static class PropertyData {
+        private final List<String> propertyNames;
+        private final Map<String, Object> properties;
 
-    public List<String> getPropertyNames() {
-        return propertyNames;
-    }
-
-    public enum Types {
-        CONTACTS("CONTACTS"),
-        COMPANIES("COMPANIES"),
-        DEALS("DEALS"),
-        TICKETS("TICKETS");
-
-        private final String value;
-
-        Types(String value) {
-            this.value = value;
+        public PropertyData(List<String> propertyNames, Map<String, Object> properties) {
+            this.properties = properties;
+            this.propertyNames = propertyNames;
         }
 
-        public String getValue() {
-            return value;
+        public Map<String, Object> getProperties() {
+            return properties;
+        }
+
+        public Object getProperty(String propertyName) {
+            return properties.get(propertyName);
+        }
+
+        public List<String> getPropertyNames() {
+            return propertyNames;
+        }
+
+        public String getPropertyNamesString() {
+            return Utils.propertyListToString(propertyNames);
         }
     }
 }

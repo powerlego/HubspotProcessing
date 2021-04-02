@@ -2,7 +2,7 @@ package org.hubspot.services;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.hubspot.services.crm.CRM;
+import org.hubspot.utils.HttpService;
 
 /**
  * @author Nicholas Curl

@@ -1,4 +1,4 @@
-package org.hubspot.services;
+package org.hubspot.utils;
 
 import com.google.common.base.Strings;
 import kong.unirest.HttpResponse;
@@ -8,8 +8,6 @@ import kong.unirest.UnirestException;
 import kong.unirest.json.JSONObject;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.hubspot.utils.HubSpotException;
-import org.hubspot.utils.Utils;
 
 import java.util.Map;
 import java.util.Objects;

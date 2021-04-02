@@ -19,7 +19,6 @@ public class EngagementsWriter {
      * The instance of the logger
      */
     private static final Logger logger = LogManager.getLogger();
-
     private static final Path engagementsFolder = Paths.get("./contacts/engagements/");
 
     public static void write(long id, List<?> engagements) {
