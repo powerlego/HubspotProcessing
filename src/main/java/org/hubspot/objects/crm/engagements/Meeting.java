@@ -8,7 +8,7 @@ import java.util.Date;
 /**
  * @author Nicholas Curl
  */
-public class Meeting {
+public class Meeting extends Engagement {
     /**
      * The instance of the logger
      */
@@ -18,7 +18,8 @@ public class Meeting {
     private final String body;
     private final String title;
 
-    public Meeting(long startTime, long endTime, String body, String title) {
+    public Meeting(long id, long startTime, long endTime, String body, String title) {
+        super(id);
         if (startTime != -1) {
             this.startTime = new Date(startTime);
         } else {

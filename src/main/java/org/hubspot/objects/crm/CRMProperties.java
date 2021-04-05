@@ -2,26 +2,28 @@ package org.hubspot.objects.crm;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.hubspot.objects.HubSpotObject;
 import org.hubspot.utils.HttpService;
 import org.hubspot.utils.HubSpotException;
 import org.hubspot.utils.Utils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.HashMap;
-import java.util.LinkedList;
-import java.util.List;
-import java.util.Map;
+import java.util.*;
 
 /**
  * @author Nicholas Curl
  */
-public class CRMProperties {
+public class CRMProperties extends HubSpotObject {
     /**
      * The instance of the logger
      */
     private static final Logger logger = LogManager.getLogger();
     private static final String urlBase = "/crm/v3/properties/";
+
+    public CRMProperties() {
+        super(0);
+    }
 
     public static PropertyData getAllProperties(HttpService service, CRMObjectType type) {
         Map<String, Object> properties = new HashMap<>();
@@ -71,6 +73,7 @@ public class CRMProperties {
             logger.fatal("Unable to get properties", e);
             System.exit(-1);
         }
+        Collections.sort(propertyNames);
         return new PropertyData(propertyNames, properties);
     }
 

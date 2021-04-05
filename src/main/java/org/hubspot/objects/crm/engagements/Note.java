@@ -8,7 +8,7 @@ import java.util.List;
 /**
  * @author Nicholas Curl
  */
-public class Note {
+public class Note extends Engagement {
     /**
      * The instance of the logger
      */
@@ -16,7 +16,8 @@ public class Note {
     private final String note;
     private final List<Long> attachments;
 
-    public Note(String note, List<Long> attachments) {
+    public Note(long id, String note, List<Long> attachments) {
+        super(id);
         this.note = note;
         this.attachments = attachments;
     }
@@ -28,7 +29,8 @@ public class Note {
     @Override
     public String toString() {
         return note +
-                "\nHas Attachments: " + hasAttachments();
+                "\nHas Attachments: " + hasAttachments() +
+                "\nAttachments: " + attachments;
     }
 
     public boolean hasAttachments() {

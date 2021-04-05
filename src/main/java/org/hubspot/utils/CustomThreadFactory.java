@@ -2,6 +2,7 @@ package org.hubspot.utils;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.jetbrains.annotations.NotNull;
 
 import java.util.concurrent.ThreadFactory;
 
@@ -22,7 +23,7 @@ public class CustomThreadFactory implements ThreadFactory {
     }
 
     @Override
-    public Thread newThread(Runnable r) {
+    public Thread newThread(@NotNull Runnable r) {
         Thread t = new Thread(r, name + "-thread_" + counter);
         counter++;
         return t;

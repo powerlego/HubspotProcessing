@@ -19,8 +19,12 @@ public class Main {
 
     public static void main(String[] args) {
         HubSpot hubspot = new HubSpot("6ab73220-900f-462b-b753-b6757d94cd1d");
+        //hubspot.crm().writeContactJson("contactinformation");
+        //List<Contact> contacts = hubspot.crm().readContactJsons();
+        //List<Contact> contacts = hubspot.crm().getFilteredContacts("contactinformation");
         List<Contact> contacts = hubspot.crm().getAllContacts("contactinformation");
-        for (Contact contact : contacts) {
+        List<Contact> filterContacts = hubspot.crm().filterContacts(contacts);
+        for (Contact contact : filterContacts) {
             ContactWriter.write(contact);
         }
     }

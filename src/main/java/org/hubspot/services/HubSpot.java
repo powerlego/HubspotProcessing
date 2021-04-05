@@ -14,6 +14,7 @@ public class HubSpot {
     private static final Logger logger = LogManager.getLogger();
     private final HttpService httpService;
 
+
     public HubSpot(String apiKey) {
         String apiBase = "https://api.hubapi.com";
         httpService = new HttpService(apiKey, apiBase);

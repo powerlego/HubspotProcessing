@@ -4,10 +4,10 @@ package org.hubspot.objects.crm;
  * @author Nicholas Curl
  */
 public enum CRMObjectType {
-    CONTACTS("CONTACTS"),
-    COMPANIES("COMPANIES"),
-    DEALS("DEALS"),
-    TICKETS("TICKETS");
+    CONTACTS("contacts"),
+    COMPANIES("companies"),
+    DEALS("deals"),
+    TICKETS("tickets");
 
     private final String value;
 

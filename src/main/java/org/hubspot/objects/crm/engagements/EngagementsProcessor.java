@@ -50,7 +50,9 @@ public class EngagementsProcessor {
             }
             executorService.shutdown();
             try {
-                executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+                if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                    logger.warn("Termination Timeout");
+                }
             } catch (InterruptedException e) {
                 logger.warn("Thread interrupted", e);
             }
@@ -64,11 +66,11 @@ public class EngagementsProcessor {
         }
     }
 
-    public static List<Object> getAllEngagements(HttpService httpService, long id) throws HubSpotException {
+    public static List<Engagement> getAllEngagements(HttpService httpService, long id) throws HubSpotException {
         String url = "/crm-associations/v1/associations/" + id + "/HUBSPOT_DEFINED/9";
         Map<String, Object> queryParam = new HashMap<>();
         queryParam.put("limit", 10);
-        List<Object> notes = Collections.synchronizedList(new LinkedList<>());
+        List<Engagement> notes = Collections.synchronizedList(new LinkedList<>());
         long offset;
         ExecutorService executorService = Executors.newFixedThreadPool(10, new CustomThreadFactory(id + "_engagements"));
         try {
@@ -95,7 +97,9 @@ public class EngagementsProcessor {
             }
             executorService.shutdown();
             try {
-                executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+                if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                    logger.warn("Termination Timeout");
+                }
             } catch (InterruptedException e) {
                 logger.warn("Thread interrupted", e);
             }
@@ -109,18 +113,18 @@ public class EngagementsProcessor {
         }
     }
 
-    public static Object getEngagement(HttpService service, long id) throws HubSpotException {
+    public static Engagement getEngagement(HttpService service, long id) throws HubSpotException {
         String noteUrl = "/engagements/v1/engagements/" + id;
         try {
             JSONObject jsonNote = (JSONObject) service.getRequest(noteUrl);
             if (jsonNote == null) {
                 throw new HubSpotException("Unable to grab engagement");
             }
-            Object o = process(jsonNote);
-            if (o == null) {
+            Engagement engagement = process(jsonNote);
+            if (engagement == null) {
                 throw new HubSpotException("Invalid engagement type");
             } else {
-                return o;
+                return engagement;
             }
         } catch (HubSpotException e) {
             if (e.getMessage().equalsIgnoreCase("Not Found")) {
@@ -131,10 +135,11 @@ public class EngagementsProcessor {
         }
     }
 
-    private static Object process(JSONObject jsonObject) throws HubSpotException {
+    private static Engagement process(JSONObject jsonObject) {
         JSONObject engagement = jsonObject.getJSONObject("engagement");
         String type = engagement.getString("type");
         JSONObject metadata = jsonObject.getJSONObject("metadata");
+        long id = engagement.getLong("id");
         switch (type) {
             case "EMAIL":
             case "INCOMING_EMAIL":
@@ -189,9 +194,9 @@ public class EngagementsProcessor {
                         String rest = "From:" + bodySplit[i];
                         builder.append(Utils.format(rest, WORDWRAP)).append("\n");
                     }
-                    return new Email(to, cc, bcc, from, emailSubject, builder.toString().strip());
+                    return new Email(id, to, cc, bcc, from, emailSubject, builder.toString().strip());
                 } else {
-                    return new Email(to, cc, bcc, from, emailSubject, Utils.format(emailBody, WORDWRAP));
+                    return new Email(id, to, cc, bcc, from, emailSubject, Utils.format(emailBody, WORDWRAP));
                 }
             case "NOTE":
                 String note = "";
@@ -210,10 +215,14 @@ public class EngagementsProcessor {
                     }
 
                 }
-                return new Note(note, attachments);
+                return new Note(id, note, attachments);
             case "CALL":
                 String callTitle = "";
                 String callBody = "";
+                String toNumber = "";
+                String fromNumber = "";
+                long durationMillis = 0;
+                String recordingURL = "";
                 if (metadata.has("title")) {
                     callTitle = metadata.getString("title");
                     callTitle = Utils.format(callTitle, WORDWRAP);
@@ -222,7 +231,19 @@ public class EngagementsProcessor {
                     callBody = metadata.getString("body");
                     callBody = Utils.format(callBody, WORDWRAP);
                 }
-                return new Call(callTitle, callBody);
+                if (metadata.has("toNumber")) {
+                    toNumber = metadata.getString("toNumber");
+                }
+                if (metadata.has("fromNumber")) {
+                    fromNumber = metadata.getString("fromNumber");
+                }
+                if (metadata.has("durationMilliseconds")) {
+                    durationMillis = metadata.getLong("durationMilliseconds");
+                }
+                if (metadata.has("recordingUrl")) {
+                    recordingURL = metadata.getString("recordingUrl");
+                }
+                return new Call(id, callTitle, callBody, toNumber, fromNumber, durationMillis, recordingURL);
             case "MEETING":
                 long meetingStartTime = -1;
                 long meetingEndTime = -1;
@@ -241,7 +262,7 @@ public class EngagementsProcessor {
                     meetingTitle = metadata.getString("title");
                     meetingTitle = Utils.format(meetingTitle, WORDWRAP);
                 }
-                return new Meeting(meetingStartTime, meetingEndTime, meetingBody, meetingTitle);
+                return new Meeting(id, meetingStartTime, meetingEndTime, meetingBody, meetingTitle);
             case "TASK":
                 String taskType = "";
                 String taskSubject = "";
@@ -276,7 +297,7 @@ public class EngagementsProcessor {
                         remindersMilliseconds.add(jsonArray.getLong(i));
                     }
                 }
-                return new Task(taskType, taskSubject, taskBody, taskForObjectType, taskStatus, taskCompletionDateMilliseconds, remindersMilliseconds);
+                return new Task(id, taskType, taskSubject, taskBody, taskForObjectType, taskStatus, taskCompletionDateMilliseconds, remindersMilliseconds);
             default:
                 return null;
         }

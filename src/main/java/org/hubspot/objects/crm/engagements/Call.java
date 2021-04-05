@@ -6,7 +6,7 @@ import org.apache.logging.log4j.Logger;
 /**
  * @author Nicholas Curl
  */
-public class Call {
+public class Call extends Engagement {
     /**
      * The instance of the logger
      */
@@ -19,60 +19,8 @@ public class Call {
     private final String toNumber;
     private final String fromNumber;
 
-    public Call(String title, String body) {
-        this.title = title;
-        this.body = body;
-        this.recordingURL = "";
-        this.toNumber = "";
-        this.fromNumber = "";
-        long millis = 0;
-        long second = 0;
-        long minute = 0;
-        long hour = 0;
-        duration = String.format("%02d:%02d:%02d.%d", hour, minute, second, millis);
-    }
-
-    public Call(String title, String body, String toNumber, String fromNumber) {
-        this.title = title;
-        this.body = body;
-        this.recordingURL = "";
-        this.toNumber = toNumber;
-        this.fromNumber = fromNumber;
-        long millis = 0;
-        long second = 0;
-        long minute = 0;
-        long hour = 0;
-        duration = String.format("%02d:%02d:%02d.%d", hour, minute, second, millis);
-    }
-
-    public Call(String title, String body, String toNumber, String fromNumber, String recordingURL) {
-        this.title = title;
-        this.body = body;
-        this.recordingURL = recordingURL;
-        this.toNumber = toNumber;
-        this.fromNumber = fromNumber;
-        long millis = 0;
-        long second = 0;
-        long minute = 0;
-        long hour = 0;
-        duration = String.format("%02d:%02d:%02d.%d", hour, minute, second, millis);
-    }
-
-    public Call(String title, String body, String toNumber, String fromNumber, long durationMilliseconds) {
-        this.title = title;
-        this.body = body;
-        this.recordingURL = "";
-        this.toNumber = toNumber;
-        this.fromNumber = fromNumber;
-        long millis = durationMilliseconds % 1000;
-        long second = (durationMilliseconds / 1000) % 60;
-        long minute = (durationMilliseconds / (1000 * 60)) % 60;
-        long hour = (durationMilliseconds / (1000 * 60 * 60)) % 24;
-        ;
-        duration = String.format("%02d:%02d:%02d.%d", hour, minute, second, millis);
-    }
-
-    public Call(String title, String body, String toNumber, String fromNumber, long durationMilliseconds, String recordingURL) {
+    public Call(long id, String title, String body, String toNumber, String fromNumber, long durationMilliseconds, String recordingURL) {
+        super(id);
         this.title = title;
         this.body = body;
         this.recordingURL = recordingURL;

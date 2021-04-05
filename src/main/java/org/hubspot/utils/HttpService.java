@@ -10,7 +10,6 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
 import java.util.Map;
-import java.util.Objects;
 
 /**
  * @author Nicholas Curl
@@ -44,20 +43,8 @@ public class HttpService {
         }
     }
 
-    private Object getObject(HttpResponse<JsonNode> resp) throws HubSpotException {
-        try {
-            JSONObject response = (JSONObject) checkResponse(resp);
-            return new org.json.JSONObject(Objects.requireNonNull(response).toString());
-        } catch (HubSpotException e) {
-            if (e.getCode() == 502) {
-                Utils.sleep(2);
-            } else if (e.getCode() == 429) {
-                Utils.sleep(2);
-            } else {
-                throw e;
-            }
-        }
-        return null;
+    public Object postRequest(String url, String properties) throws HubSpotException {
+        return postRequest(url, properties, "application/json");
     }
 
     private Object checkResponse(HttpResponse<JsonNode> resp) throws HubSpotException {
@@ -112,5 +99,53 @@ public class HttpService {
                 throw new HubSpotException("Can not get data\n URL:" + url, e);
             }
         }
+    }
+
+    public Object postRequest(String url, String properties, String contentType) throws HubSpotException {
+        if (Strings.isNullOrEmpty(contentType)) {
+            contentType = "application/json";
+        }
+        while (true) {
+            try {
+                HttpResponse<JsonNode> resp = Unirest
+                        .post(url)
+                        .queryString("hapikey", apiKey)
+                        .header("accept", "application/json")
+                        .header("Content-Type", contentType)
+                        .body(properties)
+                        .asJson();
+                Object response = getObject(resp);
+                if (response != null) return response;
+            } catch (UnirestException e) {
+                throw new HubSpotException("Cannot make a request: \n" + properties, e);
+            }
+        }
+    }
+
+    private Object getObject(HttpResponse<JsonNode> resp) throws HubSpotException {
+        try {
+            JSONObject response = (JSONObject) checkResponse(resp);
+            if (response != null) {
+                org.json.JSONObject jsonObject = (org.json.JSONObject) Utils.convertType(response);
+                return new org.json.JSONObject(response.toMap());
+            }
+        } catch (HubSpotException e) {
+            if (e.getCode() == 502) {
+                Utils.sleep(2);
+            } else if (e.getCode() == 429) {
+                Utils.sleep(2);
+            } else {
+                throw e;
+            }
+        }
+        return null;
+    }
+
+    public Object postRequest(String url, org.json.JSONObject properties) throws HubSpotException {
+        return postRequest(url, properties.toString(), "application/json");
+    }
+
+    public Object postRequest(String url, org.json.JSONObject properties, String contentType) throws HubSpotException {
+        return postRequest(url, properties.toString(), contentType);
     }
 }

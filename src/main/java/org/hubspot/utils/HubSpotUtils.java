@@ -21,8 +21,9 @@ public class HubSpotUtils {
         return mapToJson(map).toString();
     }
 
-    public static JSONObject mapToJson(Map<String, String> map) {
-        JSONObject jo = new JSONObject(map);
+    public static JSONObject mapToJson(Map<String, String> propertiesMap) {
+        JSONObject jo = new JSONObject(propertiesMap);
+
         return new JSONObject().put("properties", jo);
     }
 

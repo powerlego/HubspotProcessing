@@ -8,7 +8,7 @@ import java.util.List;
 /**
  * @author Nicholas Curl
  */
-public class Email {
+public class Email extends Engagement {
     /**
      * The instance of the logger
      */
@@ -20,7 +20,8 @@ public class Email {
     private final Details from;
     private final String subject;
 
-    public Email(List<Details> to, List<Details> cc, List<Details> bcc, Details from, String subject, String body) {
+    public Email(long id, List<Details> to, List<Details> cc, List<Details> bcc, Details from, String subject, String body) {
+        super(id);
         this.to = to;
         this.cc = cc;
         this.bcc = bcc;

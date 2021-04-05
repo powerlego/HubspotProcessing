@@ -10,7 +10,7 @@ import java.util.List;
 /**
  * @author Nicholas Curl
  */
-public class Task {
+public class Task extends Engagement {
     /**
      * The instance of the logger
      */
@@ -24,7 +24,8 @@ public class Task {
     private final String status;
     private final Date completionDate;
 
-    public Task(String taskType, String subject, String body, String forObjectType, String status, long completionDateMilliseconds, List<Long> remindersMilliseconds) {
+    public Task(long id, String taskType, String subject, String body, String forObjectType, String status, long completionDateMilliseconds, List<Long> remindersMilliseconds) {
+        super(id);
         this.taskType = taskType;
         this.subject = subject;
         this.body = body;
