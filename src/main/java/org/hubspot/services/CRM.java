@@ -8,6 +8,7 @@ import org.hubspot.objects.crm.CRMProperties.PropertyData;
 import org.hubspot.objects.crm.Contact;
 import org.hubspot.utils.HttpService;
 import org.hubspot.utils.HubSpotException;
+import org.json.JSONObject;
 
 import java.util.LinkedList;
 import java.util.List;
@@ -31,22 +32,42 @@ public class CRM {
         return ContactService.filterContacts(contacts);
     }
 
-    public Contact getContactById(long id) {
-        PropertyData propertyData = allContactProperties();
+    public List<Contact> getAllContacts(String propertyGroup) {
+        PropertyData propertyData = propertiesByGroupName(CRMObjectType.CONTACTS, propertyGroup);
         try {
-            return ContactService.getByID(httpService, propertyData.getPropertyNamesString(), id);
+            return ContactService.getAllContacts(httpService, propertyData);
         } catch (HubSpotException e) {
-            logger.fatal("Unable to get contact of id " + id, e);
+            logger.fatal("Unable to get all contacts", e);
+            return new LinkedList<>();
+        }
+    }
+
+    public List<Contact> getAllContacts() {
+        PropertyData propertyData = allProperties(CRMObjectType.CONTACTS);
+        try {
+            return ContactService.getAllContacts(httpService, propertyData);
+        } catch (HubSpotException e) {
+            logger.fatal("Unable to get all contacts", e);
+            return new LinkedList<>();
+        }
+    }
+
+    public JSONObject getCompanyById(String propertyGroup, long id) {
+        PropertyData propertyData = propertiesByGroupName(CRMObjectType.COMPANIES, propertyGroup);
+        try {
+            return CompanyService.getByID(httpService, propertyData.getPropertyNamesString(), id);
+        } catch (HubSpotException e) {
+            logger.fatal("Unable to get company");
             return null;
         }
     }
 
-    public Contact getContactById(String propertyGroup, long id) {
-        PropertyData propertyData = contactPropertiesByGroupName(propertyGroup);
+    public JSONObject getCompanyById(long id) {
+        PropertyData propertyData = allProperties(CRMObjectType.COMPANIES);
         try {
-            return ContactService.getByID(httpService, propertyData.getPropertyNamesString(), id);
+            return CompanyService.getByID(httpService, propertyData.getPropertyNamesString(), id);
         } catch (HubSpotException e) {
-            logger.fatal("Unable to get contact of id " + id, e);
+            logger.fatal("Unable to get company");
             return null;
         }
     }
@@ -56,17 +77,13 @@ public class CRM {
         return ContactService.filterContacts(allContacts);
     }
 
-    public PropertyData allContactProperties() {
-        return CRMProperties.getAllProperties(httpService, CRMObjectType.CONTACTS);
-    }
-
-    public List<Contact> getAllContacts(String propertyGroup) {
-        PropertyData propertyData = contactPropertiesByGroupName(propertyGroup);
+    public Contact getContactById(long id) {
+        PropertyData propertyData = allProperties(CRMObjectType.CONTACTS);
         try {
-            return ContactService.getAllContacts(httpService, propertyData);
+            return ContactService.getByID(httpService, propertyData.getPropertyNamesString(), id);
         } catch (HubSpotException e) {
-            logger.fatal("Unable to get all contacts", e);
-            return new LinkedList<>();
+            logger.fatal("Unable to get contact of id " + id, e);
+            return null;
         }
     }
 
@@ -75,22 +92,30 @@ public class CRM {
         return ContactService.filterContacts(allContacts);
     }
 
-    public List<Contact> getAllContacts() {
-        PropertyData propertyData = allContactProperties();
-        try {
-            return ContactService.getAllContacts(httpService, propertyData);
-        } catch (HubSpotException e) {
-            logger.fatal("Unable to get all contacts", e);
-            return new LinkedList<>();
-        }
+    public PropertyData allProperties(CRMObjectType type) {
+        return CRMProperties.getAllProperties(httpService, type);
     }
 
     public List<Contact> readContactJsons() {
         return ContactService.readContactJsons();
     }
 
+    public Contact getContactById(String propertyGroup, long id) {
+        PropertyData propertyData = propertiesByGroupName(CRMObjectType.CONTACTS, propertyGroup);
+        try {
+            return ContactService.getByID(httpService, propertyData.getPropertyNamesString(), id);
+        } catch (HubSpotException e) {
+            logger.fatal("Unable to get contact of id " + id, e);
+            return null;
+        }
+    }
+
+    public PropertyData propertiesByGroupName(CRMObjectType type, String propertyGroup) {
+        return CRMProperties.getPropertiesByGroupName(httpService, type, propertyGroup);
+    }
+
     public void writeContactJson() {
-        PropertyData propertyData = allContactProperties();
+        PropertyData propertyData = allProperties(CRMObjectType.CONTACTS);
         try {
             ContactService.writeContactJson(httpService, propertyData);
         } catch (HubSpotException e) {
@@ -99,12 +124,8 @@ public class CRM {
 
     }
 
-    public PropertyData contactPropertiesByGroupName(String propertyGroup) {
-        return CRMProperties.getPropertiesByGroupName(httpService, CRMObjectType.CONTACTS, propertyGroup);
-    }
-
     public void writeContactJson(String propertyGroup) {
-        PropertyData propertyData = contactPropertiesByGroupName(propertyGroup);
+        PropertyData propertyData = propertiesByGroupName(CRMObjectType.CONTACTS, propertyGroup);
         try {
             ContactService.writeContactJson(httpService, propertyData);
         } catch (HubSpotException e) {

@@ -43,6 +43,7 @@ public class CRMProperties extends HubSpotObject {
             logger.fatal("Unable to get properties", e);
             System.exit(-1);
         }
+        Collections.sort(propertyNames);
         return new PropertyData(propertyNames, properties);
     }
 

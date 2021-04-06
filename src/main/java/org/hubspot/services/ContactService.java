@@ -21,8 +21,6 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
 /**
  * @author Nicholas Curl
@@ -40,21 +38,24 @@ class ContactService {
         for (Contact contact : contacts) {
             String lifeCycleStage = contact.getLifeCycleStage();
             String leadStatus = contact.getLeadStatus();
+            String lifecycleOtherReason = contact.getProperty("hr_hiring_applicant").toString();
+            boolean b = leadStatus == null || (!leadStatus.toLowerCase().contains("closed") && !leadStatus.equalsIgnoreCase("Recruit") && !leadStatus.toLowerCase().contains("no contact") && !leadStatus.toLowerCase().contains("unqualified"));
+            boolean c = (lifecycleOtherReason == null || lifecycleOtherReason.equalsIgnoreCase("null")) || !lifecycleOtherReason.toLowerCase().contains("closed");
             if (lifeCycleStage == null) {
-                if (leadStatus == null) {
-                    filteredContacts.add(contact);
-                } else if (!leadStatus.contains("Closed") && !leadStatus.equalsIgnoreCase("Recruit")) {
-                    filteredContacts.add(contact);
-                } else {
-                    rest.add(contact);
+                if (b) {
+                    if (c) {
+                        filteredContacts.add(contact);
+                    } else {
+                        rest.add(contact);
+                    }
                 }
             } else if (!lifeCycleStage.equalsIgnoreCase("subscriber")) {
-                if (leadStatus == null) {
-                    filteredContacts.add(contact);
-                } else if (!leadStatus.contains("Closed") && !leadStatus.equalsIgnoreCase("Recruit")) {
-                    filteredContacts.add(contact);
-                } else {
-                    rest.add(contact);
+                if (b) {
+                    if (c) {
+                        filteredContacts.add(contact);
+                    } else {
+                        rest.add(contact);
+                    }
                 }
             }
         }
@@ -68,7 +69,7 @@ class ContactService {
         map.put("properties", propertyData.getPropertyNamesString());
         map.put("archived", false);
         String url = "/crm/v3/objects/contacts/";
-        String after;
+        long after;
         AtomicInteger completed = new AtomicInteger();
         ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("ContactGrabber"));
         ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
@@ -91,7 +92,7 @@ class ContactService {
             if (!jsonObject.has("paging")) {
                 break;
             }
-            after = jsonObject.getJSONObject("paging").getJSONObject("next").getString("after");
+            after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
             map.put("after", after);
         }
         shutdownExecutors(executorService, completed, scheduledExecutorService, startTime);
@@ -121,22 +122,31 @@ class ContactService {
             Object jsonPropertyObject = jsonProperties.get(key);
             if (jsonPropertyObject instanceof JSONObject) {
                 JSONObject jsonProperty = (JSONObject) jsonPropertyObject;
-                String propertyValue = jsonProperty.getString("value");
-                propertyValue = propertyValue.strip();
-                Pattern p = Pattern.compile("[^a-zA-Z\\d_:\\-.]");
-                Matcher m = p.matcher(propertyValue);
-                propertyValue = m.replaceAll("");
-                contact.setProperty(key, propertyValue);
+                Object propertyValue = jsonProperty.get("value");
+                if (propertyValue instanceof String) {
+                    String string = (String) propertyValue;
+                    string = string.strip();
+                    string = string.replaceAll("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\]", "");
+                    contact.setProperty(key, string);
+                } else {
+                    contact.setProperty(key, propertyValue);
+                }
             } else {
                 if (jsonPropertyObject == null) {
                     contact.setProperty(key, null);
                 } else {
-                    String propertyValue = jsonPropertyObject.toString();
-                    propertyValue = propertyValue.strip();
-                    Pattern p = Pattern.compile("[^a-zA-Z\\d_:\\-.]");
-                    Matcher m = p.matcher(propertyValue);
-                    propertyValue = m.replaceAll("");
-                    contact.setProperty(key, propertyValue);
+                    if (jsonPropertyObject instanceof String) {
+                        String propertyValue = (String) jsonPropertyObject;
+                        propertyValue = propertyValue.strip();
+                        if (key.equalsIgnoreCase("firstname") || key.equalsIgnoreCase("lastname")) {
+                            propertyValue = propertyValue.replaceAll("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\:_.\\-@;,]", "");
+                        } else {
+                            propertyValue = propertyValue.replaceAll("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\]", "");
+                        }
+                        contact.setProperty(key, propertyValue);
+                    } else {
+                        contact.setProperty(key, jsonPropertyObject);
+                    }
                 }
             }
         }
@@ -147,9 +157,8 @@ class ContactService {
     private static void shutdownExecutors(ExecutorService executorService, AtomicInteger completed, ScheduledExecutorService scheduledExecutorService, long startTime) {
         executorService.shutdown();
         try {
-            if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
-                logger.warn("Termination Timeout");
-            }
+            executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
+
         } catch (InterruptedException e) {
             logger.warn("Thread interrupted", e);
         }
@@ -182,32 +191,15 @@ class ContactService {
     }
 
     static List<Contact> readContactJsons() {
-        List<Contact> contacts = Collections.synchronizedList(new LinkedList<>());
-        Path jsonFolder = Paths.get("./cache/");
+        List<Contact> contacts = new LinkedList<>();
+        Path jsonFolder = Paths.get("./cache/contacts/");
         File[] files = jsonFolder.toFile().listFiles();
-        ExecutorService executorService = Executors.newFixedThreadPool(50);
-        AtomicInteger completed = new AtomicInteger();
-        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
         if (files != null) {
-            List<File> fileList = Arrays.asList(files);
-            List<List<File>> fileListChunked = Utils.splitList(fileList, 10);
-            long startTime = System.nanoTime();
-            Runnable progress = () -> getCompleted(completed, startTime);
-            scheduledExecutorService.scheduleAtFixedRate(progress, 0, 10, TimeUnit.SECONDS);
-            if (fileListChunked != null) {
-                for (List<File> chunkedFileList : fileListChunked) {
-                    Runnable runnable = () -> {
-                        for (File file : chunkedFileList) {
-                            String jsonString = Utils.readFile(file);
-                            JSONObject jsonObject = new JSONObject(jsonString);
-                            contacts.add(parseContactData(jsonObject));
-                            completed.getAndIncrement();
-                        }
-                    };
-                    executorService.submit(runnable);
-                }
+            for (File file : files) {
+                String jsonString = Utils.readFile(file);
+                JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
+                contacts.add(parseContactData(jsonObject));
             }
-            shutdownExecutors(executorService, completed, scheduledExecutorService, startTime);
             return contacts;
         } else {
             return new LinkedList<>();
@@ -220,24 +212,25 @@ class ContactService {
         map.put("properties", propertyData.getPropertyNamesString());
         map.put("archived", false);
         String url = "/crm/v3/objects/contacts/";
-        String after;
+        long after;
         AtomicInteger completed = new AtomicInteger();
         ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("ContactGrabber"));
         ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
         long startTime = System.nanoTime();
         Runnable progress = () -> getCompleted(completed, startTime);
         scheduledExecutorService.scheduleAtFixedRate(progress, 0, 10, TimeUnit.SECONDS);
-        Path jsonFolder = Paths.get("./cache/");
+        Path jsonFolder = Paths.get("./cache/contacts/");
         while (true) {
             JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
             Runnable process = () -> {
                 for (Object o : jsonObject.getJSONArray("results")) {
                     JSONObject contactJson = (JSONObject) o;
+                    contactJson = Utils.formatJson(contactJson);
                     long id = contactJson.has("id") ? contactJson.getLong("id") : 0;
-                    Path contactFilePath = jsonFolder.resolve(id + ".txt");
+                    Path contactFilePath = jsonFolder.resolve(id + ".json");
                     try {
                         FileWriter fileWriter = new FileWriter(contactFilePath.toFile());
-                        fileWriter.write(o.toString());
+                        fileWriter.write(contactJson.toString(4));
                         fileWriter.close();
                     } catch (IOException e) {
                         logger.fatal("Unable to write file for id " + id, e);
@@ -249,7 +242,7 @@ class ContactService {
             if (!jsonObject.has("paging")) {
                 break;
             }
-            after = jsonObject.getJSONObject("paging").getJSONObject("next").getString("after");
+            after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
             map.put("after", after);
         }
         shutdownExecutors(executorService, completed, scheduledExecutorService, startTime);

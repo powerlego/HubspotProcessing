@@ -1,4 +1,4 @@
-package org.hubspot.writers;
+package org.hubspot.io;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

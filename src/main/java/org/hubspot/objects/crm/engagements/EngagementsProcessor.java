@@ -204,7 +204,6 @@ public class EngagementsProcessor {
                     note = metadata.getString("body");
                     note = Utils.format(note, WORDWRAP);
                 }
-
                 List<Long> attachments = new LinkedList<>();
                 if (jsonObject.has("attachments")) {
                     JSONArray jsonAttachments = jsonObject.getJSONArray("attachments");
@@ -213,7 +212,6 @@ public class EngagementsProcessor {
                         long attachment = jsonAttachment.getLong("id");
                         attachments.add(attachment);
                     }
-
                 }
                 return new Note(id, note, attachments);
             case "CALL":

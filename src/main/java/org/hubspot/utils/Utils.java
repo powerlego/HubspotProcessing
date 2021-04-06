@@ -4,11 +4,11 @@ import org.apache.commons.text.WordUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.crm.CRMObjectType;
-import org.jetbrains.annotations.NotNull;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import java.io.*;
+import java.lang.reflect.Array;
 import java.time.Instant;
 import java.util.*;
 import java.util.regex.Matcher;
@@ -84,31 +84,12 @@ public class Utils {
         body.put("filterGroups", filterGroupsArray);
         body.put("properties", "hs_object_id");
         body.put("limit", 1);
-
         try {
             JSONObject resp = (JSONObject) service.postRequest("/crm/v3/objects/" + type.getValue() + "/search", body);
             return resp.getLong("total");
         } catch (HubSpotException e) {
             logger.fatal("Unable to get object count.", e);
             return 0;
-        }
-    }
-
-    @NotNull
-    private static Object getRest(Object object) {
-        if (object instanceof String) {
-            String o = (String) object;
-            try {
-                return Long.parseLong(o);
-            } catch (NumberFormatException e) {
-                if (o.equalsIgnoreCase("true") || o.equalsIgnoreCase("false")) {
-                    return Boolean.parseBoolean(o);
-                } else {
-                    return o;
-                }
-            }
-        } else {
-            return Objects.requireNonNullElse(object, JSONObject.NULL);
         }
     }
 
@@ -120,6 +101,14 @@ public class Utils {
         return propertyString;
     }
 
+    public static <T> T convertInstanceObject(Object o, Class<T> clazz) {
+        try {
+            return clazz.cast(o);
+        } catch (ClassCastException e) {
+            return null;
+        }
+    }
+
     public static String readFile(File file) {
         try {
             FileInputStream inputStream = new FileInputStream(file);
@@ -128,6 +117,7 @@ public class Utils {
             String line;
             StringBuilder fileString = new StringBuilder();
             while ((line = bufferedReader.readLine()) != null) {
+                line = line.strip();
                 fileString.append(line).append("\n");
             }
             return fileString.toString().strip();
@@ -155,7 +145,32 @@ public class Utils {
                 jsonArray.put(recurseCheckingConversion(o1));
             }
             return jsonArray;
-        } else return getRest(object);
+        } else if (object instanceof String) {
+            String o = (String) object;
+            try {
+                return Long.parseLong(o);
+            } catch (NumberFormatException e) {
+                if (o.equalsIgnoreCase("true") || o.equalsIgnoreCase("false")) {
+                    return Boolean.parseBoolean(o);
+                } else {
+                    return o;
+                }
+            }
+        } else {
+            return Objects.requireNonNullElse(object, JSONObject.NULL);
+        }
+    }
+
+    public static void sleep(int seconds) {
+        sleep((long) 1000 * seconds);
+    }
+
+    public static void sleep(long milliseconds) {
+        try {
+            Thread.sleep(milliseconds);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     private static Object recurseCheckingFormat(Object object) {
@@ -175,20 +190,19 @@ public class Utils {
                 jsonArray.put(recurseCheckingFormat(o1));
             }
             return jsonArray;
+        } else if (object instanceof String) {
+            String o = (String) object;
+            try {
+                return Long.parseLong(o);
+            } catch (NumberFormatException e) {
+                if (o.equalsIgnoreCase("true") || o.equalsIgnoreCase("false")) {
+                    return Boolean.parseBoolean(o);
+                } else {
+                    return o;
+                }
+            }
         } else {
-            return getRest(object);
-        }
-    }
-
-    public static void sleep(int seconds) {
-        sleep((long) 1000 * seconds);
-    }
-
-    public static void sleep(long milliseconds) {
-        try {
-            Thread.sleep(milliseconds);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
+            return Objects.requireNonNullElse(object, JSONObject.NULL);
         }
     }
 
@@ -198,8 +212,10 @@ public class Utils {
         }
         int rest = arrayToSplit.length % chunkSize;
         int chunks = arrayToSplit.length / chunkSize + (rest > 0 ? 1 : 0);
+        Class<?> arrayType = arrayToSplit.getClass().getComponentType();
         @SuppressWarnings("unchecked")
-        T[][] arrays = (T[][]) new Object[chunks][];
+        T[][] arrays = (T[][]) Array.newInstance(arrayType, chunks, 0);
+        //T[][] arrays = (T[][]) new T[chunks][];
         for (int i = 0; i < (rest > 0 ? chunks - 1 : chunks); i++) {
             arrays[i] = Arrays.copyOfRange(arrayToSplit, i * chunkSize, i * chunkSize + chunkSize);
         }

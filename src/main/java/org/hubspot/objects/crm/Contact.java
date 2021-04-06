@@ -21,6 +21,9 @@ public class Contact extends HubSpotObject {
     private List<Object> engagements = new LinkedList<>();
     private String leadStatus;
     private String lifeCycleStage;
+    private String firstName;
+    private String lastName;
+    private String email;
 
     public Contact(long id) {
         super(id);
@@ -28,14 +31,6 @@ public class Contact extends HubSpotObject {
 
     public void addEngagement(Object engagement) {
         this.engagements.add(engagement);
-    }
-
-    public String getFirstname() {
-        return (String) this.properties.get("firstname");
-    }
-
-    public String getLastname() {
-        return (String) this.properties.get("lastname");
     }
 
     public void addEngagementId(long engagementId) {
@@ -58,6 +53,18 @@ public class Contact extends HubSpotObject {
         this.engagements = engagements;
     }
 
+    public String getEmail() {
+        return email;
+    }
+
+    public String getFirstName() {
+        return firstName;
+    }
+
+    public String getLastName() {
+        return lastName;
+    }
+
     public String getLeadStatus() {
         return leadStatus;
     }
@@ -74,16 +81,35 @@ public class Contact extends HubSpotObject {
         this.properties = properties;
     }
 
-    public String toJsonString() {
-        return toJson().toString();
-    }
-
     public Object getProperty(String property) {
         return this.properties.get(property);
     }
 
     public void setData() {
         super.setData(toJson());
+    }
+
+    public void setProperty(String property, Object value) {
+        if (property.equalsIgnoreCase("lifecyclestage")) {
+            this.lifeCycleStage = value.toString();
+        }
+        if (property.equalsIgnoreCase("hs_lead_status")) {
+            this.leadStatus = value.toString();
+        }
+        if (property.equalsIgnoreCase("email")) {
+            this.email = value.toString();
+        }
+        if (property.equalsIgnoreCase("firstname")) {
+            this.firstName = value.toString();
+        }
+        if (property.equalsIgnoreCase("lastname")) {
+            this.lastName = value.toString();
+        }
+        this.properties.put(property, value);
+    }
+
+    public String toJsonString() {
+        return toJson().toString();
     }
 
     public JSONObject toJson() {
@@ -95,26 +121,6 @@ public class Contact extends HubSpotObject {
         jsonObject.put("properties", jo);
         jsonObject.put("engagements", ja);
         return jsonObject;
-    }
-
-    public void setProperty(String property, Object value) {
-        if (property.equalsIgnoreCase("lifecyclestage")) {
-            this.lifeCycleStage = (String) value;
-        }
-        if (property.equalsIgnoreCase("hs_lead_status")) {
-            this.leadStatus = (String) value;
-        }
-        this.properties.put(property, value);
-
-        /*if (value != null) {
-            if (value.isBlank()) {
-                this.properties.put(property, null);
-            } else {
-                this.properties.put(property, value);
-            }
-        } else {
-
-        }*/
     }
 
     @Override

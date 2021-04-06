@@ -126,8 +126,7 @@ public class HttpService {
         try {
             JSONObject response = (JSONObject) checkResponse(resp);
             if (response != null) {
-                org.json.JSONObject jsonObject = (org.json.JSONObject) Utils.convertType(response);
-                return new org.json.JSONObject(response.toMap());
+                return Utils.convertType(response);
             }
         } catch (HubSpotException e) {
             if (e.getCode() == 502) {
