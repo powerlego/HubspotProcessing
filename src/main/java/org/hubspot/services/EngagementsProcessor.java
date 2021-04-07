@@ -1,7 +1,8 @@
-package org.hubspot.objects.crm.engagements;
+package org.hubspot.services;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.hubspot.objects.crm.engagements.*;
 import org.hubspot.utils.CustomThreadFactory;
 import org.hubspot.utils.HttpService;
 import org.hubspot.utils.HubSpotException;
@@ -12,7 +13,9 @@ import org.json.JSONObject;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author Nicholas Curl
@@ -24,13 +27,18 @@ public class EngagementsProcessor {
     private static final Logger logger = LogManager.getLogger();
     private static final int WORDWRAP = 80;
 
-    public static List<Long> getAllEngagementIds(HttpService httpService, long id) throws HubSpotException {
+    static List<Long> getAllEngagementIds(HttpService httpService, long id) throws HubSpotException {
         String url = "/crm-associations/v1/associations/" + id + "/HUBSPOT_DEFINED/9";
         Map<String, Object> queryParam = new HashMap<>();
         queryParam.put("limit", 10);
         List<Long> notes = Collections.synchronizedList(new LinkedList<>());
         long offset;
+        AtomicInteger completed = new AtomicInteger();
         ExecutorService executorService = Executors.newFixedThreadPool(10, new CustomThreadFactory(id + "_engagementIds"));
+        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        long startTime = System.nanoTime();
+        Runnable progress = () -> Utils.getCompleted(logger, completed, startTime);
+        scheduledExecutorService.scheduleAtFixedRate(progress, 0, 10, TimeUnit.SECONDS);
         try {
             while (true) {
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, queryParam);
@@ -66,13 +74,26 @@ public class EngagementsProcessor {
         }
     }
 
-    public static List<Engagement> getAllEngagements(HttpService httpService, long id) throws HubSpotException {
+
+    static EngagementData getAllEngagements(HttpService httpService, long id) throws HubSpotException {
         String url = "/crm-associations/v1/associations/" + id + "/HUBSPOT_DEFINED/9";
         Map<String, Object> queryParam = new HashMap<>();
         queryParam.put("limit", 10);
-        List<Engagement> notes = Collections.synchronizedList(new LinkedList<>());
+        List<Long> ids = Collections.synchronizedList(new LinkedList<>());
+        List<Engagement> engagements = Collections.synchronizedList(new LinkedList<>());
         long offset;
+        AtomicInteger completed = new AtomicInteger();
         ExecutorService executorService = Executors.newFixedThreadPool(10, new CustomThreadFactory(id + "_engagements"));
+        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
+        String idString = String.valueOf(id);
+        int width = WORDWRAP - idString.length();
+        int left = (width / 2) - 1;
+        int right = ((width / 2) + (width % 2)) - 1;
+        String separator = "\n" + "-".repeat(left) + "[" + idString + "]" + "-".repeat(right);
+        logger.debug(separator);
+        long startTime = System.nanoTime();
+        Runnable progress = () -> Utils.getCompleted(logger, completed, startTime);
+        scheduledExecutorService.scheduleAtFixedRate(progress, 0, 10, TimeUnit.SECONDS);
         try {
             while (true) {
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, queryParam);
@@ -81,7 +102,9 @@ public class EngagementsProcessor {
                     for (int i = 0; i < jsonNotes.length(); i++) {
                         long engagementId = jsonNotes.getLong(i);
                         try {
-                            notes.add(getEngagement(httpService, engagementId));
+                            ids.add(engagementId);
+                            engagements.add(getEngagement(httpService, engagementId));
+                            completed.getAndIncrement();
                         } catch (HubSpotException e) {
                             logger.warn("Unable to get engagement id " + engagementId + " for contact id " + id, e);
                         }
@@ -95,15 +118,8 @@ public class EngagementsProcessor {
                 queryParam.put("offset", offset);
                 Utils.sleep(500L);
             }
-            executorService.shutdown();
-            try {
-                if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
-                    logger.warn("Termination Timeout");
-                }
-            } catch (InterruptedException e) {
-                logger.warn("Thread interrupted", e);
-            }
-            return notes;
+            Utils.shutdownExecutors(logger, executorService, completed, scheduledExecutorService, startTime);
+            return new EngagementData(ids, engagements);
         } catch (HubSpotException e) {
             if (e.getMessage().equalsIgnoreCase("Not Found")) {
                 return null;
@@ -113,7 +129,7 @@ public class EngagementsProcessor {
         }
     }
 
-    public static Engagement getEngagement(HttpService service, long id) throws HubSpotException {
+    static Engagement getEngagement(HttpService service, long id) throws HubSpotException {
         String noteUrl = "/engagements/v1/engagements/" + id;
         try {
             JSONObject jsonNote = (JSONObject) service.getRequest(noteUrl);
@@ -315,5 +331,23 @@ public class EngagementsProcessor {
             email = jsonDetails.getString("email");
         }
         return new Email.Details(firstName, lastName, email);
+    }
+
+    public static class EngagementData {
+        private final List<Long> engagementIds;
+        private final List<Engagement> engagements;
+
+        public EngagementData(List<Long> engagementIds, List<Engagement> engagements) {
+            this.engagementIds = engagementIds;
+            this.engagements = engagements;
+        }
+
+        public List<Long> getEngagementIds() {
+            return engagementIds;
+        }
+
+        public List<Engagement> getEngagements() {
+            return engagements;
+        }
     }
 }

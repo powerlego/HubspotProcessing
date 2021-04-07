@@ -16,6 +16,7 @@ public class HubSpotObject {
     private final long id;
     private JSONObject data;
 
+
     public HubSpotObject(long id) {
         this.id = id;
     }
@@ -35,4 +36,6 @@ public class HubSpotObject {
     public String toJSONString() {
         return data.toString();
     }
+
+
 }

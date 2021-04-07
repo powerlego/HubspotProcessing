@@ -2,23 +2,24 @@ package org.hubspot.objects.crm;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.hubspot.objects.HubSpotObject;
+import org.hubspot.objects.crm.engagements.Engagement;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.*;
+import java.util.Iterator;
+import java.util.LinkedList;
+import java.util.List;
 
 /**
  * @author Nicholas Curl
  */
-public class Contact extends HubSpotObject {
+public class Contact extends CRMObject {
     /**
      * The instance of the logger
      */
     private static final Logger logger = LogManager.getLogger();
-    private HashMap<String, Object> properties = new HashMap<>();
     private List<Long> engagementIds = new LinkedList<>();
-    private List<Object> engagements = new LinkedList<>();
+    private List<Engagement> engagements = new LinkedList<>();
     private String leadStatus;
     private String lifeCycleStage;
     private String firstName;
@@ -29,7 +30,7 @@ public class Contact extends HubSpotObject {
         super(id);
     }
 
-    public void addEngagement(Object engagement) {
+    public void addEngagement(Engagement engagement) {
         this.engagements.add(engagement);
     }
 
@@ -45,12 +46,16 @@ public class Contact extends HubSpotObject {
         this.engagementIds = engagementIds;
     }
 
-    public List<Object> getEngagements() {
-        return engagements;
+    public long getAssociatedCompany() {
+        Object companyIdObject = this.getProperties().get("associatedcompanyid");
+        if (companyIdObject instanceof Integer) {
+            return (int) companyIdObject;
+        }
+        return (long) this.getProperties().get("associatedcompanyid");
     }
 
-    public void setEngagements(List<Object> engagements) {
-        this.engagements = engagements;
+    public List<Engagement> getEngagements() {
+        return engagements;
     }
 
     public String getEmail() {
@@ -73,22 +78,11 @@ public class Contact extends HubSpotObject {
         return lifeCycleStage;
     }
 
-    public Map<String, Object> getProperties() {
-        return properties;
+    public void setEngagements(List<Engagement> engagements) {
+        this.engagements = engagements;
     }
 
-    public void setProperties(HashMap<String, Object> properties) {
-        this.properties = properties;
-    }
-
-    public Object getProperty(String property) {
-        return this.properties.get(property);
-    }
-
-    public void setData() {
-        super.setData(toJson());
-    }
-
+    @Override
     public void setProperty(String property, Object value) {
         if (property.equalsIgnoreCase("lifecyclestage")) {
             this.lifeCycleStage = value.toString();
@@ -105,39 +99,17 @@ public class Contact extends HubSpotObject {
         if (property.equalsIgnoreCase("lastname")) {
             this.lastName = value.toString();
         }
-        this.properties.put(property, value);
+        super.setProperty(property, value);
     }
 
     public String toJsonString() {
         return toJson().toString();
     }
 
-    public JSONObject toJson() {
-        JSONObject jo = new JSONObject(properties);
-        JSONArray ja = new JSONArray(engagementIds);
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("class", this.getClass().getName());
-        jsonObject.put("id", getId());
-        jsonObject.put("properties", jo);
-        jsonObject.put("engagements", ja);
-        return jsonObject;
-    }
-
     @Override
     public String toString() {
-        StringBuilder builder = new StringBuilder();
-        builder.append("ID: ").append(getId()).append("\n");
-        builder.append("Properties {\n");
-        for (Iterator<String> iterator = properties.keySet().iterator(); iterator.hasNext(); ) {
-            String key = iterator.next();
-            Object property = properties.get(key);
-            if (!iterator.hasNext()) {
-                builder.append("\t").append(key).append(" = ").append(property == null ? "null" : property).append("\n");
-            } else {
-                builder.append("\t").append(key).append(" = ").append(property == null ? "null" : property).append(",\n");
-            }
-        }
-        builder.append("}\nEngagement IDs {\n");
+        StringBuilder builder = new StringBuilder(super.toString());
+        builder.append("\nEngagement IDs {\n");
         for (Iterator<Long> iterator = engagementIds.iterator(); iterator.hasNext(); ) {
             long engagementId = iterator.next();
             if (!iterator.hasNext()) {
@@ -148,5 +120,16 @@ public class Contact extends HubSpotObject {
         }
         builder.append("}");
         return builder.toString();
+    }
+
+    public JSONObject toJson() {
+        JSONObject jo = new JSONObject(super.getProperties());
+        JSONArray ja = new JSONArray(engagementIds);
+        JSONObject jsonObject = new JSONObject();
+        jsonObject.put("class", this.getClass().getName());
+        jsonObject.put("id", getId());
+        jsonObject.put("properties", jo);
+        jsonObject.put("engagements", ja);
+        return jsonObject;
     }
 }

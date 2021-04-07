@@ -11,6 +11,10 @@ import java.io.*;
 import java.lang.reflect.Array;
 import java.time.Instant;
 import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -107,6 +111,40 @@ public class Utils {
         } catch (ClassCastException e) {
             return null;
         }
+    }
+
+    public static void shutdownExecutors(Logger logger, ExecutorService executorService, AtomicInteger completed, ScheduledExecutorService scheduledExecutorService, long startTime) {
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                logger.warn("Termination Timeout");
+            }
+        } catch (InterruptedException e) {
+            logger.warn("Thread interrupted", e);
+        }
+        scheduledExecutorService.shutdown();
+        try {
+            if (!scheduledExecutorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                logger.warn("Termination Timeout");
+            }
+            getCompleted(logger, completed, startTime);
+        } catch (InterruptedException e) {
+            logger.warn("Thread interrupted", e);
+        }
+    }
+
+    public static void getCompleted(Logger logger, AtomicInteger completed, long startTime) {
+        long currTime = System.nanoTime();
+        long elapsed = currTime - startTime;
+        long durationInMills = TimeUnit.NANOSECONDS.toMillis(elapsed);
+        long millis = durationInMills % 1000;
+        long second = (durationInMills / 1000) % 60;
+        long minute = (durationInMills / (1000 * 60)) % 60;
+        long hour = (durationInMills / (1000 * 60 * 60)) % 24;
+        String duration = String.format("%02d:%02d:%02d.%d", hour, minute, second, millis);
+        String formatInfo = "%s%-6s\t%s%s";
+        String info = String.format(formatInfo, "Completed: ", completed.get(), "Elapsed Time: ", duration);
+        logger.debug(info);
     }
 
     public static String readFile(File file) {

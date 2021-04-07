@@ -2,7 +2,7 @@ package org.hubspot.services;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.hubspot.objects.crm.CRMProperties.PropertyData;
+import org.hubspot.objects.PropertyData;
 import org.hubspot.objects.crm.Contact;
 import org.hubspot.utils.CustomThreadFactory;
 import org.hubspot.utils.HttpService;
@@ -13,13 +13,13 @@ import org.json.JSONObject;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
-import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.*;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -32,39 +32,25 @@ class ContactService {
     private static final Logger logger = LogManager.getLogger();
     private static final int LIMIT = 10;
 
-    static List<Contact> filterContacts(List<Contact> contacts) {
-        List<Contact> filteredContacts = new LinkedList<>();
-        List<Contact> rest = new LinkedList<>();
-        for (Contact contact : contacts) {
+    static Map<Long, Contact> filterContacts(Map<Long, Contact> contacts) {
+        HashMap<Long, Contact> filteredContacts = new HashMap<>();
+        for (long contactId : contacts.keySet()) {
+            Contact contact = contacts.get(contactId);
             String lifeCycleStage = contact.getLifeCycleStage();
             String leadStatus = contact.getLeadStatus();
             String lifecycleOtherReason = contact.getProperty("hr_hiring_applicant").toString();
             boolean b = leadStatus == null || (!leadStatus.toLowerCase().contains("closed") && !leadStatus.equalsIgnoreCase("Recruit") && !leadStatus.toLowerCase().contains("no contact") && !leadStatus.toLowerCase().contains("unqualified"));
             boolean c = (lifecycleOtherReason == null || lifecycleOtherReason.equalsIgnoreCase("null")) || !lifecycleOtherReason.toLowerCase().contains("closed");
-            if (lifeCycleStage == null) {
-                if (b) {
-                    if (c) {
-                        filteredContacts.add(contact);
-                    } else {
-                        rest.add(contact);
-                    }
-                }
-            } else if (!lifeCycleStage.equalsIgnoreCase("subscriber")) {
-                if (b) {
-                    if (c) {
-                        filteredContacts.add(contact);
-                    } else {
-                        rest.add(contact);
-                    }
-                }
+            if ((lifeCycleStage == null || !lifeCycleStage.equalsIgnoreCase("subscriber")) && b && c) {
+                filteredContacts.put(contactId, contact);
             }
         }
         return filteredContacts;
     }
 
-    static List<Contact> getAllContacts(HttpService httpService, PropertyData propertyData) throws HubSpotException {
+    static Map<Long, Contact> getAllContacts(HttpService httpService, PropertyData propertyData) throws HubSpotException {
         Map<String, Object> map = new HashMap<>();
-        List<Contact> contacts = Collections.synchronizedList(new LinkedList<>());
+        ConcurrentHashMap<Long, Contact> contacts = new ConcurrentHashMap<>();
         map.put("limit", LIMIT);
         map.put("properties", propertyData.getPropertyNamesString());
         map.put("archived", false);
@@ -73,9 +59,8 @@ class ContactService {
         AtomicInteger completed = new AtomicInteger();
         ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("ContactGrabber"));
         ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-
         long startTime = System.nanoTime();
-        Runnable progress = () -> getCompleted(completed, startTime);
+        Runnable progress = () -> Utils.getCompleted(logger, completed, startTime);
         scheduledExecutorService.scheduleAtFixedRate(progress, 0, 10, TimeUnit.SECONDS);
         while (true) {
             JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
@@ -83,8 +68,7 @@ class ContactService {
                 for (Object o : jsonObject.getJSONArray("results")) {
                     JSONObject contactJson = (JSONObject) o;
                     Contact contact = parseContactData(contactJson);
-
-                    contacts.add(contact);
+                    contacts.put(contact.getId(), contact);
                     completed.getAndIncrement();
                 }
             };
@@ -95,22 +79,8 @@ class ContactService {
             after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
             map.put("after", after);
         }
-        shutdownExecutors(executorService, completed, scheduledExecutorService, startTime);
+        Utils.shutdownExecutors(logger, executorService, completed, scheduledExecutorService, startTime);
         return contacts;
-    }
-
-    private static void getCompleted(AtomicInteger completed, long startTime) {
-        long currTime = System.nanoTime();
-        long elapsed = currTime - startTime;
-        long durationInMills = TimeUnit.NANOSECONDS.toMillis(elapsed);
-        long millis = durationInMills % 1000;
-        long second = (durationInMills / 1000) % 60;
-        long minute = (durationInMills / (1000 * 60)) % 60;
-        long hour = (durationInMills / (1000 * 60 * 60)) % 24;
-        String duration = String.format("%02d:%02d:%02d.%d", hour, minute, second, millis);
-        String formatInfo = "%s%-6s\t%s%s";
-        String info = String.format(formatInfo, "Completed: ", completed.get(), "Elapsed Time: ", duration);
-        logger.debug(info);
     }
 
     static Contact parseContactData(JSONObject jsonObject) {
@@ -150,28 +120,11 @@ class ContactService {
                 }
             }
         }
-        contact.setData();
+        contact.setData(contact.toJson());
         return contact;
     }
 
-    private static void shutdownExecutors(ExecutorService executorService, AtomicInteger completed, ScheduledExecutorService scheduledExecutorService, long startTime) {
-        executorService.shutdown();
-        try {
-            executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS);
 
-        } catch (InterruptedException e) {
-            logger.warn("Thread interrupted", e);
-        }
-        scheduledExecutorService.shutdown();
-        try {
-            if (!scheduledExecutorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
-                logger.warn("Termination Timeout");
-            }
-            getCompleted(completed, startTime);
-        } catch (InterruptedException e) {
-            logger.warn("Thread interrupted", e);
-        }
-    }
 
     static Contact getByID(HttpService service, String propertyString, long id) throws HubSpotException {
         String url = "/crm/v3/objects/contacts/" + id;
@@ -190,20 +143,19 @@ class ContactService {
         }
     }
 
-    static List<Contact> readContactJsons() {
-        List<Contact> contacts = new LinkedList<>();
+    static Map<Long, Contact> readContactJsons() {
+        HashMap<Long, Contact> contacts = new HashMap<>();
         Path jsonFolder = Paths.get("./cache/contacts/");
         File[] files = jsonFolder.toFile().listFiles();
         if (files != null) {
             for (File file : files) {
                 String jsonString = Utils.readFile(file);
                 JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
-                contacts.add(parseContactData(jsonObject));
+                Contact contact = parseContactData(jsonObject);
+                contacts.put(contact.getId(), contact);
             }
-            return contacts;
-        } else {
-            return new LinkedList<>();
         }
+        return contacts;
     }
 
     static void writeContactJson(HttpService httpService, PropertyData propertyData) throws HubSpotException {
@@ -217,9 +169,15 @@ class ContactService {
         ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("ContactGrabber"));
         ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
         long startTime = System.nanoTime();
-        Runnable progress = () -> getCompleted(completed, startTime);
+        Runnable progress = () -> Utils.getCompleted(logger, completed, startTime);
         scheduledExecutorService.scheduleAtFixedRate(progress, 0, 10, TimeUnit.SECONDS);
         Path jsonFolder = Paths.get("./cache/contacts/");
+        try {
+            Files.createDirectories(jsonFolder);
+        } catch (IOException e) {
+            logger.fatal("Unable to create folder", e);
+            System.exit(-1);
+        }
         while (true) {
             JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
             Runnable process = () -> {
@@ -245,7 +203,7 @@ class ContactService {
             after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
             map.put("after", after);
         }
-        shutdownExecutors(executorService, completed, scheduledExecutorService, startTime);
+        Utils.shutdownExecutors(logger, executorService, completed, scheduledExecutorService, startTime);
     }
 
 }

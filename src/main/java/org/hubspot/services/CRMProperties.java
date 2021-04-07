@@ -1,11 +1,12 @@
-package org.hubspot.objects.crm;
+package org.hubspot.services;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.HubSpotObject;
+import org.hubspot.objects.PropertyData;
+import org.hubspot.objects.crm.CRMObjectType;
 import org.hubspot.utils.HttpService;
 import org.hubspot.utils.HubSpotException;
-import org.hubspot.utils.Utils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -15,6 +16,7 @@ import java.util.*;
  * @author Nicholas Curl
  */
 public class CRMProperties extends HubSpotObject {
+
     /**
      * The instance of the logger
      */
@@ -25,7 +27,7 @@ public class CRMProperties extends HubSpotObject {
         super(0);
     }
 
-    public static PropertyData getAllProperties(HttpService service, CRMObjectType type) {
+    public static PropertyData getAllProperties(HttpService service, CRMObjectType type, boolean includeHidden) {
         Map<String, Object> properties = new HashMap<>();
         List<String> propertyNames = new LinkedList<>();
         try {
@@ -35,6 +37,10 @@ public class CRMProperties extends HubSpotObject {
                 if (o instanceof JSONObject) {
                     JSONObject o1 = (JSONObject) o;
                     String name = o1.getString("name");
+                    boolean hidden = o1.getBoolean("hidden");
+                    if (!includeHidden && hidden) {
+                        continue;
+                    }
                     propertyNames.add(name);
                     properties.put(name, o1);
                 }
@@ -47,7 +53,7 @@ public class CRMProperties extends HubSpotObject {
         return new PropertyData(propertyNames, properties);
     }
 
-    public static PropertyData getPropertiesByGroupName(HttpService service, CRMObjectType type, String groupName) {
+    public static PropertyData getPropertiesByGroupName(HttpService service, CRMObjectType type, String groupName, boolean includeHidden) {
         Map<String, Object> properties = new HashMap<>();
         List<String> propertyNames = new LinkedList<>();
         try {
@@ -65,6 +71,10 @@ public class CRMProperties extends HubSpotObject {
                         if (o1.has("name")) {
                             name = o1.getString("name");
                         }
+                        boolean hidden = o1.getBoolean("hidden");
+                        if (!includeHidden && hidden) {
+                            continue;
+                        }
                         propertyNames.add(name);
                         properties.put(name, o1);
                     }
@@ -76,31 +86,5 @@ public class CRMProperties extends HubSpotObject {
         }
         Collections.sort(propertyNames);
         return new PropertyData(propertyNames, properties);
-    }
-
-    public static class PropertyData {
-        private final List<String> propertyNames;
-        private final Map<String, Object> properties;
-
-        public PropertyData(List<String> propertyNames, Map<String, Object> properties) {
-            this.properties = properties;
-            this.propertyNames = propertyNames;
-        }
-
-        public Map<String, Object> getProperties() {
-            return properties;
-        }
-
-        public Object getProperty(String propertyName) {
-            return properties.get(propertyName);
-        }
-
-        public List<String> getPropertyNames() {
-            return propertyNames;
-        }
-
-        public String getPropertyNamesString() {
-            return Utils.propertyListToString(propertyNames);
-        }
     }
 }
