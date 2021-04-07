@@ -113,12 +113,15 @@ public class Utils {
         JSONObject filters = new JSONObject();
         JSONArray filtersArray = new JSONArray();
         JSONObject filter = new JSONObject();
+        JSONArray propertyArray = new JSONArray();
         filter.put("propertyName", "hs_object_id");
         filter.put("operator", "HAS_PROPERTY");
+        filtersArray.put(filter);
         filters.put("filters", filtersArray);
         filterGroupsArray.put(filters);
         body.put("filterGroups", filterGroupsArray);
-        body.put("properties", "hs_object_id");
+        propertyArray.put("hs_object_id");
+        body.put("properties", propertyArray);
         body.put("limit", 1);
         try {
             JSONObject resp = (JSONObject) service.postRequest("/crm/v3/objects/" + type.getValue() + "/search", body);

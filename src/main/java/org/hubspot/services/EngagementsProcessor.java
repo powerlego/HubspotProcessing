@@ -148,7 +148,7 @@ public class EngagementsProcessor {
                     emailSubject = metadata.get("subject").toString();
                 }
                 if (metadata.has("text")) {
-                    emailBody = metadata.getString("text");
+                    emailBody = metadata.get("text").toString();
                 }
                 List<Email.Details> to = new LinkedList<>();
                 List<Email.Details> cc = new LinkedList<>();
@@ -183,7 +183,7 @@ public class EngagementsProcessor {
             case "NOTE":
                 String note = "";
                 if (metadata.has("body")) {
-                    note = metadata.getString("body");
+                    note = metadata.get("body").toString();
                     note = Utils.format(note, WORDWRAP);
                 }
                 List<Long> attachments = new LinkedList<>();
@@ -204,24 +204,24 @@ public class EngagementsProcessor {
                 long durationMillis = 0;
                 String recordingURL = "";
                 if (metadata.has("title")) {
-                    callTitle = metadata.getString("title");
+                    callTitle = metadata.get("title").toString();
                     callTitle = Utils.format(callTitle, WORDWRAP);
                 }
                 if (metadata.has("body")) {
-                    callBody = metadata.getString("body");
+                    callBody = metadata.get("body").toString();
                     callBody = Utils.format(callBody, WORDWRAP);
                 }
                 if (metadata.has("toNumber")) {
-                    toNumber = metadata.getString("toNumber");
+                    toNumber = metadata.get("toNumber").toString();
                 }
                 if (metadata.has("fromNumber")) {
-                    fromNumber = metadata.getString("fromNumber");
+                    fromNumber = metadata.get("fromNumber").toString();
                 }
                 if (metadata.has("durationMilliseconds")) {
                     durationMillis = metadata.getLong("durationMilliseconds");
                 }
                 if (metadata.has("recordingUrl")) {
-                    recordingURL = metadata.getString("recordingUrl");
+                    recordingURL = metadata.get("recordingUrl").toString();
                 }
                 return new Call(id, callTitle, callBody, toNumber, fromNumber, durationMillis, recordingURL);
             case "MEETING":
@@ -235,11 +235,11 @@ public class EngagementsProcessor {
                 if (metadata.has("endTime"))
                     meetingEndTime = metadata.getLong("endTime");
                 if (metadata.has("body")) {
-                    meetingBody = metadata.getString("body");
+                    meetingBody = metadata.get("body").toString();
                     meetingBody = Utils.format(meetingBody, WORDWRAP);
                 }
                 if (metadata.has("title")) {
-                    meetingTitle = metadata.getString("title");
+                    meetingTitle = metadata.get("title").toString();
                     meetingTitle = Utils.format(meetingTitle, WORDWRAP);
                 }
                 return new Meeting(id, meetingStartTime, meetingEndTime, meetingBody, meetingTitle);
@@ -252,21 +252,21 @@ public class EngagementsProcessor {
                 long taskCompletionDateMilliseconds = -1;
                 List<Long> remindersMilliseconds = new LinkedList<>();
                 if (metadata.has("taskType")) {
-                    taskType = metadata.getString("taskType");
+                    taskType = metadata.get("taskType").toString();
                 }
                 if (metadata.has("subject")) {
-                    taskSubject = metadata.getString("subject");
+                    taskSubject = metadata.get("subject").toString();
                     taskSubject = Utils.format(taskSubject, WORDWRAP);
                 }
                 if (metadata.has("forObjectType")) {
-                    taskForObjectType = metadata.getString("forObjectType");
+                    taskForObjectType = metadata.get("forObjectType").toString();
                 }
                 if (metadata.has("body")) {
-                    taskBody = metadata.getString("body");
+                    taskBody = metadata.get("body").toString();
                     taskBody = Utils.format(taskBody, WORDWRAP);
                 }
                 if (metadata.has("status")) {
-                    taskStatus = metadata.getString("status");
+                    taskStatus = metadata.get("status").toString();
                 }
                 if (metadata.has("completionDate")) {
                     taskCompletionDateMilliseconds = metadata.getLong("completionDate");
@@ -288,13 +288,13 @@ public class EngagementsProcessor {
         String lastName = "";
         String email = "";
         if (jsonDetails.has("firstName")) {
-            firstName = jsonDetails.getString("firstName");
+            firstName = jsonDetails.get("firstName").toString();
         }
         if (jsonDetails.has("lastName")) {
-            lastName = jsonDetails.getString("lastName");
+            lastName = jsonDetails.get("lastName").toString();
         }
         if (jsonDetails.has("email")) {
-            email = jsonDetails.getString("email");
+            email = jsonDetails.get("email").toString();
         }
         return new Email.Details(firstName, lastName, email);
     }

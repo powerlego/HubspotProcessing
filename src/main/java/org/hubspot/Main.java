@@ -23,13 +23,15 @@ public class Main {
 
     public static void main(String[] args) {
         HubSpot hubspot = new HubSpot("6ab73220-900f-462b-b753-b6757d94cd1d");
+        ConcurrentHashMap<Long, Contact> contacts = hubspot.crm().getAllContacts("contactinformation", true);
+        ConcurrentHashMap<Long, Company> companies = hubspot.crm().getAllCompanies("companyinformation", false);
         //JSONObject jsonObject = hubspot.crm().getCompanyById(5755946320L);
         //JsonIO.write(jsonObject);
         //List<JSONObject> jsonObjects = JsonIO.read();
         //hubspot.crm().writeContactJson("contactinformation", true);
         //hubspot.crm().writeCompanyJson("companyinformation", false);
-        ConcurrentHashMap<Long, Contact> contacts = hubspot.crm().readContactJsons();
-        ConcurrentHashMap<Long, Company> companies = hubspot.crm().readCompanyJsons();
+        //ConcurrentHashMap<Long, Contact> contacts = hubspot.crm().readContactJsons();
+        //ConcurrentHashMap<Long, Company> companies = hubspot.crm().readCompanyJsons();
         ConcurrentHashMap<Long, Contact> filterContacts = hubspot.crm().filterContacts(contacts);
         try (ProgressBar pb = Utils.createProgressBar("Processing Filtered Contacts", filterContacts.size())) {
             filterContacts.forEachValue(1, contact -> {

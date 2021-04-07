@@ -73,7 +73,6 @@ class ContactService {
                         Contact contact = parseContactData(contactJson);
                         contacts.put(contact.getId(), contact);
                         pb.step();
-                        Utils.sleep(1L);
                     }
                 };
                 executorService.submit(process);

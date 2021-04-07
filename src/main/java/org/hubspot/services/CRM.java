@@ -38,6 +38,7 @@ public class CRM {
             return CompanyService.getAllCompanies(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get all contacts", e);
+            System.exit(-1);
             return new ConcurrentHashMap<>();
         }
     }
@@ -52,6 +53,7 @@ public class CRM {
             return CompanyService.getAllCompanies(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get all contacts", e);
+            System.exit(-1);
             return new ConcurrentHashMap<>();
         }
     }
@@ -66,6 +68,7 @@ public class CRM {
             return ContactService.getAllContacts(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get all contacts", e);
+            System.exit(-1);
             return new ConcurrentHashMap<>();
         }
     }
@@ -76,6 +79,7 @@ public class CRM {
             return ContactService.getAllContacts(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get all contacts", e);
+            System.exit(-1);
             return new ConcurrentHashMap<>();
         }
     }
@@ -86,6 +90,7 @@ public class CRM {
             return CompanyService.getByID(httpService, propertyData.getPropertyNamesString(), id);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get company");
+            System.exit(-1);
             return null;
         }
     }
@@ -96,6 +101,7 @@ public class CRM {
             return CompanyService.getByID(httpService, propertyData.getPropertyNamesString(), id);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get company");
+            System.exit(-1);
             return null;
         }
     }
@@ -106,6 +112,7 @@ public class CRM {
             return ContactService.getByID(httpService, propertyData.getPropertyNamesString(), id);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get contact of id " + id, e);
+            System.exit(-1);
             return null;
         }
     }
@@ -116,6 +123,7 @@ public class CRM {
             return ContactService.getByID(httpService, propertyData.getPropertyNamesString(), id);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get contact of id " + id, e);
+            System.exit(-1);
             return null;
         }
     }
@@ -126,6 +134,7 @@ public class CRM {
             return EngagementsProcessor.getAllEngagementIds(httpService, id);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get engagement ids for id " + id, e);
+            System.exit(-1);
             return new LinkedList<>();
         }
     }
@@ -137,6 +146,7 @@ public class CRM {
             return EngagementsProcessor.getAllEngagements(httpService, id);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get engagements for id " + id, e);
+            System.exit(-1);
             return null;
         }
     }
@@ -155,6 +165,7 @@ public class CRM {
             CompanyService.writeCompanyJson(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to write companies");
+            System.exit(-1);
         }
 
     }
@@ -165,6 +176,7 @@ public class CRM {
             CompanyService.writeCompanyJson(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to write companies");
+            System.exit(-1);
         }
 
     }
@@ -175,6 +187,7 @@ public class CRM {
             ContactService.writeContactJson(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to write contacts");
+            System.exit(-1);
         }
 
     }
@@ -185,6 +198,7 @@ public class CRM {
             ContactService.writeContactJson(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to write contacts");
+            System.exit(-1);
         }
 
     }
