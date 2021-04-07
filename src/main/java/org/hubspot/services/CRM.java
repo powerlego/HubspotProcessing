@@ -9,10 +9,9 @@ import org.hubspot.objects.crm.Contact;
 import org.hubspot.utils.HttpService;
 import org.hubspot.utils.HubSpotException;
 
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author Nicholas Curl
@@ -29,17 +28,17 @@ public class CRM {
         this.httpService = httpService;
     }
 
-    public Map<Long, Contact> filterContacts(Map<Long, Contact> contacts) {
+    public ConcurrentHashMap<Long, Contact> filterContacts(ConcurrentHashMap<Long, Contact> contacts) {
         return ContactService.filterContacts(contacts);
     }
 
-    public Map<Long, Company> getAllCompanies(String propertyGroup, boolean includeHiddenProperties) {
+    public ConcurrentHashMap<Long, Company> getAllCompanies(String propertyGroup, boolean includeHiddenProperties) {
         PropertyData propertyData = propertiesByGroupName(CRMObjectType.COMPANIES, propertyGroup, includeHiddenProperties);
         try {
             return CompanyService.getAllCompanies(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get all contacts", e);
-            return new HashMap<>();
+            return new ConcurrentHashMap<>();
         }
     }
 
@@ -47,13 +46,13 @@ public class CRM {
         return CRMProperties.getPropertiesByGroupName(httpService, type, propertyGroup, includeHidden);
     }
 
-    public Map<Long, Company> getAllCompanies(boolean includeHiddenProperties) {
+    public ConcurrentHashMap<Long, Company> getAllCompanies(boolean includeHiddenProperties) {
         PropertyData propertyData = allProperties(CRMObjectType.COMPANIES, includeHiddenProperties);
         try {
             return CompanyService.getAllCompanies(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get all contacts", e);
-            return new HashMap<>();
+            return new ConcurrentHashMap<>();
         }
     }
 
@@ -61,23 +60,23 @@ public class CRM {
         return CRMProperties.getAllProperties(httpService, type, includeHidden);
     }
 
-    public Map<Long, Contact> getAllContacts(String propertyGroup, boolean includeHiddenProperties) {
+    public ConcurrentHashMap<Long, Contact> getAllContacts(String propertyGroup, boolean includeHiddenProperties) {
         PropertyData propertyData = propertiesByGroupName(CRMObjectType.CONTACTS, propertyGroup, includeHiddenProperties);
         try {
             return ContactService.getAllContacts(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get all contacts", e);
-            return new HashMap<>();
+            return new ConcurrentHashMap<>();
         }
     }
 
-    public Map<Long, Contact> getAllContacts(boolean includeHiddenProperties) {
+    public ConcurrentHashMap<Long, Contact> getAllContacts(boolean includeHiddenProperties) {
         PropertyData propertyData = allProperties(CRMObjectType.CONTACTS, includeHiddenProperties);
         try {
             return ContactService.getAllContacts(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get all contacts", e);
-            return new HashMap<>();
+            return new ConcurrentHashMap<>();
         }
     }
 
@@ -133,6 +132,7 @@ public class CRM {
 
     public EngagementsProcessor.EngagementData getContactEngagements(Contact contact) {
         long id = contact.getId();
+
         try {
             return EngagementsProcessor.getAllEngagements(httpService, id);
         } catch (HubSpotException e) {
@@ -141,11 +141,11 @@ public class CRM {
         }
     }
 
-    public Map<Long, Company> readCompanyJsons() {
+    public ConcurrentHashMap<Long, Company> readCompanyJsons() {
         return CompanyService.readCompanyJsons();
     }
 
-    public Map<Long, Contact> readContactJsons() {
+    public ConcurrentHashMap<Long, Contact> readContactJsons() {
         return ContactService.readContactJsons();
     }
 

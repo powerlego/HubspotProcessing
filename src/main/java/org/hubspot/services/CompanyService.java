@@ -1,8 +1,10 @@
 package org.hubspot.services;
 
+import me.tongfei.progressbar.ProgressBar;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.PropertyData;
+import org.hubspot.objects.crm.CRMObjectType;
 import org.hubspot.objects.crm.Company;
 import org.hubspot.utils.CustomThreadFactory;
 import org.hubspot.utils.HttpService;
@@ -16,11 +18,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.*;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author Nicholas Curl
@@ -34,37 +36,36 @@ public class CompanyService {
     private static final String url = "/crm/v3/objects/companies/";
 
 
-    static Map<Long, Company> getAllCompanies(HttpService httpService, PropertyData propertyData) throws HubSpotException {
+    static ConcurrentHashMap<Long, Company> getAllCompanies(HttpService httpService, PropertyData propertyData) throws HubSpotException {
         Map<String, Object> map = new HashMap<>();
         ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
         map.put("limit", LIMIT);
         map.put("properties", propertyData.getPropertyNamesString());
         map.put("archived", false);
         long after;
-        AtomicInteger completed = new AtomicInteger();
+        long count = Utils.getObjectCount(httpService, CRMObjectType.COMPANIES);
         ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
-        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-        long startTime = System.nanoTime();
-        Runnable progress = () -> Utils.getCompleted(logger, completed, startTime);
-        scheduledExecutorService.scheduleAtFixedRate(progress, 0, 10, TimeUnit.SECONDS);
-        while (true) {
-            JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
-            Runnable process = () -> {
-                for (Object o : jsonObject.getJSONArray("results")) {
-                    JSONObject companyJson = (JSONObject) o;
-                    Company company = parseCompanyData(companyJson);
-                    companies.put(company.getId(), company);
-                    completed.getAndIncrement();
+        try (ProgressBar pb = Utils.createProgressBar("Grabbing Companies", count)) {
+            while (true) {
+                JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
+                Runnable process = () -> {
+                    for (Object o : jsonObject.getJSONArray("results")) {
+                        JSONObject companyJson = (JSONObject) o;
+                        Company company = parseCompanyData(companyJson);
+                        companies.put(company.getId(), company);
+                        pb.step();
+                        Utils.sleep(1L);
+                    }
+                };
+                executorService.submit(process);
+                if (!jsonObject.has("paging")) {
+                    break;
                 }
-            };
-            executorService.submit(process);
-            if (!jsonObject.has("paging")) {
-                break;
+                after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
+                map.put("after", after);
             }
-            after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
-            map.put("after", after);
+            Utils.shutdownExecutors(logger, executorService);
         }
-        Utils.shutdownExecutors(logger, executorService, completed, scheduledExecutorService, startTime);
         return companies;
     }
 
@@ -126,17 +127,28 @@ public class CompanyService {
         }
     }
 
-    static Map<Long, Company> readCompanyJsons() {
-        HashMap<Long, Company> companies = new HashMap<>();
+    static ConcurrentHashMap<Long, Company> readCompanyJsons() {
+        ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
         Path jsonFolder = Paths.get("./cache/companies/");
         File[] files = jsonFolder.toFile().listFiles();
+        ForkJoinPool forkJoinPool = new ForkJoinPool();
         if (files != null) {
-            for (File file : files) {
+            forkJoinPool.submit(() -> ProgressBar.wrap(Arrays.stream(files).parallel(), Utils.getProgressBarBuilder("Reading Companies")).forEach(file -> {
                 String jsonString = Utils.readFile(file);
                 JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
                 Company company = parseCompanyData(jsonObject);
                 companies.put(company.getId(), company);
+                Utils.sleep(1L);
+            }));
+        }
+        forkJoinPool.shutdown();
+        try {
+            if (!forkJoinPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                logger.warn("Termination Timeout");
             }
+        } catch (InterruptedException e) {
+            logger.fatal("Threads interrupted during wait.", e);
+            System.exit(-1);
         }
         return companies;
     }
@@ -147,12 +159,8 @@ public class CompanyService {
         map.put("properties", propertyData.getPropertyNamesString());
         map.put("archived", false);
         long after;
-        AtomicInteger completed = new AtomicInteger();
+        long count = Utils.getObjectCount(httpService, CRMObjectType.COMPANIES);
         ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
-        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-        long startTime = System.nanoTime();
-        Runnable progress = () -> Utils.getCompleted(logger, completed, startTime);
-        scheduledExecutorService.scheduleAtFixedRate(progress, 0, 10, TimeUnit.SECONDS);
         Path jsonFolder = Paths.get("./cache/companies/");
         try {
             Files.createDirectories(jsonFolder);
@@ -160,31 +168,34 @@ public class CompanyService {
             logger.fatal("Unable to create folder", e);
             System.exit(-1);
         }
-        while (true) {
-            JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
-            Runnable process = () -> {
-                for (Object o : jsonObject.getJSONArray("results")) {
-                    JSONObject companyJson = (JSONObject) o;
-                    companyJson = Utils.formatJson(companyJson);
-                    long id = companyJson.has("id") ? companyJson.getLong("id") : 0;
-                    Path companyFilePath = jsonFolder.resolve(id + ".json");
-                    try {
-                        FileWriter fileWriter = new FileWriter(companyFilePath.toFile());
-                        fileWriter.write(companyJson.toString(4));
-                        fileWriter.close();
-                    } catch (IOException e) {
-                        logger.fatal("Unable to write file for id " + id, e);
+        try (ProgressBar pb = Utils.createProgressBar("Grabbing Companies", count)) {
+            while (true) {
+                JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
+                Runnable process = () -> {
+                    for (Object o : jsonObject.getJSONArray("results")) {
+                        JSONObject companyJson = (JSONObject) o;
+                        companyJson = Utils.formatJson(companyJson);
+                        long id = companyJson.has("id") ? companyJson.getLong("id") : 0;
+                        Path companyFilePath = jsonFolder.resolve(id + ".json");
+                        try {
+                            FileWriter fileWriter = new FileWriter(companyFilePath.toFile());
+                            fileWriter.write(companyJson.toString(4));
+                            fileWriter.close();
+                        } catch (IOException e) {
+                            logger.fatal("Unable to write file for id " + id, e);
+                        }
+                        pb.step();
+                        Utils.sleep(1L);
                     }
-                    completed.getAndIncrement();
+                };
+                executorService.submit(process);
+                if (!jsonObject.has("paging")) {
+                    break;
                 }
-            };
-            executorService.submit(process);
-            if (!jsonObject.has("paging")) {
-                break;
+                after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
+                map.put("after", after);
             }
-            after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
-            map.put("after", after);
+            Utils.shutdownExecutors(logger, executorService);
         }
-        Utils.shutdownExecutors(logger, executorService, completed, scheduledExecutorService, startTime);
     }
 }

@@ -1,5 +1,6 @@
 package org.hubspot;
 
+import me.tongfei.progressbar.ProgressBar;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.io.ContactWriter;
@@ -7,8 +8,9 @@ import org.hubspot.objects.crm.Company;
 import org.hubspot.objects.crm.Contact;
 import org.hubspot.services.EngagementsProcessor;
 import org.hubspot.services.HubSpot;
+import org.hubspot.utils.Utils;
 
-import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * @author Nicholas Curl
@@ -26,22 +28,27 @@ public class Main {
         //List<JSONObject> jsonObjects = JsonIO.read();
         //hubspot.crm().writeContactJson("contactinformation", true);
         //hubspot.crm().writeCompanyJson("companyinformation", false);
-        Map<Long, Contact> contacts = hubspot.crm().readContactJsons();
-        Map<Long, Company> companies = hubspot.crm().readCompanyJsons();
-        //List<Contact> contacts = hubspot.crm().getFilteredContacts("contactinformation");
-        //List<Contact> contacts = hubspot.crm().getAllContacts("contactinformation");
-        Map<Long, Contact> filterContacts = hubspot.crm().filterContacts(contacts);
-        for (Contact contact : filterContacts.values()) {
-            EngagementsProcessor.EngagementData engagementData = hubspot.crm().getContactEngagements(contact);
-            contact.setEngagementIds(engagementData.getEngagementIds());
-            contact.setEngagements(engagementData.getEngagements());
-            String companyProperty = contact.getProperty("company").toString();
-            if (companyProperty == null || companyProperty.equalsIgnoreCase("null")) {
-                Company company = companies.get(contact.getAssociatedCompany());
-                contact.setProperty("company", company.getName());
-            }
-            contact.setData(contact.toJson());
-            ContactWriter.write(contact);
+        ConcurrentHashMap<Long, Contact> contacts = hubspot.crm().readContactJsons();
+        ConcurrentHashMap<Long, Company> companies = hubspot.crm().readCompanyJsons();
+        ConcurrentHashMap<Long, Contact> filterContacts = hubspot.crm().filterContacts(contacts);
+        try (ProgressBar pb = Utils.createProgressBar("Processing Filtered Contacts", filterContacts.size())) {
+            filterContacts.forEachValue(1, contact -> {
+                EngagementsProcessor.EngagementData engagementData = hubspot.crm().getContactEngagements(contact);
+                contact.setEngagementIds(engagementData.getEngagementIds());
+                contact.setEngagements(engagementData.getEngagements());
+                String companyProperty = contact.getProperty("company").toString();
+                if (companyProperty == null || companyProperty.equalsIgnoreCase("null")) {
+                    long associatedCompanyId = contact.getAssociatedCompany();
+                    if (associatedCompanyId != 0) {
+                        Company company = companies.get(associatedCompanyId);
+                        contact.setProperty("company", company.getName());
+                    }
+                }
+                contact.setData(contact.toJson());
+                ContactWriter.write(contact);
+                pb.step();
+                Utils.sleep(1L);
+            });
         }
     }
 }

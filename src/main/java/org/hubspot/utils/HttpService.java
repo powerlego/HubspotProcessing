@@ -24,7 +24,7 @@ public class HttpService {
 
     public HttpService(String apiKey, String apiBase) {
         this.apiKey = apiKey;
-        Unirest.config().automaticRetries(true).socketTimeout(0).defaultBaseUrl(apiBase);
+        Unirest.config().automaticRetries(true).socketTimeout(0).defaultBaseUrl(apiBase).connectTimeout(0);
     }
 
     public Object getRequest(String url, Map<String, Object> queryParams) throws HubSpotException {
@@ -130,9 +130,9 @@ public class HttpService {
             }
         } catch (HubSpotException e) {
             if (e.getCode() == 502) {
-                Utils.sleep(2);
+                Utils.sleep(50L);
             } else if (e.getCode() == 429) {
-                Utils.sleep(2);
+                Utils.sleep(50L);
             } else {
                 throw e;
             }

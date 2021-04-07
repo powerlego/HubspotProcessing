@@ -1,5 +1,8 @@
 package org.hubspot.utils;
 
+import me.tongfei.progressbar.ProgressBar;
+import me.tongfei.progressbar.ProgressBarBuilder;
+import me.tongfei.progressbar.ProgressBarStyle;
 import org.apache.commons.text.WordUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -12,9 +15,7 @@ import java.lang.reflect.Array;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -28,6 +29,14 @@ public class Utils {
      */
     private static final Logger logger = LogManager.getLogger();
 
+    public static <T> T convertInstanceObject(Object o, Class<T> clazz) {
+        try {
+            return clazz.cast(o);
+        } catch (ClassCastException e) {
+            return null;
+        }
+    }
+
     public static Object convertType(kong.unirest.json.JSONObject jsonToConvert) {
         Set<String> keys = jsonToConvert.keySet();
         JSONObject jsonObject = new JSONObject();
@@ -40,6 +49,29 @@ public class Utils {
 
     public static String createLineDivider(int length) {
         return "\n" + "-".repeat(Math.max(0, length)) + "\n";
+    }
+
+    public static ProgressBar createProgressBar(String taskName, long size) {
+        return getProgressBarBuilder(taskName, size).build();
+    }
+
+    public static ProgressBarBuilder getProgressBarBuilder(String taskName, long size) {
+        return new ProgressBarBuilder()
+                .setTaskName(taskName)
+                .setInitialMax(size)
+                .setStyle(ProgressBarStyle.ASCII)
+                .setUpdateIntervalMillis(5);
+    }
+
+    public static ProgressBar createProgressBar(String taskName) {
+        return getProgressBarBuilder(taskName).build();
+    }
+
+    public static ProgressBarBuilder getProgressBarBuilder(String taskName) {
+        return new ProgressBarBuilder()
+                .setTaskName(taskName)
+                .setStyle(ProgressBarStyle.ASCII)
+                .setUpdateIntervalMillis(5);
     }
 
     public static String format(String string) {
@@ -105,48 +137,6 @@ public class Utils {
         return propertyString;
     }
 
-    public static <T> T convertInstanceObject(Object o, Class<T> clazz) {
-        try {
-            return clazz.cast(o);
-        } catch (ClassCastException e) {
-            return null;
-        }
-    }
-
-    public static void shutdownExecutors(Logger logger, ExecutorService executorService, AtomicInteger completed, ScheduledExecutorService scheduledExecutorService, long startTime) {
-        executorService.shutdown();
-        try {
-            if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
-                logger.warn("Termination Timeout");
-            }
-        } catch (InterruptedException e) {
-            logger.warn("Thread interrupted", e);
-        }
-        scheduledExecutorService.shutdown();
-        try {
-            if (!scheduledExecutorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
-                logger.warn("Termination Timeout");
-            }
-            getCompleted(logger, completed, startTime);
-        } catch (InterruptedException e) {
-            logger.warn("Thread interrupted", e);
-        }
-    }
-
-    public static void getCompleted(Logger logger, AtomicInteger completed, long startTime) {
-        long currTime = System.nanoTime();
-        long elapsed = currTime - startTime;
-        long durationInMills = TimeUnit.NANOSECONDS.toMillis(elapsed);
-        long millis = durationInMills % 1000;
-        long second = (durationInMills / 1000) % 60;
-        long minute = (durationInMills / (1000 * 60)) % 60;
-        long hour = (durationInMills / (1000 * 60 * 60)) % 24;
-        String duration = String.format("%02d:%02d:%02d.%d", hour, minute, second, millis);
-        String formatInfo = "%s%-6s\t%s%s";
-        String info = String.format(formatInfo, "Completed: ", completed.get(), "Elapsed Time: ", duration);
-        logger.debug(info);
-    }
-
     public static String readFile(File file) {
         try {
             FileInputStream inputStream = new FileInputStream(file);
@@ -199,18 +189,6 @@ public class Utils {
         }
     }
 
-    public static void sleep(int seconds) {
-        sleep((long) 1000 * seconds);
-    }
-
-    public static void sleep(long milliseconds) {
-        try {
-            Thread.sleep(milliseconds);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
-
     private static Object recurseCheckingFormat(Object object) {
         if (object instanceof JSONObject) {
             JSONObject o = (JSONObject) object;
@@ -241,6 +219,43 @@ public class Utils {
             }
         } else {
             return Objects.requireNonNullElse(object, JSONObject.NULL);
+        }
+    }
+
+    public static void shutdownExecutors(Logger logger, ExecutorService executorService) {
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                logger.warn("Termination Timeout");
+            }
+        } catch (InterruptedException e) {
+            logger.warn("Thread interrupted", e);
+        }
+    }
+
+    /*public static void getCompleted(Logger logger, AtomicInteger completed, long startTime) {
+        long currTime = System.nanoTime();
+        long elapsed = currTime - startTime;
+        long durationInMills = TimeUnit.NANOSECONDS.toMillis(elapsed);
+        long millis = durationInMills % 1000;
+        long second = (durationInMills / 1000) % 60;
+        long minute = (durationInMills / (1000 * 60)) % 60;
+        long hour = (durationInMills / (1000 * 60 * 60)) % 24;
+        String duration = String.format("%02d:%02d:%02d.%d", hour, minute, second, millis);
+        String formatInfo = "%s%-6s\t%s%s";
+        String info = String.format(formatInfo, "Completed: ", completed.get(), "Elapsed Time: ", duration);
+        logger.debug(info);
+    }*/
+
+    public static void sleep(int seconds) {
+        sleep((long) 1000 * seconds);
+    }
+
+    public static void sleep(long milliseconds) {
+        try {
+            Thread.sleep(milliseconds);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
         }
     }
 

@@ -13,9 +13,7 @@ import org.json.JSONObject;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * @author Nicholas Curl
@@ -33,12 +31,7 @@ public class EngagementsProcessor {
         queryParam.put("limit", 10);
         List<Long> notes = Collections.synchronizedList(new LinkedList<>());
         long offset;
-        AtomicInteger completed = new AtomicInteger();
         ExecutorService executorService = Executors.newFixedThreadPool(10, new CustomThreadFactory(id + "_engagementIds"));
-        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-        long startTime = System.nanoTime();
-        Runnable progress = () -> Utils.getCompleted(logger, completed, startTime);
-        scheduledExecutorService.scheduleAtFixedRate(progress, 0, 10, TimeUnit.SECONDS);
         try {
             while (true) {
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, queryParam);
@@ -47,6 +40,7 @@ public class EngagementsProcessor {
                     for (int i = 0; i < ids.length(); i++) {
                         notes.add(ids.getLong(i));
                     }
+                    Utils.sleep(1L);
                 };
                 executorService.submit(runnable);
                 if (!jsonObject.getBoolean("hasMore")) {
@@ -67,7 +61,7 @@ public class EngagementsProcessor {
             return notes;
         } catch (HubSpotException e) {
             if (e.getMessage().equalsIgnoreCase("Not Found")) {
-                return null;
+                return new LinkedList<>();
             } else {
                 throw e;
             }
@@ -75,58 +69,24 @@ public class EngagementsProcessor {
     }
 
 
+
     static EngagementData getAllEngagements(HttpService httpService, long id) throws HubSpotException {
-        String url = "/crm-associations/v1/associations/" + id + "/HUBSPOT_DEFINED/9";
-        Map<String, Object> queryParam = new HashMap<>();
-        queryParam.put("limit", 10);
-        List<Long> ids = Collections.synchronizedList(new LinkedList<>());
+        List<Long> idsToIterate = getAllEngagementIds(httpService,id);
+        List<Long> ids = Collections.synchronizedList(new LinkedList<>(idsToIterate));
         List<Engagement> engagements = Collections.synchronizedList(new LinkedList<>());
-        long offset;
-        AtomicInteger completed = new AtomicInteger();
-        ExecutorService executorService = Executors.newFixedThreadPool(10, new CustomThreadFactory(id + "_engagements"));
-        ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor();
-        String idString = String.valueOf(id);
-        int width = WORDWRAP - idString.length();
-        int left = (width / 2) - 1;
-        int right = ((width / 2) + (width % 2)) - 1;
-        String separator = "\n" + "-".repeat(left) + "[" + idString + "]" + "-".repeat(right);
-        logger.debug(separator);
-        long startTime = System.nanoTime();
-        Runnable progress = () -> Utils.getCompleted(logger, completed, startTime);
-        scheduledExecutorService.scheduleAtFixedRate(progress, 0, 10, TimeUnit.SECONDS);
-        try {
-            while (true) {
-                JSONObject jsonObject = (JSONObject) httpService.getRequest(url, queryParam);
-                JSONArray jsonNotes = jsonObject.getJSONArray("results");
-                Runnable runnable = () -> {
-                    for (int i = 0; i < jsonNotes.length(); i++) {
-                        long engagementId = jsonNotes.getLong(i);
-                        try {
-                            ids.add(engagementId);
-                            engagements.add(getEngagement(httpService, engagementId));
-                            completed.getAndIncrement();
-                        } catch (HubSpotException e) {
-                            logger.warn("Unable to get engagement id " + engagementId + " for contact id " + id, e);
-                        }
-                    }
-                };
-                executorService.submit(runnable);
-                if (!jsonObject.getBoolean("hasMore")) {
-                    break;
+        idsToIterate.parallelStream().forEach(aLong -> {
+            try {
+                Engagement engagement = getEngagement(httpService, aLong);
+                if (engagement == null) {
+                    ids.remove(aLong);
+                } else {
+                    engagements.add(engagement);
                 }
-                offset = jsonObject.getLong("offset");
-                queryParam.put("offset", offset);
-                Utils.sleep(500L);
+            } catch (HubSpotException e) {
+                logger.warn("Unable to get engagement id " + aLong + " for contact id " + id, e);
             }
-            Utils.shutdownExecutors(logger, executorService, completed, scheduledExecutorService, startTime);
-            return new EngagementData(ids, engagements);
-        } catch (HubSpotException e) {
-            if (e.getMessage().equalsIgnoreCase("Not Found")) {
-                return null;
-            } else {
-                throw e;
-            }
-        }
+        });
+        return new EngagementData(ids, engagements);
     }
 
     static Engagement getEngagement(HttpService service, long id) throws HubSpotException {
@@ -138,7 +98,13 @@ public class EngagementsProcessor {
             }
             Engagement engagement = process(jsonNote);
             if (engagement == null) {
-                throw new HubSpotException("Invalid engagement type");
+                JSONObject engagementJson = jsonNote.getJSONObject("engagement");
+                String type = engagementJson.getString("type");
+                if (!type.toLowerCase().contains("conversation")) {
+                    throw new HubSpotException("Invalid engagement type");
+                } else {
+                    return null;
+                }
             } else {
                 return engagement;
             }
@@ -179,7 +145,7 @@ public class EngagementsProcessor {
                     jsonFrom = metadata.getJSONObject("from");
                 }
                 if (metadata.has("subject")) {
-                    emailSubject = metadata.getString("subject");
+                    emailSubject = metadata.get("subject").toString();
                 }
                 if (metadata.has("text")) {
                     emailBody = metadata.getString("text");

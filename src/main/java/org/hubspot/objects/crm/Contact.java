@@ -51,6 +51,9 @@ public class Contact extends CRMObject {
         if (companyIdObject instanceof Integer) {
             return (int) companyIdObject;
         }
+        if(companyIdObject.toString().equalsIgnoreCase("null")){
+            return 0;
+        }
         return (long) this.getProperties().get("associatedcompanyid");
     }
 
