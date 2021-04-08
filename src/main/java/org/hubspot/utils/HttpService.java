@@ -47,26 +47,26 @@ public class HttpService {
         return postRequest(url, properties, "application/json");
     }
 
-    private Object checkResponse(HttpResponse<JsonNode> resp) throws HubSpotException {
-        if (204 != resp.getStatus() && 200 != resp.getStatus() && 202 != resp.getStatus()) {
-            String message = null;
-            try {
-                message = (resp.getStatus() == 404) ? resp.getStatusText() : resp.getBody().getObject().getString("message");
-            } catch (Exception ignored) {
+    private Object getObject(HttpResponse<JsonNode> resp) throws HubSpotException {
+        try {
+            JSONObject response = (JSONObject) checkResponse(resp);
+            if (response != null) {
+                return Utils.convertType(response);
             }
-
-            if (!Strings.isNullOrEmpty(message)) {
-                throw new HubSpotException(message, resp.getStatus());
+        } catch (HubSpotException e) {
+            if (e.getCode() == 502) {
+                Utils.sleep(50L);
+            } else if (e.getCode() == 429) {
+                if (e.getPolicyName().equalsIgnoreCase("DAILY")) {
+                    throw new HubSpotException("Daily limit reached");
+                } else {
+                    Utils.sleep(50L);
+                }
             } else {
-                throw new HubSpotException(resp.getStatusText(), resp.getStatus());
-            }
-        } else {
-            if (resp.getBody() != null) {
-                return resp.getBody().isArray() ? resp.getBody().getArray() : resp.getBody().getObject();
-            } else {
-                return null;
+                throw e;
             }
         }
+        return null;
     }
 
     public Object getRequest(String url, String properties) throws HubSpotException {
@@ -122,22 +122,31 @@ public class HttpService {
         }
     }
 
-    private Object getObject(HttpResponse<JsonNode> resp) throws HubSpotException {
-        try {
-            JSONObject response = (JSONObject) checkResponse(resp);
-            if (response != null) {
-                return Utils.convertType(response);
+    private Object checkResponse(HttpResponse<JsonNode> resp) throws HubSpotException {
+        if (204 != resp.getStatus() && 200 != resp.getStatus() && 202 != resp.getStatus()) {
+            String message = null;
+            try {
+                message = (resp.getStatus() == 404) ? resp.getStatusText() : resp.getBody().getObject().getString("message");
+            } catch (Exception ignored) {
             }
-        } catch (HubSpotException e) {
-            if (e.getCode() == 502) {
-                Utils.sleep(50L);
-            } else if (e.getCode() == 429) {
-                Utils.sleep(50L);
+
+            if (!Strings.isNullOrEmpty(message)) {
+                if (resp.getStatus() == 429) {
+                    String policyName = resp.getBody().getObject().getString("policyName");
+                    throw new HubSpotException(message, policyName, resp.getStatus());
+                } else {
+                    throw new HubSpotException(message, resp.getStatus());
+                }
             } else {
-                throw e;
+                throw new HubSpotException(resp.getStatusText(), resp.getStatus());
+            }
+        } else {
+            if (resp.getBody() != null) {
+                return resp.getBody().isArray() ? resp.getBody().getArray() : resp.getBody().getObject();
+            } else {
+                return null;
             }
         }
-        return null;
     }
 
     public Object postRequest(String url, org.json.JSONObject properties) throws HubSpotException {

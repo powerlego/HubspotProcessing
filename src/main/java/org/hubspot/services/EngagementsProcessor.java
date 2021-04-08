@@ -10,6 +10,12 @@ import org.hubspot.utils.Utils;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -25,20 +31,40 @@ public class EngagementsProcessor {
     private static final Logger logger = LogManager.getLogger();
     private static final int WORDWRAP = 80;
 
-    static List<Long> getAllEngagementIds(HttpService httpService, long id) throws HubSpotException {
-        String url = "/crm-associations/v1/associations/" + id + "/HUBSPOT_DEFINED/9";
+    static EngagementData getAllEngagements(HttpService httpService, long contactId) throws HubSpotException {
+        ArrayList<Long> engagementIdsToIterate = getAllEngagementIds(httpService, contactId);
+        List<Long> engagementIds = Collections.synchronizedList(new ArrayList<>(engagementIdsToIterate));
+        List<Engagement> engagements = Collections.synchronizedList(new ArrayList<>());
+        engagementIdsToIterate.parallelStream().forEach(engagementId -> {
+            try {
+                Engagement engagement = getEngagement(httpService, engagementId);
+                if (engagement == null) {
+                    engagementIds.remove(engagementId);
+                } else {
+                    engagements.add(engagement);
+                }
+            } catch (HubSpotException e) {
+                logger.fatal("Unable to get engagement id " + engagementId + " for contact id " + contactId, e);
+
+            }
+        });
+        return new EngagementData((ArrayList<Long>) engagementIds, (ArrayList<Engagement>) engagements);
+    }
+
+    static ArrayList<Long> getAllEngagementIds(HttpService httpService, long contactId) throws HubSpotException {
+        String url = "/crm-associations/v1/associations/" + contactId + "/HUBSPOT_DEFINED/9";
         Map<String, Object> queryParam = new HashMap<>();
-        queryParam.put("limit", 10);
-        List<Long> notes = Collections.synchronizedList(new LinkedList<>());
+        queryParam.put("limit", 5);
+        List<Long> engagementIds = Collections.synchronizedList(new ArrayList<>());
         long offset;
-        ExecutorService executorService = Executors.newFixedThreadPool(10, new CustomThreadFactory(id + "_engagementIds"));
+        ExecutorService executorService = Executors.newFixedThreadPool(10, new CustomThreadFactory(contactId + "_engagementIds"));
         try {
             while (true) {
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, queryParam);
-                JSONArray ids = jsonObject.getJSONArray("results");
+                JSONArray jsonEngagementIds = jsonObject.getJSONArray("results");
                 Runnable runnable = () -> {
-                    for (int i = 0; i < ids.length(); i++) {
-                        notes.add(ids.getLong(i));
+                    for (int i = 0; i < jsonEngagementIds.length(); i++) {
+                        engagementIds.add(jsonEngagementIds.getLong(i));
                     }
                     Utils.sleep(1L);
                 };
@@ -56,43 +82,22 @@ public class EngagementsProcessor {
                     logger.warn("Termination Timeout");
                 }
             } catch (InterruptedException e) {
-                logger.warn("Thread interrupted", e);
+                throw new HubSpotException("Thread interrupted", e);
             }
-            return notes;
+            return (ArrayList<Long>) engagementIds;
         } catch (HubSpotException e) {
             if (e.getMessage().equalsIgnoreCase("Not Found")) {
-                return new LinkedList<>();
+                return new ArrayList<>();
             } else {
                 throw e;
             }
         }
     }
 
-
-
-    static EngagementData getAllEngagements(HttpService httpService, long id) throws HubSpotException {
-        List<Long> idsToIterate = getAllEngagementIds(httpService,id);
-        List<Long> ids = Collections.synchronizedList(new LinkedList<>(idsToIterate));
-        List<Engagement> engagements = Collections.synchronizedList(new LinkedList<>());
-        idsToIterate.parallelStream().forEach(aLong -> {
-            try {
-                Engagement engagement = getEngagement(httpService, aLong);
-                if (engagement == null) {
-                    ids.remove(aLong);
-                } else {
-                    engagements.add(engagement);
-                }
-            } catch (HubSpotException e) {
-                logger.warn("Unable to get engagement id " + aLong + " for contact id " + id, e);
-            }
-        });
-        return new EngagementData(ids, engagements);
-    }
-
-    static Engagement getEngagement(HttpService service, long id) throws HubSpotException {
-        String noteUrl = "/engagements/v1/engagements/" + id;
+    static Engagement getEngagement(HttpService service, long engagementId) throws HubSpotException {
+        String engagementUrl = "/engagements/v1/engagements/" + engagementId;
         try {
-            JSONObject jsonNote = (JSONObject) service.getRequest(noteUrl);
+            JSONObject jsonNote = (JSONObject) service.getRequest(engagementUrl);
             if (jsonNote == null) {
                 throw new HubSpotException("Unable to grab engagement");
             }
@@ -117,11 +122,11 @@ public class EngagementsProcessor {
         }
     }
 
-    private static Engagement process(JSONObject jsonObject) {
-        JSONObject engagement = jsonObject.getJSONObject("engagement");
-        String type = engagement.getString("type");
-        JSONObject metadata = jsonObject.getJSONObject("metadata");
-        long id = engagement.getLong("id");
+    private static Engagement process(JSONObject engagementJson) {
+        JSONObject engagementData = engagementJson.getJSONObject("engagement");
+        String type = engagementData.getString("type");
+        JSONObject engagementMetadata = engagementJson.getJSONObject("metadata");
+        long id = engagementData.getLong("id");
         switch (type) {
             case "EMAIL":
             case "INCOMING_EMAIL":
@@ -132,27 +137,27 @@ public class EngagementsProcessor {
                 JSONObject jsonFrom = new JSONObject();
                 String emailSubject = "";
                 String emailBody = "";
-                if (metadata.has("to")) {
-                    jsonTo = metadata.getJSONArray("to");
+                if (engagementMetadata.has("to")) {
+                    jsonTo = engagementMetadata.getJSONArray("to");
                 }
-                if (metadata.has("cc")) {
-                    jsonCc = metadata.getJSONArray("cc");
+                if (engagementMetadata.has("cc")) {
+                    jsonCc = engagementMetadata.getJSONArray("cc");
                 }
-                if (metadata.has("bcc")) {
-                    jsonBcc = metadata.getJSONArray("bcc");
+                if (engagementMetadata.has("bcc")) {
+                    jsonBcc = engagementMetadata.getJSONArray("bcc");
                 }
-                if (metadata.has("from")) {
-                    jsonFrom = metadata.getJSONObject("from");
+                if (engagementMetadata.has("from")) {
+                    jsonFrom = engagementMetadata.getJSONObject("from");
                 }
-                if (metadata.has("subject")) {
-                    emailSubject = metadata.get("subject").toString();
+                if (engagementMetadata.has("subject")) {
+                    emailSubject = engagementMetadata.get("subject").toString();
                 }
-                if (metadata.has("text")) {
-                    emailBody = metadata.get("text").toString();
+                if (engagementMetadata.has("text")) {
+                    emailBody = engagementMetadata.get("text").toString();
                 }
-                List<Email.Details> to = new LinkedList<>();
-                List<Email.Details> cc = new LinkedList<>();
-                List<Email.Details> bcc = new LinkedList<>();
+                ArrayList<Email.Details> to = new ArrayList<>();
+                ArrayList<Email.Details> cc = new ArrayList<>();
+                ArrayList<Email.Details> bcc = new ArrayList<>();
                 for (int i = 0; i < jsonTo.length(); i++) {
                     JSONObject jsonDetails = jsonTo.getJSONObject(i);
                     to.add(emailDetails(jsonDetails));
@@ -182,13 +187,13 @@ public class EngagementsProcessor {
                 }
             case "NOTE":
                 String note = "";
-                if (metadata.has("body")) {
-                    note = metadata.get("body").toString();
+                if (engagementMetadata.has("body")) {
+                    note = engagementMetadata.get("body").toString();
                     note = Utils.format(note, WORDWRAP);
                 }
                 List<Long> attachments = new LinkedList<>();
-                if (jsonObject.has("attachments")) {
-                    JSONArray jsonAttachments = jsonObject.getJSONArray("attachments");
+                if (engagementJson.has("attachments")) {
+                    JSONArray jsonAttachments = engagementJson.getJSONArray("attachments");
                     for (int i = 0; i < jsonAttachments.length(); i++) {
                         JSONObject jsonAttachment = jsonAttachments.getJSONObject(i);
                         long attachment = jsonAttachment.getLong("id");
@@ -203,25 +208,25 @@ public class EngagementsProcessor {
                 String fromNumber = "";
                 long durationMillis = 0;
                 String recordingURL = "";
-                if (metadata.has("title")) {
-                    callTitle = metadata.get("title").toString();
+                if (engagementMetadata.has("title")) {
+                    callTitle = engagementMetadata.get("title").toString();
                     callTitle = Utils.format(callTitle, WORDWRAP);
                 }
-                if (metadata.has("body")) {
-                    callBody = metadata.get("body").toString();
+                if (engagementMetadata.has("body")) {
+                    callBody = engagementMetadata.get("body").toString();
                     callBody = Utils.format(callBody, WORDWRAP);
                 }
-                if (metadata.has("toNumber")) {
-                    toNumber = metadata.get("toNumber").toString();
+                if (engagementMetadata.has("toNumber")) {
+                    toNumber = engagementMetadata.get("toNumber").toString();
                 }
-                if (metadata.has("fromNumber")) {
-                    fromNumber = metadata.get("fromNumber").toString();
+                if (engagementMetadata.has("fromNumber")) {
+                    fromNumber = engagementMetadata.get("fromNumber").toString();
                 }
-                if (metadata.has("durationMilliseconds")) {
-                    durationMillis = metadata.getLong("durationMilliseconds");
+                if (engagementMetadata.has("durationMilliseconds")) {
+                    durationMillis = engagementMetadata.getLong("durationMilliseconds");
                 }
-                if (metadata.has("recordingUrl")) {
-                    recordingURL = metadata.get("recordingUrl").toString();
+                if (engagementMetadata.has("recordingUrl")) {
+                    recordingURL = engagementMetadata.get("recordingUrl").toString();
                 }
                 return new Call(id, callTitle, callBody, toNumber, fromNumber, durationMillis, recordingURL);
             case "MEETING":
@@ -229,17 +234,17 @@ public class EngagementsProcessor {
                 long meetingEndTime = -1;
                 String meetingBody = "";
                 String meetingTitle = "";
-                if (metadata.has("startTime")) {
-                    meetingStartTime = metadata.getLong("startTime");
+                if (engagementMetadata.has("startTime")) {
+                    meetingStartTime = engagementMetadata.getLong("startTime");
                 }
-                if (metadata.has("endTime"))
-                    meetingEndTime = metadata.getLong("endTime");
-                if (metadata.has("body")) {
-                    meetingBody = metadata.get("body").toString();
+                if (engagementMetadata.has("endTime"))
+                    meetingEndTime = engagementMetadata.getLong("endTime");
+                if (engagementMetadata.has("body")) {
+                    meetingBody = engagementMetadata.get("body").toString();
                     meetingBody = Utils.format(meetingBody, WORDWRAP);
                 }
-                if (metadata.has("title")) {
-                    meetingTitle = metadata.get("title").toString();
+                if (engagementMetadata.has("title")) {
+                    meetingTitle = engagementMetadata.get("title").toString();
                     meetingTitle = Utils.format(meetingTitle, WORDWRAP);
                 }
                 return new Meeting(id, meetingStartTime, meetingEndTime, meetingBody, meetingTitle);
@@ -251,28 +256,28 @@ public class EngagementsProcessor {
                 String taskStatus = "";
                 long taskCompletionDateMilliseconds = -1;
                 List<Long> remindersMilliseconds = new LinkedList<>();
-                if (metadata.has("taskType")) {
-                    taskType = metadata.get("taskType").toString();
+                if (engagementMetadata.has("taskType")) {
+                    taskType = engagementMetadata.get("taskType").toString();
                 }
-                if (metadata.has("subject")) {
-                    taskSubject = metadata.get("subject").toString();
+                if (engagementMetadata.has("subject")) {
+                    taskSubject = engagementMetadata.get("subject").toString();
                     taskSubject = Utils.format(taskSubject, WORDWRAP);
                 }
-                if (metadata.has("forObjectType")) {
-                    taskForObjectType = metadata.get("forObjectType").toString();
+                if (engagementMetadata.has("forObjectType")) {
+                    taskForObjectType = engagementMetadata.get("forObjectType").toString();
                 }
-                if (metadata.has("body")) {
-                    taskBody = metadata.get("body").toString();
+                if (engagementMetadata.has("body")) {
+                    taskBody = engagementMetadata.get("body").toString();
                     taskBody = Utils.format(taskBody, WORDWRAP);
                 }
-                if (metadata.has("status")) {
-                    taskStatus = metadata.get("status").toString();
+                if (engagementMetadata.has("status")) {
+                    taskStatus = engagementMetadata.get("status").toString();
                 }
-                if (metadata.has("completionDate")) {
-                    taskCompletionDateMilliseconds = metadata.getLong("completionDate");
+                if (engagementMetadata.has("completionDate")) {
+                    taskCompletionDateMilliseconds = engagementMetadata.getLong("completionDate");
                 }
-                if (metadata.has("reminders")) {
-                    JSONArray jsonArray = metadata.getJSONArray("reminders");
+                if (engagementMetadata.has("reminders")) {
+                    JSONArray jsonArray = engagementMetadata.getJSONArray("reminders");
                     for (int i = 0; i < jsonArray.length(); i++) {
                         remindersMilliseconds.add(jsonArray.getLong(i));
                     }
@@ -299,21 +304,83 @@ public class EngagementsProcessor {
         return new Email.Details(firstName, lastName, email);
     }
 
-    public static class EngagementData {
-        private final List<Long> engagementIds;
-        private final List<Engagement> engagements;
+    private static ArrayList<JSONObject> getEngagementJson(HttpService httpService, long contactId) throws HubSpotException {
 
-        public EngagementData(List<Long> engagementIds, List<Engagement> engagements) {
+        try {
+            ArrayList<Long> engagementIdsToIterate = getAllEngagementIds(httpService, contactId);
+            List<JSONObject> engagementJsons = Collections.synchronizedList(new ArrayList<>());
+            engagementIdsToIterate.parallelStream().forEach(engagementId -> {
+                String engagementUrl = "/engagements/v1/engagements/" + engagementId;
+                try {
+                    JSONObject jsonEngagement = (JSONObject) httpService.getRequest(engagementUrl);
+                    if (jsonEngagement == null) {
+                        throw new HubSpotException(new NullPointerException("Json Object is null"));
+                    }
+                    engagementJsons.add(jsonEngagement);
+                } catch (HubSpotException e) {
+                    logger.fatal("Unable to grab engagement", e);
+                }
+            });
+
+            return (ArrayList<JSONObject>) engagementJsons;
+        } catch (HubSpotException e) {
+            if (e.getMessage().equalsIgnoreCase("Not Found")) {
+                return new ArrayList<>();
+            } else {
+                throw e;
+            }
+        }
+    }
+
+    static void writeEngagementJson(HttpService httpService, long contactId) throws HubSpotException {
+
+        Path folder = Paths.get("./cache/engagements/" + contactId + "/");
+        try {
+            Files.createDirectories(folder);
+        } catch (IOException e) {
+            throw new HubSpotException("Unable to write engagement jsons for contact id" + contactId, e);
+        }
+        String noteUrl = "/engagements/v1/engagements/" + contactId;
+        File jsonFile = folder.resolve(contactId + ".json").toFile();
+        try {
+            JSONObject jsonNote = (JSONObject) httpService.getRequest(noteUrl);
+            if (jsonNote == null) {
+                throw new HubSpotException("Unable to grab engagement");
+            } else {
+                try {
+                    FileWriter fileWriter = new FileWriter(jsonFile);
+                    fileWriter.write(jsonNote.toString(4));
+                    fileWriter.close();
+                } catch (IOException e) {
+                    throw new HubSpotException("Unable to write json");
+                }
+            }
+        } catch (HubSpotException e) {
+            if (!e.getMessage().equalsIgnoreCase("Not Found")) {
+                throw e;
+            }
+        }
+    }
+
+    //static EngagementData readEngagementJsons()
+
+    public static class EngagementData {
+        private final ArrayList<Long> engagementIds;
+        private final ArrayList<Engagement> engagements;
+
+        public EngagementData(ArrayList<Long> engagementIds, ArrayList<Engagement> engagements) {
             this.engagementIds = engagementIds;
             this.engagements = engagements;
         }
 
-        public List<Long> getEngagementIds() {
+        public ArrayList<Long> getEngagementIds() {
             return engagementIds;
         }
 
-        public List<Engagement> getEngagements() {
+        public ArrayList<Engagement> getEngagements() {
             return engagements;
         }
     }
+
+
 }

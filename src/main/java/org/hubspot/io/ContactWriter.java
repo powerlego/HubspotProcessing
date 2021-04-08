@@ -37,9 +37,9 @@ public class ContactWriter {
         if (bFirstName) {
             if (bLastName) {
                 if (bEmail) {
-                    filePath = contactsFolder.resolve(email + "_" + contact.getId() + ".txt");
-                } else {
                     filePath = contactsFolder.resolve(contact.getId() + ".txt");
+                } else {
+                    filePath = contactsFolder.resolve(email + "_" + contact.getId() + ".txt");
                 }
             } else {
                 lastName = lastName.replaceAll("\\s", "_");

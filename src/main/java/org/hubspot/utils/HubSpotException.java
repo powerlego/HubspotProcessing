@@ -12,28 +12,58 @@ public class HubSpotException extends Exception {
      */
     private static final Logger logger = LogManager.getLogger();
     private int code;
+    private String policyName;
     private String rawMessage;
 
     public HubSpotException(String message) {
-        super(message);
+        this(message, null, -1, null);
     }
 
-    public HubSpotException(String message, Throwable cause) {
+
+    public HubSpotException(String message, String policyName, int code, Throwable cause) {
         super(message, cause);
-    }
-
-    public HubSpotException(String message, int code) {
-        super(message);
+        this.policyName = policyName;
         this.code = code;
     }
 
-    public HubSpotException(String message, String rawMessage) {
-        super(message);
-        this.rawMessage = rawMessage;
+    public HubSpotException(String message, Throwable cause) {
+        this(message, null, -1, cause);
+    }
+
+    public HubSpotException(String message, int code) {
+        this(message, null, code, null);
+    }
+
+    public HubSpotException(String message, int code, Throwable cause) {
+        this(message, null, code, cause);
+    }
+
+    public HubSpotException() {
+        super();
+    }
+
+    public HubSpotException(Throwable cause) {
+        super(cause);
+    }
+
+    public HubSpotException(String message, String policyName, Throwable cause) {
+        this(message, policyName, 0, cause);
+    }
+
+    public HubSpotException(String message, String policyName, int code) {
+        this(message, policyName, code, null);
+    }
+
+    public HubSpotException(String message, String policyName) {
+        this(message, policyName, -1, null);
     }
 
     public int getCode() {
         return code;
+    }
+
+    public String getPolicyName() {
+        return policyName;
     }
 
     public String getRawMessage() {
@@ -43,4 +73,5 @@ public class HubSpotException extends Exception {
     public void setRawMessage(String rawMessage) {
         this.rawMessage = rawMessage;
     }
+
 }
