@@ -20,7 +20,14 @@ public class Email extends Engagement {
     private final Details from;
     private final String subject;
 
-    public Email(long id, List<Details> to, List<Details> cc, List<Details> bcc, Details from, String subject, String body) {
+    public Email(long id,
+                 List<Details> to,
+                 List<Details> cc,
+                 List<Details> bcc,
+                 Details from,
+                 String subject,
+                 String body
+    ) {
         super(id);
         this.to = to;
         this.cc = cc;

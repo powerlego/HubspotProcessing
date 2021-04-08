@@ -43,7 +43,7 @@ public class EngagementsProcessor {
                     engagements.add(engagement);
                 }
             } catch (HubSpotException e) {
-                logger.fatal("Unable to get engagement id " + engagementId + " for contact id " + contactId, e);
+                logger.fatal("Unable to get engagement id {} for contact id {}", engagementId, contactId, e);
                 System.exit(e.getCode());
             }
         });
@@ -303,33 +303,6 @@ public class EngagementsProcessor {
         return new Email.Details(firstName, lastName, email);
     }
 
-    private static ArrayList<JSONObject> getEngagementJson(HttpService httpService, long contactId) throws HubSpotException {
-        try {
-            ArrayList<Long> engagementIdsToIterate = getAllEngagementIds(httpService, contactId);
-            List<JSONObject> engagementJsons = Collections.synchronizedList(new ArrayList<>());
-            engagementIdsToIterate.parallelStream().forEach(engagementId -> {
-                String engagementUrl = "/engagements/v1/engagements/" + engagementId;
-                try {
-                    JSONObject jsonEngagement = (JSONObject) httpService.getRequest(engagementUrl);
-                    if (jsonEngagement == null) {
-                        throw new HubSpotException(new NullException("Json Object is null"), ErrorCodes.NULL_EXCEPTION.getErrorCode());
-                    }
-                    engagementJsons.add(jsonEngagement);
-                } catch (HubSpotException e) {
-                    logger.fatal("Unable to grab engagement", e);
-                    System.exit(e.getCode());
-                }
-            });
-            return (ArrayList<JSONObject>) engagementJsons;
-        } catch (HubSpotException e) {
-            if (e.getMessage().equalsIgnoreCase("Not Found")) {
-                return new ArrayList<>();
-            } else {
-                throw e;
-            }
-        }
-    }
-
     static ConcurrentHashMap<Long, EngagementData> readEngagementJsons() {
         ConcurrentHashMap<Long, EngagementData> contactsEngagementData = new ConcurrentHashMap<>();
         File[] files = Paths.get("./cache/engagements/").toFile().listFiles(File::isDirectory);
@@ -377,21 +350,66 @@ public class EngagementsProcessor {
         try {
             Files.createDirectories(folder);
         } catch (IOException e) {
-            throw new HubSpotException("Unable to write engagement jsons for contact id" + contactId, ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode(), e);
+            throw new HubSpotException
+                    ("Unable to write engagement jsons for contact id" + contactId,
+                            ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode(),
+                            e
+                    );
         }
         ArrayList<JSONObject> engagementJsons = getEngagementJson(httpService, contactId);
-        ProgressBar.wrap(engagementJsons.parallelStream(), Utils.getProgressBarBuilder("Writing Engagements for contact id " + contactId)).forEach(jsonObject -> {
-            long engagementId = jsonObject.getJSONObject("engagement").getLong("id");
-            File jsonFile = folder.resolve(engagementId + ".json").toFile();
-            try {
-                FileWriter fileWriter = new FileWriter(jsonFile);
-                fileWriter.write(jsonObject.toString(4));
-                fileWriter.close();
-            } catch (IOException e) {
-                logger.fatal("Unable to write json", e);
-                System.exit(ErrorCodes.IO_WRITE.getErrorCode());
+        ProgressBar.wrap
+                (engagementJsons.parallelStream(),
+                        Utils.getProgressBarBuilder("Writing Engagements for contact id " + contactId)
+                )
+                .forEach(jsonObject -> {
+                    long engagementId = jsonObject.getJSONObject("engagement").getLong("id");
+                    File jsonFile = folder.resolve(engagementId + ".json").toFile();
+                    try {
+                        FileWriter fileWriter = new FileWriter(jsonFile);
+                        fileWriter.write(jsonObject.toString(4));
+                        fileWriter.close();
+                    } catch (IOException e) {
+                        logger.fatal
+                                ("Unable to write json for engagement id {} associated with contact id {}",
+                                        engagementId,
+                                        contactId,
+                                        e
+                                );
+                        System.exit(ErrorCodes.IO_WRITE.getErrorCode());
+                    }
+                });
+    }
+
+    private static ArrayList<JSONObject> getEngagementJson(HttpService httpService,
+                                                           long contactId
+    ) throws HubSpotException {
+        try {
+            ArrayList<Long> engagementIdsToIterate = getAllEngagementIds(httpService, contactId);
+            List<JSONObject> engagementJsons = Collections.synchronizedList(new ArrayList<>());
+            engagementIdsToIterate.parallelStream().forEach(engagementId -> {
+                String engagementUrl = "/engagements/v1/engagements/" + engagementId;
+                try {
+                    JSONObject jsonEngagement = (JSONObject) httpService.getRequest(engagementUrl);
+                    if (jsonEngagement == null) {
+                        throw new HubSpotException
+                                (new NullException("Json Object is null"),
+                                        ErrorCodes.NULL_EXCEPTION.getErrorCode()
+                                );
+                    }
+                    engagementJsons.add(jsonEngagement);
+                } catch (HubSpotException e) {
+                    logger.fatal("Unable to grab engagement of id {}", engagementId, e);
+                    System.exit(e.getCode());
+                }
+            });
+            return (ArrayList<JSONObject>) engagementJsons;
+        } catch (HubSpotException e) {
+            if (e.getMessage().equalsIgnoreCase("Not Found")) {
+                return new ArrayList<>();
+            } else {
+                throw e;
             }
-        });
+        }
     }
 
     public static class EngagementData {

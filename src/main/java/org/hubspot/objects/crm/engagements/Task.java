@@ -24,7 +24,15 @@ public class Task extends Engagement {
     private final String status;
     private final Date completionDate;
 
-    public Task(long id, String taskType, String subject, String body, String forObjectType, String status, long completionDateMilliseconds, List<Long> remindersMilliseconds) {
+    public Task(long id,
+                String taskType,
+                String subject,
+                String body,
+                String forObjectType,
+                String status,
+                long completionDateMilliseconds,
+                List<Long> remindersMilliseconds
+    ) {
         super(id);
         this.taskType = taskType;
         this.subject = subject;

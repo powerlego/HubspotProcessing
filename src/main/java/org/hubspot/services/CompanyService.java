@@ -33,7 +33,9 @@ public class CompanyService {
     private static final String url = "/crm/v3/objects/companies/";
 
 
-    static ConcurrentHashMap<Long, Company> getAllCompanies(HttpService httpService, PropertyData propertyData) throws HubSpotException {
+    static ConcurrentHashMap<Long, Company> getAllCompanies(HttpService httpService,
+                                                            PropertyData propertyData
+    ) throws HubSpotException {
         Map<String, Object> map = new HashMap<>();
         ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
         map.put("limit", LIMIT);
@@ -41,7 +43,8 @@ public class CompanyService {
         map.put("archived", false);
         long after;
         long count = Utils.getObjectCount(httpService, CRMObjectType.COMPANIES);
-        ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
+        ExecutorService executorService =
+                Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
         try (ProgressBar pb = Utils.createProgressBar("Grabbing Companies", count)) {
             while (true) {
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
@@ -92,9 +95,15 @@ public class CompanyService {
                         String propertyValue = (String) jsonPropertyObject;
                         propertyValue = propertyValue.strip();
                         if (key.equalsIgnoreCase("name")) {
-                            propertyValue = propertyValue.replaceAll("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\:_.\\-@;,]", "");
+                            propertyValue = propertyValue.replaceAll
+                                    ("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\:_.\\-@;,]",
+                                            ""
+                                    );
                         } else {
-                            propertyValue = propertyValue.replaceAll("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\]", "");
+                            propertyValue = propertyValue.replaceAll
+                                    ("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\]",
+                                            ""
+                                    );
                         }
                         company.setProperty(key, propertyValue);
                     } else {
@@ -130,13 +139,17 @@ public class CompanyService {
         File[] files = jsonFolder.toFile().listFiles();
         ForkJoinPool forkJoinPool = new ForkJoinPool();
         if (files != null) {
-            forkJoinPool.submit(() -> ProgressBar.wrap(Arrays.stream(files).parallel(), Utils.getProgressBarBuilder("Reading Companies")).forEach(file -> {
-                String jsonString = Utils.readFile(file);
-                JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
-                Company company = parseCompanyData(jsonObject);
-                companies.put(company.getId(), company);
-                Utils.sleep(1L);
-            }));
+            forkJoinPool.submit(() -> ProgressBar.wrap
+                    (Arrays.stream(files).parallel(),
+                            Utils.getProgressBarBuilder("Reading Companies")
+                    )
+                    .forEach(file -> {
+                        String jsonString = Utils.readFile(file);
+                        JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
+                        Company company = parseCompanyData(jsonObject);
+                        companies.put(company.getId(), company);
+                        Utils.sleep(1L);
+                    }));
         }
         forkJoinPool.shutdown();
         try {
@@ -157,12 +170,13 @@ public class CompanyService {
         map.put("archived", false);
         long after;
         long count = Utils.getObjectCount(httpService, CRMObjectType.COMPANIES);
-        ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
+        ExecutorService executorService =
+                Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
         Path jsonFolder = Paths.get("./cache/companies/");
         try {
             Files.createDirectories(jsonFolder);
         } catch (IOException e) {
-            logger.fatal("Unable to create folder", e);
+            logger.fatal("Unable to create folder {}", jsonFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         try (ProgressBar pb = Utils.createProgressBar("Grabbing Companies", count)) {
@@ -179,7 +193,8 @@ public class CompanyService {
                             fileWriter.write(companyJson.toString(4));
                             fileWriter.close();
                         } catch (IOException e) {
-                            logger.fatal("Unable to write file for id " + id, e);
+                            logger.fatal("Unable to write file for id {}", id, e);
+                            Utils.deleteDirectory(jsonFolder.toFile());
                             System.exit(ErrorCodes.IO_WRITE.getErrorCode());
                         }
                         pb.step();

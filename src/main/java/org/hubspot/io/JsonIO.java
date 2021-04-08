@@ -39,7 +39,7 @@ public class JsonIO {
                     }
                     jsonObjects.add(Utils.formatJson(new JSONObject(builder.toString())));
                 } catch (IOException e) {
-                    logger.fatal("Cannot read file.", e);
+                    logger.fatal("Cannot read file {}", file, e);
                     System.exit(ErrorCodes.IO_READ.getErrorCode());
                 }
             }
@@ -52,7 +52,7 @@ public class JsonIO {
         try {
             Files.createDirectories(folder);
         } catch (IOException e) {
-            logger.fatal("Unable to create engagements folder", e);
+            logger.fatal("Unable to create engagements folder {}", folder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         Path filePath = folder.resolve(id + ".json");
@@ -61,7 +61,7 @@ public class JsonIO {
             writer.write(jsonObject.toString(4));
             writer.close();
         } catch (IOException e) {
-            logger.fatal("Unable to write to file", e);
+            logger.fatal("Unable to write to file {}", filePath, e);
             System.exit(ErrorCodes.IO_WRITE.getErrorCode());
         }
     }

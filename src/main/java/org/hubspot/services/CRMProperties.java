@@ -27,7 +27,10 @@ public class CRMProperties extends HubSpotObject {
         super(0);
     }
 
-    public static PropertyData getAllProperties(HttpService service, CRMObjectType type, boolean includeHidden) throws HubSpotException {
+    public static PropertyData getAllProperties(HttpService service,
+                                                CRMObjectType type,
+                                                boolean includeHidden
+    ) throws HubSpotException {
         Map<String, Object> properties = new HashMap<>();
         List<String> propertyNames = new LinkedList<>();
         JSONObject jsonObject = (JSONObject) service.getRequest(urlBase + type.getValue());
@@ -48,7 +51,11 @@ public class CRMProperties extends HubSpotObject {
         return new PropertyData(propertyNames, properties);
     }
 
-    public static PropertyData getPropertiesByGroupName(HttpService service, CRMObjectType type, String groupName, boolean includeHidden) throws HubSpotException {
+    public static PropertyData getPropertiesByGroupName(HttpService service,
+                                                        CRMObjectType type,
+                                                        String groupName,
+                                                        boolean includeHidden
+    ) throws HubSpotException {
         Map<String, Object> properties = new HashMap<>();
         List<String> propertyNames = new LinkedList<>();
         JSONObject jsonObject = (JSONObject) service.getRequest(urlBase + type.getValue());

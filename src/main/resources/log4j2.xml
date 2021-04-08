@@ -23,7 +23,7 @@
         </Console>
     </Appenders>
     <Loggers>
-        <Logger name="org.hubspot" level="DEBUG" additivity="false">
+        <Logger name="org.hubspot" level="ALL" additivity="false">
             <AppenderRef ref="RollingFile"/>
             <AppenderRef ref="FileDebug"/>
             <AppenderRef ref="STDOUT"/>

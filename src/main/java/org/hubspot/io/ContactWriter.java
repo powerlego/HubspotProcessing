@@ -25,15 +25,23 @@ public class ContactWriter {
         try {
             Files.createDirectories(contactsFolder);
         } catch (IOException e) {
-            logger.fatal("Unable to create engagements folder", e);
+            logger.fatal("Unable to create engagements folder {}", contactsFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         Path filePath;
         String firstName = contact.getFirstName();
         String lastName = contact.getLastName();
         String email = contact.getEmail();
-        boolean bFirstName = firstName == null || firstName.contains("null") || firstName.equalsIgnoreCase("N/A");
-        boolean bLastName = lastName == null || lastName.contains("null") || lastName.equalsIgnoreCase("N/A");
+        boolean bFirstName =
+                (firstName == null
+                        || firstName.contains("null")
+                        || firstName.equalsIgnoreCase("N/A")
+                );
+        boolean bLastName =
+                (lastName == null
+                        || lastName.contains("null")
+                        || lastName.equalsIgnoreCase("N/A")
+                );
         boolean bEmail = email == null || email.contains("null");
         if (bFirstName) {
             if (bLastName) {
@@ -60,7 +68,7 @@ public class ContactWriter {
             writer.write(contact.toString());
             writer.close();
         } catch (IOException e) {
-            logger.fatal("Unable to write to file", e);
+            logger.fatal("Unable to write to file {}", filePath, e);
             System.exit(ErrorCodes.IO_WRITE.getErrorCode());
         }
     }

@@ -19,7 +19,14 @@ public class Call extends Engagement {
     private final String toNumber;
     private final String fromNumber;
 
-    public Call(long id, String title, String body, String toNumber, String fromNumber, long durationMilliseconds, String recordingURL) {
+    public Call(long id,
+                String title,
+                String body,
+                String toNumber,
+                String fromNumber,
+                long durationMilliseconds,
+                String recordingURL
+    ) {
         super(id);
         this.title = title;
         this.body = body;

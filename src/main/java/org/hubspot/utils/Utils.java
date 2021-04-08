@@ -12,6 +12,7 @@ import org.json.JSONObject;
 
 import java.io.*;
 import java.lang.reflect.Array;
+import java.nio.file.Files;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -74,6 +75,29 @@ public class Utils {
                 .setUpdateIntervalMillis(5);
     }
 
+    /**
+     * Deletes the specified directory
+     *
+     * @param directoryToBeDeleted The directory to be deleted
+     */
+    public static void deleteDirectory(File directoryToBeDeleted) {
+        try {
+            Files.delete(Files.walkFileTree(directoryToBeDeleted.toPath(), new DeletingVisitor(true)));
+        } catch (IOException e) {
+            logger.fatal("Unable to delete directory {}", directoryToBeDeleted, e);
+            System.exit(ErrorCodes.IO_DELETE_DIRECTORY.getErrorCode());
+        }
+        /*File[] allContents = directoryToBeDeleted.listFiles();
+        if (allContents != null) {
+            for (File file : allContents) {
+                deleteDirectory(file);
+            }
+        }
+        if(!directoryToBeDeleted.delete()){
+            logger.fatal(directoryToBeDeleted.getName() + "was not deleted.");
+        }*/
+    }
+
     public static String format(String string) {
         return format(string, 80);
     }
@@ -124,7 +148,8 @@ public class Utils {
         body.put("properties", propertyArray);
         body.put("limit", 1);
         try {
-            JSONObject resp = (JSONObject) service.postRequest("/crm/v3/objects/" + type.getValue() + "/search", body);
+            JSONObject resp =
+                    (JSONObject) service.postRequest("/crm/v3/objects/" + type.getValue() + "/search", body);
             return resp.getLong("total");
         } catch (HubSpotException e) {
             logger.fatal("Unable to get object count.", e);
@@ -153,7 +178,7 @@ public class Utils {
             }
             return fileString.toString().strip();
         } catch (IOException e) {
-            logger.fatal("Unable to read file", e);
+            logger.fatal("Unable to read file {}", file, e);
             System.exit(ErrorCodes.IO_READ.getErrorCode());
             return "";
         }
@@ -277,7 +302,12 @@ public class Utils {
             arrays[i] = Arrays.copyOfRange(arrayToSplit, i * chunkSize, i * chunkSize + chunkSize);
         }
         if (rest > 0) {
-            arrays[chunks - 1] = Arrays.copyOfRange(arrayToSplit, (chunks - 1) * chunkSize, (chunks - 1) * chunkSize + rest);
+            arrays[chunks - 1] =
+                    Arrays.copyOfRange
+                            (arrayToSplit,
+                                    (chunks - 1) * chunkSize,
+                                    (chunks - 1) * chunkSize + rest
+                            );
         }
         return arrays;
     }
@@ -294,7 +324,8 @@ public class Utils {
             lists.add(i, sublist);
         }
         if (rest > 0) {
-            ArrayList<T> sublist = new ArrayList<>(listToSplit.subList((chunks - 1) * chunkSize, (chunks - 1) * chunkSize + rest));
+            ArrayList<T> sublist =
+                    new ArrayList<>(listToSplit.subList((chunks - 1) * chunkSize, (chunks - 1) * chunkSize + rest));
             lists.add(chunks - 1, sublist);
         }
         return lists;

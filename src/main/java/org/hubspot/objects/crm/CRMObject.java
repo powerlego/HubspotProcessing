@@ -48,9 +48,17 @@ public class CRMObject extends HubSpotObject {
             String key = iterator.next();
             Object property = properties.get(key);
             if (!iterator.hasNext()) {
-                builder.append("\t").append(key).append(" = ").append(property == null ? "null" : property).append("\n");
+                builder.append("\t")
+                        .append(key)
+                        .append(" = ")
+                        .append(property == null ? "null" : property)
+                        .append("\n");
             } else {
-                builder.append("\t").append(key).append(" = ").append(property == null ? "null" : property).append(",\n");
+                builder.append("\t")
+                        .append(key)
+                        .append(" = ")
+                        .append(property == null ? "null" : property)
+                        .append(",\n");
             }
         }
         builder.append("}");
