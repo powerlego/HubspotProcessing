@@ -38,7 +38,7 @@ public class HttpService {
                 Object response = getObject(resp);
                 if (response != null) return response;
             } catch (UnirestException e) {
-                throw new HubSpotException("Can not get data\n URL:" + url, e);
+                throw new HubSpotException("Can not get data\n URL:" + url, ErrorCodes.UNIREST_EXCEPTION.getErrorCode(), e);
             }
         }
     }
@@ -54,11 +54,11 @@ public class HttpService {
                 return Utils.convertType(response);
             }
         } catch (HubSpotException e) {
-            if (e.getCode() == 502) {
+            if (e.getCode() == ErrorCodes.HTTP_502.getErrorCode()) {
                 Utils.sleep(50L);
-            } else if (e.getCode() == 429) {
+            } else if (e.getCode() == ErrorCodes.HTTP_429.getErrorCode()) {
                 if (e.getPolicyName().equalsIgnoreCase("DAILY")) {
-                    throw new HubSpotException("Daily limit reached");
+                    throw new HubSpotException("Daily limit reached", ErrorCodes.DAILY_LIMIT_REACHED.getErrorCode());
                 } else {
                     Utils.sleep(50L);
                 }
@@ -67,6 +67,33 @@ public class HttpService {
             }
         }
         return null;
+    }
+
+    private Object checkResponse(HttpResponse<JsonNode> resp) throws HubSpotException {
+        if (204 != resp.getStatus() && 200 != resp.getStatus() && 202 != resp.getStatus()) {
+            String message = null;
+            try {
+                message = (resp.getStatus() == 404) ? resp.getStatusText() : resp.getBody().getObject().getString("message");
+            } catch (Exception ignored) {
+            }
+
+            if (!Strings.isNullOrEmpty(message)) {
+                if (resp.getStatus() == 429) {
+                    String policyName = resp.getBody().getObject().getString("policyName");
+                    throw new HubSpotException(message, policyName, ErrorCodes.HTTP_429.getErrorCode());
+                } else {
+                    throw new HubSpotException(message, resp.getStatus() % 255);
+                }
+            } else {
+                throw new HubSpotException(resp.getStatusText(), resp.getStatus() % 255);
+            }
+        } else {
+            if (resp.getBody() != null) {
+                return resp.getBody().isArray() ? resp.getBody().getArray() : resp.getBody().getObject();
+            } else {
+                return null;
+            }
+        }
     }
 
     public Object getRequest(String url, String properties) throws HubSpotException {
@@ -81,7 +108,7 @@ public class HttpService {
                 if (response != null) return response;
 
             } catch (UnirestException e) {
-                throw new HubSpotException("Can not get data\n URL:" + url, e);
+                throw new HubSpotException("Can not get data\n URL:" + url, ErrorCodes.UNIREST_EXCEPTION.getErrorCode(), e);
             }
         }
     }
@@ -96,7 +123,7 @@ public class HttpService {
                 Object response = getObject(resp);
                 if (response != null) return response;
             } catch (UnirestException e) {
-                throw new HubSpotException("Can not get data\n URL:" + url, e);
+                throw new HubSpotException("Can not get data\n URL:" + url, ErrorCodes.UNIREST_EXCEPTION.getErrorCode(), e);
             }
         }
     }
@@ -117,34 +144,7 @@ public class HttpService {
                 Object response = getObject(resp);
                 if (response != null) return response;
             } catch (UnirestException e) {
-                throw new HubSpotException("Cannot make a request: \n" + properties, e);
-            }
-        }
-    }
-
-    private Object checkResponse(HttpResponse<JsonNode> resp) throws HubSpotException {
-        if (204 != resp.getStatus() && 200 != resp.getStatus() && 202 != resp.getStatus()) {
-            String message = null;
-            try {
-                message = (resp.getStatus() == 404) ? resp.getStatusText() : resp.getBody().getObject().getString("message");
-            } catch (Exception ignored) {
-            }
-
-            if (!Strings.isNullOrEmpty(message)) {
-                if (resp.getStatus() == 429) {
-                    String policyName = resp.getBody().getObject().getString("policyName");
-                    throw new HubSpotException(message, policyName, resp.getStatus());
-                } else {
-                    throw new HubSpotException(message, resp.getStatus());
-                }
-            } else {
-                throw new HubSpotException(resp.getStatusText(), resp.getStatus());
-            }
-        } else {
-            if (resp.getBody() != null) {
-                return resp.getBody().isArray() ? resp.getBody().getArray() : resp.getBody().getObject();
-            } else {
-                return null;
+                throw new HubSpotException("Cannot make a request: \n" + properties, ErrorCodes.UNIREST_EXCEPTION.getErrorCode(), e);
             }
         }
     }

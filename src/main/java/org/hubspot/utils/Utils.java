@@ -154,7 +154,7 @@ public class Utils {
             return fileString.toString().strip();
         } catch (IOException e) {
             logger.fatal("Unable to read file", e);
-            System.exit(-1);
+            System.exit(ErrorCodes.IO_READ.getErrorCode());
             return "";
         }
     }
@@ -232,7 +232,8 @@ public class Utils {
                 logger.warn("Termination Timeout");
             }
         } catch (InterruptedException e) {
-            logger.warn("Thread interrupted", e);
+            logger.fatal("Thread interrupted", e);
+            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
         }
     }
 

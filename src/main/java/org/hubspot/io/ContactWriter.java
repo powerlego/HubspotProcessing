@@ -3,6 +3,7 @@ package org.hubspot.io;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.crm.Contact;
+import org.hubspot.utils.ErrorCodes;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -25,7 +26,7 @@ public class ContactWriter {
             Files.createDirectories(contactsFolder);
         } catch (IOException e) {
             logger.fatal("Unable to create engagements folder", e);
-            System.exit(-1);
+            System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         Path filePath;
         String firstName = contact.getFirstName();
@@ -60,7 +61,7 @@ public class ContactWriter {
             writer.close();
         } catch (IOException e) {
             logger.fatal("Unable to write to file", e);
-            System.exit(-1);
+            System.exit(ErrorCodes.IO_WRITE.getErrorCode());
         }
     }
 }

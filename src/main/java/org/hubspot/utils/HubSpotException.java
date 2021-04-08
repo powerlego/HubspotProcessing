@@ -11,7 +11,7 @@ public class HubSpotException extends Exception {
      * The instance of the logger
      */
     private static final Logger logger = LogManager.getLogger();
-    private int code;
+    private final int code;
     private String policyName;
     private String rawMessage;
 
@@ -26,10 +26,6 @@ public class HubSpotException extends Exception {
         this.code = code;
     }
 
-    public HubSpotException(String message, Throwable cause) {
-        this(message, null, -1, cause);
-    }
-
     public HubSpotException(String message, int code) {
         this(message, null, code, null);
     }
@@ -40,14 +36,7 @@ public class HubSpotException extends Exception {
 
     public HubSpotException() {
         super();
-    }
-
-    public HubSpotException(Throwable cause) {
-        super(cause);
-    }
-
-    public HubSpotException(String message, String policyName, Throwable cause) {
-        this(message, policyName, 0, cause);
+        this.code = ErrorCodes.HUBSPOT_EXCEPTION.getErrorCode();
     }
 
     public HubSpotException(String message, String policyName, int code) {
@@ -55,7 +44,12 @@ public class HubSpotException extends Exception {
     }
 
     public HubSpotException(String message, String policyName) {
-        this(message, policyName, -1, null);
+        this(message, policyName, ErrorCodes.HUBSPOT_EXCEPTION.getErrorCode(), null);
+    }
+
+    public HubSpotException(Throwable cause, int code) {
+        super(cause);
+        this.code = code;
     }
 
     public int getCode() {

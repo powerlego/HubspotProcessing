@@ -6,10 +6,7 @@ import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.PropertyData;
 import org.hubspot.objects.crm.CRMObjectType;
 import org.hubspot.objects.crm.Contact;
-import org.hubspot.utils.CustomThreadFactory;
-import org.hubspot.utils.HttpService;
-import org.hubspot.utils.HubSpotException;
-import org.hubspot.utils.Utils;
+import org.hubspot.utils.*;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -178,7 +175,7 @@ class ContactService {
             }
         } catch (InterruptedException e) {
             logger.fatal("Threads interrupted during wait.", e);
-            System.exit(-1);
+            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
         }
         return (ArrayList<Contact>) contacts;
     }
@@ -197,7 +194,7 @@ class ContactService {
             Files.createDirectories(jsonFolder);
         } catch (IOException e) {
             logger.fatal("Unable to create folder", e);
-            System.exit(-1);
+            System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         try(ProgressBar pb = Utils.createProgressBar("Writing Contacts", count)) {
             while (true) {
@@ -214,6 +211,7 @@ class ContactService {
                             fileWriter.close();
                         } catch (IOException e) {
                             logger.fatal("Unable to write file for id " + id, e);
+                            System.exit(ErrorCodes.IO_WRITE.getErrorCode());
                         }
                         pb.step();
                         Utils.sleep(1L);

@@ -2,6 +2,7 @@ package org.hubspot.io;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.hubspot.utils.ErrorCodes;
 import org.hubspot.utils.Utils;
 import org.json.JSONObject;
 
@@ -39,7 +40,7 @@ public class JsonIO {
                     jsonObjects.add(Utils.formatJson(new JSONObject(builder.toString())));
                 } catch (IOException e) {
                     logger.fatal("Cannot read file.", e);
-                    System.exit(-1);
+                    System.exit(ErrorCodes.IO_READ.getErrorCode());
                 }
             }
         }
@@ -52,7 +53,7 @@ public class JsonIO {
             Files.createDirectories(folder);
         } catch (IOException e) {
             logger.fatal("Unable to create engagements folder", e);
-            System.exit(-1);
+            System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         Path filePath = folder.resolve(id + ".json");
         try {
@@ -61,7 +62,7 @@ public class JsonIO {
             writer.close();
         } catch (IOException e) {
             logger.fatal("Unable to write to file", e);
-            System.exit(-1);
+            System.exit(ErrorCodes.IO_WRITE.getErrorCode());
         }
     }
 }

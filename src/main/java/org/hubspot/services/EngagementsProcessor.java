@@ -3,10 +3,7 @@ package org.hubspot.services;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.crm.engagements.*;
-import org.hubspot.utils.CustomThreadFactory;
-import org.hubspot.utils.HttpService;
-import org.hubspot.utils.HubSpotException;
-import org.hubspot.utils.Utils;
+import org.hubspot.utils.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
@@ -45,7 +42,7 @@ public class EngagementsProcessor {
                 }
             } catch (HubSpotException e) {
                 logger.fatal("Unable to get engagement id " + engagementId + " for contact id " + contactId, e);
-
+                System.exit(e.getCode());
             }
         });
         return new EngagementData((ArrayList<Long>) engagementIds, (ArrayList<Engagement>) engagements);
@@ -82,7 +79,7 @@ public class EngagementsProcessor {
                     logger.warn("Termination Timeout");
                 }
             } catch (InterruptedException e) {
-                throw new HubSpotException("Thread interrupted", e);
+                throw new HubSpotException("Thread interrupted", ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode(), e);
             }
             return (ArrayList<Long>) engagementIds;
         } catch (HubSpotException e) {
@@ -99,14 +96,14 @@ public class EngagementsProcessor {
         try {
             JSONObject jsonNote = (JSONObject) service.getRequest(engagementUrl);
             if (jsonNote == null) {
-                throw new HubSpotException("Unable to grab engagement");
+                throw new HubSpotException(new NullException("Unable to grab engagement"), ErrorCodes.NULL_EXCEPTION.getErrorCode());
             }
             Engagement engagement = process(jsonNote);
             if (engagement == null) {
                 JSONObject engagementJson = jsonNote.getJSONObject("engagement");
                 String type = engagementJson.getString("type");
                 if (!type.toLowerCase().contains("conversation")) {
-                    throw new HubSpotException("Invalid engagement type");
+                    throw new HubSpotException("Invalid engagement type", ErrorCodes.INVALID_ENGAGEMENT.getErrorCode());
                 } else {
                     return null;
                 }
@@ -314,11 +311,12 @@ public class EngagementsProcessor {
                 try {
                     JSONObject jsonEngagement = (JSONObject) httpService.getRequest(engagementUrl);
                     if (jsonEngagement == null) {
-                        throw new HubSpotException(new NullPointerException("Json Object is null"));
+                        throw new HubSpotException(new NullException("Json Object is null"), ErrorCodes.NULL_EXCEPTION.getErrorCode());
                     }
                     engagementJsons.add(jsonEngagement);
                 } catch (HubSpotException e) {
                     logger.fatal("Unable to grab engagement", e);
+                    System.exit(e.getCode());
                 }
             });
 
@@ -333,26 +331,25 @@ public class EngagementsProcessor {
     }
 
     static void writeEngagementJson(HttpService httpService, long contactId) throws HubSpotException {
-
         Path folder = Paths.get("./cache/engagements/" + contactId + "/");
         try {
             Files.createDirectories(folder);
         } catch (IOException e) {
-            throw new HubSpotException("Unable to write engagement jsons for contact id" + contactId, e);
+            throw new HubSpotException("Unable to write engagement jsons for contact id" + contactId, ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode(), e);
         }
         String noteUrl = "/engagements/v1/engagements/" + contactId;
         File jsonFile = folder.resolve(contactId + ".json").toFile();
         try {
             JSONObject jsonNote = (JSONObject) httpService.getRequest(noteUrl);
             if (jsonNote == null) {
-                throw new HubSpotException("Unable to grab engagement");
+                throw new HubSpotException(new NullException("Unable to grab engagement"), ErrorCodes.NULL_EXCEPTION.getErrorCode());
             } else {
                 try {
                     FileWriter fileWriter = new FileWriter(jsonFile);
                     fileWriter.write(jsonNote.toString(4));
                     fileWriter.close();
                 } catch (IOException e) {
-                    throw new HubSpotException("Unable to write json");
+                    throw new HubSpotException("Unable to write json", ErrorCodes.IO_WRITE.getErrorCode(), e);
                 }
             }
         } catch (HubSpotException e) {

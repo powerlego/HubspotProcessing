@@ -6,10 +6,7 @@ import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.PropertyData;
 import org.hubspot.objects.crm.CRMObjectType;
 import org.hubspot.objects.crm.Company;
-import org.hubspot.utils.CustomThreadFactory;
-import org.hubspot.utils.HttpService;
-import org.hubspot.utils.HubSpotException;
-import org.hubspot.utils.Utils;
+import org.hubspot.utils.*;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -148,7 +145,7 @@ public class CompanyService {
             }
         } catch (InterruptedException e) {
             logger.fatal("Threads interrupted during wait.", e);
-            System.exit(-1);
+            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
         }
         return companies;
     }
@@ -166,7 +163,7 @@ public class CompanyService {
             Files.createDirectories(jsonFolder);
         } catch (IOException e) {
             logger.fatal("Unable to create folder", e);
-            System.exit(-1);
+            System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         try (ProgressBar pb = Utils.createProgressBar("Grabbing Companies", count)) {
             while (true) {
@@ -183,6 +180,7 @@ public class CompanyService {
                             fileWriter.close();
                         } catch (IOException e) {
                             logger.fatal("Unable to write file for id " + id, e);
+                            System.exit(ErrorCodes.IO_WRITE.getErrorCode());
                         }
                         pb.step();
                         Utils.sleep(1L);

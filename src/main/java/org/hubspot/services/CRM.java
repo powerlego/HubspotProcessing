@@ -38,13 +38,19 @@ public class CRM {
             return CompanyService.getAllCompanies(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get all contacts", e);
-            System.exit(-1);
+            System.exit(e.getCode());
             return new ConcurrentHashMap<>();
         }
     }
 
     public PropertyData propertiesByGroupName(CRMObjectType type, String propertyGroup, boolean includeHidden) {
-        return CRMProperties.getPropertiesByGroupName(httpService, type, propertyGroup, includeHidden);
+        try {
+            return CRMProperties.getPropertiesByGroupName(httpService, type, propertyGroup, includeHidden);
+        } catch (HubSpotException e) {
+            logger.fatal("Unable to get properties", e);
+            System.exit(e.getCode());
+            return null;
+        }
     }
 
     public ConcurrentHashMap<Long, Company> getAllCompanies(boolean includeHiddenProperties) {
@@ -53,13 +59,19 @@ public class CRM {
             return CompanyService.getAllCompanies(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get all contacts", e);
-            System.exit(-1);
+            System.exit(e.getCode());
             return new ConcurrentHashMap<>();
         }
     }
 
     public PropertyData allProperties(CRMObjectType type, boolean includeHidden) {
-        return CRMProperties.getAllProperties(httpService, type, includeHidden);
+        try {
+            return CRMProperties.getAllProperties(httpService, type, includeHidden);
+        } catch (HubSpotException e) {
+            logger.fatal("Unable to get properties", e);
+            System.exit(e.getCode());
+            return null;
+        }
     }
 
     public ArrayList<Contact> getAllContacts(String propertyGroup, boolean includeHiddenProperties) {
@@ -68,7 +80,7 @@ public class CRM {
             return ContactService.getAllContacts(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get all contacts", e);
-            System.exit(-1);
+            System.exit(e.getCode());
             return new ArrayList<>();
         }
     }
@@ -79,74 +91,74 @@ public class CRM {
             return ContactService.getAllContacts(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get all contacts", e);
-            System.exit(-1);
+            System.exit(e.getCode());
             return new ArrayList<>();
         }
     }
 
-    public Company getCompanyById(String propertyGroup, long id, boolean includeHiddenProperties) {
+    public Company getCompanyById(String propertyGroup, long companyId, boolean includeHiddenProperties) {
         PropertyData propertyData = propertiesByGroupName(CRMObjectType.COMPANIES, propertyGroup, includeHiddenProperties);
         try {
-            return CompanyService.getByID(httpService, propertyData.getPropertyNamesString(), id);
+            return CompanyService.getByID(httpService, propertyData.getPropertyNamesString(), companyId);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get company");
-            System.exit(-1);
+            System.exit(e.getCode());
             return null;
         }
     }
 
-    public Company getCompanyById(long id, boolean includeHiddenProperties) {
+    public Company getCompanyById(long companyId, boolean includeHiddenProperties) {
         PropertyData propertyData = allProperties(CRMObjectType.COMPANIES, includeHiddenProperties);
         try {
-            return CompanyService.getByID(httpService, propertyData.getPropertyNamesString(), id);
+            return CompanyService.getByID(httpService, propertyData.getPropertyNamesString(), companyId);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get company");
-            System.exit(-1);
+            System.exit(e.getCode());
             return null;
         }
     }
 
-    public Contact getContactById(long id, boolean includeHiddenProperties) {
+    public Contact getContactById(long contactId, boolean includeHiddenProperties) {
         PropertyData propertyData = allProperties(CRMObjectType.CONTACTS, includeHiddenProperties);
         try {
-            return ContactService.getByID(httpService, propertyData.getPropertyNamesString(), id);
+            return ContactService.getByID(httpService, propertyData.getPropertyNamesString(), contactId);
         } catch (HubSpotException e) {
-            logger.fatal("Unable to get contact of id " + id, e);
-            System.exit(-1);
+            logger.fatal("Unable to get contact of id " + contactId, e);
+            System.exit(e.getCode());
             return null;
         }
     }
 
-    public Contact getContactById(String propertyGroup, long id, boolean includeHiddenProperties) {
+    public Contact getContactById(String propertyGroup, long contactId, boolean includeHiddenProperties) {
         PropertyData propertyData = propertiesByGroupName(CRMObjectType.CONTACTS, propertyGroup, includeHiddenProperties);
         try {
-            return ContactService.getByID(httpService, propertyData.getPropertyNamesString(), id);
+            return ContactService.getByID(httpService, propertyData.getPropertyNamesString(), contactId);
         } catch (HubSpotException e) {
-            logger.fatal("Unable to get contact of id " + id, e);
-            System.exit(-1);
+            logger.fatal("Unable to get contact of id " + contactId, e);
+            System.exit(e.getCode());
             return null;
         }
     }
 
     public List<Long> getContactEngagementIds(Contact contact) {
-        long id = contact.getId();
+        long contactId = contact.getId();
         try {
-            return EngagementsProcessor.getAllEngagementIds(httpService, id);
+            return EngagementsProcessor.getAllEngagementIds(httpService, contactId);
         } catch (HubSpotException e) {
-            logger.fatal("Unable to get engagement ids for id " + id, e);
-            System.exit(-1);
+            logger.fatal("Unable to get engagement ids for id " + contactId, e);
+            System.exit(e.getCode());
             return new ArrayList<>();
         }
     }
 
     public EngagementsProcessor.EngagementData getContactEngagements(Contact contact) {
-        long id = contact.getId();
+        long contactId = contact.getId();
 
         try {
-            return EngagementsProcessor.getAllEngagements(httpService, id);
+            return EngagementsProcessor.getAllEngagements(httpService, contactId);
         } catch (HubSpotException e) {
-            logger.fatal("Unable to get engagements for id " + id, e);
-            System.exit(-1);
+            logger.fatal("Unable to get engagements for id " + contactId, e);
+            System.exit(e.getCode());
             return null;
         }
     }
@@ -165,7 +177,7 @@ public class CRM {
             CompanyService.writeCompanyJson(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to write companies");
-            System.exit(-1);
+            System.exit(e.getCode());
         }
 
     }
@@ -176,7 +188,7 @@ public class CRM {
             CompanyService.writeCompanyJson(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to write companies");
-            System.exit(-1);
+            System.exit(e.getCode());
         }
 
     }
@@ -187,7 +199,7 @@ public class CRM {
             ContactService.writeContactJson(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to write contacts");
-            System.exit(-1);
+            System.exit(e.getCode());
         }
 
     }
@@ -198,7 +210,7 @@ public class CRM {
             ContactService.writeContactJson(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to write contacts");
-            System.exit(-1);
+            System.exit(e.getCode());
         }
 
     }
