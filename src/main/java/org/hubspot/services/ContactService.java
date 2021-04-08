@@ -18,11 +18,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.*;
+import java.util.*;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Nicholas Curl
@@ -34,10 +34,20 @@ class ContactService {
     private static final Logger logger = LogManager.getLogger();
     private static final int LIMIT = 10;
 
-    static ConcurrentHashMap<Long, Contact> filterContacts(ConcurrentHashMap<Long, Contact> contacts) {
-        ConcurrentHashMap<Long, Contact> filteredContacts = new ConcurrentHashMap<>();
-        long count = contacts.keySet().size();
-        try (ProgressBar pb = Utils.createProgressBar("Filtering",count)) {
+    static ArrayList<Contact> filterContacts(ArrayList<Contact> contacts) {
+        List<Contact> filteredContacts = Collections.synchronizedList(new ArrayList<>());
+        ProgressBar.wrap(contacts.parallelStream(), Utils.getProgressBarBuilder("Filtering")).forEach(contact -> {
+            String lifeCycleStage = contact.getLifeCycleStage();
+            String leadStatus = contact.getLeadStatus();
+            String lifecycleOtherReason = contact.getProperty("hr_hiring_applicant").toString();
+            boolean b = leadStatus == null || (!leadStatus.toLowerCase().contains("closed") && !leadStatus.equalsIgnoreCase("Recruit") && !leadStatus.toLowerCase().contains("no contact") && !leadStatus.toLowerCase().contains("unqualified"));
+            boolean c = (lifecycleOtherReason == null || lifecycleOtherReason.equalsIgnoreCase("null")) || !lifecycleOtherReason.toLowerCase().contains("closed");
+            if ((lifeCycleStage == null || !lifeCycleStage.equalsIgnoreCase("subscriber")) && b && c) {
+                filteredContacts.add(contact);
+            }
+            Utils.sleep(1L);
+        });
+        /*try (ProgressBar pb = Utils.createProgressBar("Filtering")) {
             contacts.forEach(500, (aLong, contact) -> {
                 String lifeCycleStage = contact.getLifeCycleStage();
                 String leadStatus = contact.getLeadStatus();
@@ -50,13 +60,13 @@ class ContactService {
                 pb.step();
                 Utils.sleep(1L);
             });
-        }
-        return filteredContacts;
+        }*/
+        return (ArrayList<Contact>) filteredContacts;
     }
 
-    static ConcurrentHashMap<Long, Contact> getAllContacts(HttpService httpService, PropertyData propertyData) throws HubSpotException {
+    static ArrayList<Contact> getAllContacts(HttpService httpService, PropertyData propertyData) throws HubSpotException {
         Map<String, Object> map = new HashMap<>();
-        ConcurrentHashMap<Long, Contact> contacts = new ConcurrentHashMap<>();
+        List<Contact> contacts = Collections.synchronizedList(new ArrayList<>());
         map.put("limit", LIMIT);
         map.put("properties", propertyData.getPropertyNamesString());
         map.put("archived", false);
@@ -64,14 +74,14 @@ class ContactService {
         long after;
         long count = Utils.getObjectCount(httpService, CRMObjectType.CONTACTS);
         ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("ContactGrabber"));
-        try(ProgressBar pb = Utils.createProgressBar("Grabbing Contacts", count)) {
+        try (ProgressBar pb = Utils.createProgressBar("Grabbing Contacts", count)) {
             while (true) {
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
                 Runnable process = () -> {
                     for (Object o : jsonObject.getJSONArray("results")) {
                         JSONObject contactJson = (JSONObject) o;
                         Contact contact = parseContactData(contactJson);
-                        contacts.put(contact.getId(), contact);
+                        contacts.add(contact);
                         pb.step();
                     }
                 };
@@ -84,7 +94,7 @@ class ContactService {
             }
             Utils.shutdownExecutors(logger, executorService);
         }
-        return contacts;
+        return (ArrayList<Contact>) contacts;
     }
 
     static Contact parseContactData(JSONObject jsonObject) {
@@ -147,17 +157,17 @@ class ContactService {
         }
     }
 
-    static ConcurrentHashMap<Long, Contact> readContactJsons() {
-        ConcurrentHashMap<Long, Contact> contacts = new ConcurrentHashMap<>();
+    static ArrayList<Contact> readContactJsons() {
+        List<Contact> contacts = Collections.synchronizedList(new ArrayList<>());
         Path jsonFolder = Paths.get("./cache/contacts/");
         File[] files = jsonFolder.toFile().listFiles();
         ForkJoinPool forkJoinPool = new ForkJoinPool();
         if (files != null) {
-            forkJoinPool.submit(()->ProgressBar.wrap(Arrays.stream(files).parallel(), Utils.getProgressBarBuilder("Reading Contacts")).forEach(file -> {
+            forkJoinPool.submit(() -> ProgressBar.wrap(Arrays.stream(files).parallel(), Utils.getProgressBarBuilder("Reading Contacts")).forEach(file -> {
                 String jsonString = Utils.readFile(file);
                 JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
                 Contact contact = parseContactData(jsonObject);
-                contacts.put(contact.getId(), contact);
+                contacts.add(contact);
                 Utils.sleep(1L);
             }));
         }
@@ -170,7 +180,7 @@ class ContactService {
             logger.fatal("Threads interrupted during wait.", e);
             System.exit(-1);
         }
-        return contacts;
+        return (ArrayList<Contact>) contacts;
     }
 
     static void writeContactJson(HttpService httpService, PropertyData propertyData) throws HubSpotException {

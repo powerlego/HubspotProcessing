@@ -9,7 +9,7 @@ import org.hubspot.objects.crm.Contact;
 import org.hubspot.utils.HttpService;
 import org.hubspot.utils.HubSpotException;
 
-import java.util.LinkedList;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.ConcurrentHashMap;
 
@@ -28,7 +28,7 @@ public class CRM {
         this.httpService = httpService;
     }
 
-    public ConcurrentHashMap<Long, Contact> filterContacts(ConcurrentHashMap<Long, Contact> contacts) {
+    public ArrayList<Contact> filterContacts(ArrayList<Contact> contacts) {
         return ContactService.filterContacts(contacts);
     }
 
@@ -62,25 +62,25 @@ public class CRM {
         return CRMProperties.getAllProperties(httpService, type, includeHidden);
     }
 
-    public ConcurrentHashMap<Long, Contact> getAllContacts(String propertyGroup, boolean includeHiddenProperties) {
+    public ArrayList<Contact> getAllContacts(String propertyGroup, boolean includeHiddenProperties) {
         PropertyData propertyData = propertiesByGroupName(CRMObjectType.CONTACTS, propertyGroup, includeHiddenProperties);
         try {
             return ContactService.getAllContacts(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get all contacts", e);
             System.exit(-1);
-            return new ConcurrentHashMap<>();
+            return new ArrayList<>();
         }
     }
 
-    public ConcurrentHashMap<Long, Contact> getAllContacts(boolean includeHiddenProperties) {
+    public ArrayList<Contact> getAllContacts(boolean includeHiddenProperties) {
         PropertyData propertyData = allProperties(CRMObjectType.CONTACTS, includeHiddenProperties);
         try {
             return ContactService.getAllContacts(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to get all contacts", e);
             System.exit(-1);
-            return new ConcurrentHashMap<>();
+            return new ArrayList<>();
         }
     }
 
@@ -135,7 +135,7 @@ public class CRM {
         } catch (HubSpotException e) {
             logger.fatal("Unable to get engagement ids for id " + id, e);
             System.exit(-1);
-            return new LinkedList<>();
+            return new ArrayList<>();
         }
     }
 
@@ -155,7 +155,7 @@ public class CRM {
         return CompanyService.readCompanyJsons();
     }
 
-    public ConcurrentHashMap<Long, Contact> readContactJsons() {
+    public ArrayList<Contact> readContactJsons() {
         return ContactService.readContactJsons();
     }
 
