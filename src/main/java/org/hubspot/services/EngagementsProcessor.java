@@ -1,5 +1,6 @@
 package org.hubspot.services;
 
+import me.tongfei.progressbar.ProgressBar;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.crm.engagements.*;
@@ -14,6 +15,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
@@ -302,7 +304,6 @@ public class EngagementsProcessor {
     }
 
     private static ArrayList<JSONObject> getEngagementJson(HttpService httpService, long contactId) throws HubSpotException {
-
         try {
             ArrayList<Long> engagementIdsToIterate = getAllEngagementIds(httpService, contactId);
             List<JSONObject> engagementJsons = Collections.synchronizedList(new ArrayList<>());
@@ -319,7 +320,6 @@ public class EngagementsProcessor {
                     System.exit(e.getCode());
                 }
             });
-
             return (ArrayList<JSONObject>) engagementJsons;
         } catch (HubSpotException e) {
             if (e.getMessage().equalsIgnoreCase("Not Found")) {
@@ -330,36 +330,69 @@ public class EngagementsProcessor {
         }
     }
 
-    static void writeEngagementJson(HttpService httpService, long contactId) throws HubSpotException {
+    static ConcurrentHashMap<Long, EngagementData> readEngagementJsons() {
+        ConcurrentHashMap<Long, EngagementData> contactsEngagementData = new ConcurrentHashMap<>();
+        File[] files = Paths.get("./cache/engagements/").toFile().listFiles(File::isDirectory);
+        if (files != null) {
+            try (ProgressBar pb = Utils.createProgressBar("Reading Engagement Cache", files.length);
+                 ProgressBar pb1 = Utils.createProgressBar("Reading Engagements")) {
+                Arrays.stream(files).forEach(file -> {
+                    long contactId = Long.parseLong(file.getName());
+                    pb.pause();
+                    EngagementData engagementData = readContactEngagementJsons(file, pb1, contactId);
+                    pb.resume();
+                    contactsEngagementData.put(contactId, engagementData);
+                    pb.step();
+                });
+            }
+        }
+        return contactsEngagementData;
+    }
+
+    static EngagementData readContactEngagementJsons(File contactFolder, ProgressBar pb, long contactId) {
+        pb.stepTo(0);
+        File[] files = contactFolder.listFiles();
+        List<Long> engagementIds = Collections.synchronizedList(new ArrayList<>());
+        List<Engagement> engagements = Collections.synchronizedList(new ArrayList<>());
+        if (files != null) {
+            pb.maxHint(files.length);
+            pb.setExtraMessage("Contact ID: " + contactId);
+            pb.resume();
+            Arrays.stream(files).parallel().forEach(file -> {
+                String jsonString = Utils.readFile(file);
+                JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
+                long engagementId = jsonObject.getJSONObject("engagement").getLong("id");
+                Engagement engagement = process(jsonObject);
+                engagementIds.add(engagementId);
+                engagements.add(engagement);
+                pb.step();
+            });
+        }
+        pb.pause();
+        return new EngagementData((ArrayList<Long>) engagementIds, (ArrayList<Engagement>) engagements);
+    }
+
+    static void writeContactEngagementJsons(HttpService httpService, long contactId) throws HubSpotException {
         Path folder = Paths.get("./cache/engagements/" + contactId + "/");
         try {
             Files.createDirectories(folder);
         } catch (IOException e) {
             throw new HubSpotException("Unable to write engagement jsons for contact id" + contactId, ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode(), e);
         }
-        String noteUrl = "/engagements/v1/engagements/" + contactId;
-        File jsonFile = folder.resolve(contactId + ".json").toFile();
-        try {
-            JSONObject jsonNote = (JSONObject) httpService.getRequest(noteUrl);
-            if (jsonNote == null) {
-                throw new HubSpotException(new NullException("Unable to grab engagement"), ErrorCodes.NULL_EXCEPTION.getErrorCode());
-            } else {
-                try {
-                    FileWriter fileWriter = new FileWriter(jsonFile);
-                    fileWriter.write(jsonNote.toString(4));
-                    fileWriter.close();
-                } catch (IOException e) {
-                    throw new HubSpotException("Unable to write json", ErrorCodes.IO_WRITE.getErrorCode(), e);
-                }
+        ArrayList<JSONObject> engagementJsons = getEngagementJson(httpService, contactId);
+        ProgressBar.wrap(engagementJsons.parallelStream(), Utils.getProgressBarBuilder("Writing Engagements for contact id " + contactId)).forEach(jsonObject -> {
+            long engagementId = jsonObject.getJSONObject("engagement").getLong("id");
+            File jsonFile = folder.resolve(engagementId + ".json").toFile();
+            try {
+                FileWriter fileWriter = new FileWriter(jsonFile);
+                fileWriter.write(jsonObject.toString(4));
+                fileWriter.close();
+            } catch (IOException e) {
+                logger.fatal("Unable to write json", e);
+                System.exit(ErrorCodes.IO_WRITE.getErrorCode());
             }
-        } catch (HubSpotException e) {
-            if (!e.getMessage().equalsIgnoreCase("Not Found")) {
-                throw e;
-            }
-        }
+        });
     }
-
-    //static EngagementData readEngagementJsons()
 
     public static class EngagementData {
         private final ArrayList<Long> engagementIds;
