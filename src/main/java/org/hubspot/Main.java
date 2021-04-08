@@ -3,6 +3,9 @@ package org.hubspot;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.services.HubSpot;
+import org.hubspot.utils.Utils;
+
+import java.nio.file.Paths;
 
 /**
  * @author Nicholas Curl
@@ -20,8 +23,9 @@ public class Main {
         //JSONObject jsonObject = hubspot.crm().getCompanyById(5755946320L);
         //JsonIO.write(jsonObject);
         //List<JSONObject> jsonObjects = JsonIO.read();
-        hubspot.crm().writeContactJson("contactinformation", true);
-        hubspot.crm().writeCompanyJson("companyinformation", false);
+        Utils.deleteDirectory(Paths.get("./contacts"));
+        //hubspot.crm().writeContactJson("contactinformation", true);
+        //hubspot.crm().writeCompanyJson("companyinformation", false);
         //ConcurrentHashMap<Long, Contact> contacts = hubspot.crm().readContactJsons();
         //ConcurrentHashMap<Long, Company> companies = hubspot.crm().readCompanyJsons();
         /*ConcurrentHashMap<Long, Contact> filterContacts = hubspot.crm().filterContacts(contacts);

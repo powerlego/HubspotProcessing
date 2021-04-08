@@ -194,7 +194,8 @@ public class CompanyService {
                             fileWriter.close();
                         } catch (IOException e) {
                             logger.fatal("Unable to write file for id {}", id, e);
-                            Utils.deleteDirectory(jsonFolder.toFile());
+                            executorService.shutdownNow();
+                            Utils.deleteDirectory(jsonFolder);
                             System.exit(ErrorCodes.IO_WRITE.getErrorCode());
                         }
                         pb.step();
@@ -208,7 +209,7 @@ public class CompanyService {
                 after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
                 map.put("after", after);
             }
-            Utils.shutdownExecutors(logger, executorService);
+            Utils.shutdownExecutors(logger, executorService, jsonFolder);
         }
     }
 }

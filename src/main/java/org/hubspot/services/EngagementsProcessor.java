@@ -370,11 +370,13 @@ public class EngagementsProcessor {
                         fileWriter.close();
                     } catch (IOException e) {
                         logger.fatal
-                                ("Unable to write json for engagement id {} associated with contact id {}",
+                                ("Unable to write json for engagement id {} " +
+                                                "associated with contact id {}",
                                         engagementId,
                                         contactId,
                                         e
                                 );
+                        Utils.deleteDirectory(folder);
                         System.exit(ErrorCodes.IO_WRITE.getErrorCode());
                     }
                 });

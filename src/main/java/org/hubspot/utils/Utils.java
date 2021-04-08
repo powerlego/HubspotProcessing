@@ -13,6 +13,7 @@ import org.json.JSONObject;
 import java.io.*;
 import java.lang.reflect.Array;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
@@ -75,27 +76,17 @@ public class Utils {
                 .setUpdateIntervalMillis(5);
     }
 
-    /**
-     * Deletes the specified directory
-     *
-     * @param directoryToBeDeleted The directory to be deleted
-     */
-    public static void deleteDirectory(File directoryToBeDeleted) {
+    public static void shutdownExecutors(Logger logger, ExecutorService executorService, Path folder) {
+        executorService.shutdown();
         try {
-            Files.delete(Files.walkFileTree(directoryToBeDeleted.toPath(), new DeletingVisitor(true)));
-        } catch (IOException e) {
-            logger.fatal("Unable to delete directory {}", directoryToBeDeleted, e);
-            System.exit(ErrorCodes.IO_DELETE_DIRECTORY.getErrorCode());
-        }
-        /*File[] allContents = directoryToBeDeleted.listFiles();
-        if (allContents != null) {
-            for (File file : allContents) {
-                deleteDirectory(file);
+            if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                logger.warn("Termination Timeout");
             }
+        } catch (InterruptedException e) {
+            logger.fatal("Thread interrupted", e);
+            deleteDirectory(folder);
+            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
         }
-        if(!directoryToBeDeleted.delete()){
-            logger.fatal(directoryToBeDeleted.getName() + "was not deleted.");
-        }*/
     }
 
     public static String format(String string) {
@@ -260,6 +251,29 @@ public class Utils {
             logger.fatal("Thread interrupted", e);
             System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
         }
+    }
+
+    /**
+     * Deletes the specified directory
+     *
+     * @param directoryToBeDeleted The directory to be deleted
+     */
+    public static void deleteDirectory(Path directoryToBeDeleted) {
+        try {
+            Files.walkFileTree(directoryToBeDeleted, new DeletingVisitor(true));
+        } catch (IOException e) {
+            logger.fatal("Unable to delete directory {}", directoryToBeDeleted, e);
+            System.exit(ErrorCodes.IO_DELETE_DIRECTORY.getErrorCode());
+        }
+        /*File[] allContents = directoryToBeDeleted.listFiles();
+        if (allContents != null) {
+            for (File file : allContents) {
+                deleteDirectory(file);
+            }
+        }
+        if(!directoryToBeDeleted.delete()){
+            logger.fatal(directoryToBeDeleted.getName() + "was not deleted.");
+        }*/
     }
 
     /*public static void getCompleted(Logger logger, AtomicInteger completed, long startTime) {
