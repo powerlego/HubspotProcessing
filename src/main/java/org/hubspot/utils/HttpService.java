@@ -102,11 +102,11 @@ public class HttpService {
                     );
                 }
                 else {
-                    throw new HubSpotException(resp.getStatus() + " " + message, resp.getStatus() % 255);
+                    throw new HubSpotException(resp.getStatus() + " " + message, resp.getStatus() % 256);
                 }
             }
             else {
-                throw new HubSpotException(resp.getStatus() + " " + resp.getStatusText(), resp.getStatus() % 255);
+                throw new HubSpotException(resp.getStatus() + " " + resp.getStatusText(), resp.getStatus() % 256);
             }
         }
         else if (resp.getBody() != null) {
