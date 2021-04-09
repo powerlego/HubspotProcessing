@@ -55,7 +55,7 @@ public class Main {
                                                               ? null
                                                               : hubspot.crm().readEngagementJsons();
         ArrayList<Contact> filteredContacts = hubspot.crm().filterContacts(contacts);
-        ForkJoinPool forkJoinPool = new ForkJoinPool(5);
+        ForkJoinPool forkJoinPool = new ForkJoinPool();
         if (engagements == null) {
             try (ProgressBar pb = Utils.createProgressBar("Processing Filtered Contacts", filteredContacts.size())) {
                 forkJoinPool.submit(() -> filteredContacts.parallelStream().forEach(contact -> {
