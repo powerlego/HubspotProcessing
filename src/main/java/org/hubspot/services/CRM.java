@@ -175,7 +175,7 @@ public class CRM {
     public void writeCompanyJson(boolean includeHiddenProperties) {
         PropertyData propertyData = allProperties(CRMObjectType.COMPANIES, includeHiddenProperties);
         try {
-            CompanyService.writeCompanyJson(httpService, propertyData);
+            CompanyService.writeCompanyJsons(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to write companies");
             System.exit(e.getCode());
@@ -186,7 +186,7 @@ public class CRM {
     public void writeCompanyJson(String propertyGroup, boolean includeHiddenProperties) {
         PropertyData propertyData = propsByGroupName(CRMObjectType.COMPANIES, propertyGroup, includeHiddenProperties);
         try {
-            CompanyService.writeCompanyJson(httpService, propertyData);
+            CompanyService.writeCompanyJsons(httpService, propertyData);
         } catch (HubSpotException e) {
             logger.fatal("Unable to write companies");
             System.exit(e.getCode());

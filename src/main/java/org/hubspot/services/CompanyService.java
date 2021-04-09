@@ -10,7 +10,6 @@ import org.hubspot.utils.*;
 import org.json.JSONObject;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -31,7 +30,7 @@ public class CompanyService {
     private static final Logger logger = LogManager.getLogger();
     private static final int LIMIT = 10;
     private static final String url = "/crm/v3/objects/companies/";
-
+    private static final Path cacheFolder = Paths.get("./cache/companies/");
 
     static ConcurrentHashMap<Long, Company> getAllCompanies(HttpService httpService,
                                                             PropertyData propertyData
@@ -43,15 +42,23 @@ public class CompanyService {
         map.put("archived", false);
         long after;
         long count = Utils.getObjectCount(httpService, CRMObjectType.COMPANIES);
+        try {
+            Files.createDirectories(cacheFolder);
+        } catch (IOException e) {
+            logger.fatal("Unable to create folder {}", cacheFolder, e);
+            System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
+        }
         ExecutorService executorService =
                 Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
-        try (ProgressBar pb = Utils.createProgressBar("Grabbing Companies", count)) {
+        try (ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Companies", count)) {
             while (true) {
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
                 Runnable process = () -> {
                     for (Object o : jsonObject.getJSONArray("results")) {
                         JSONObject companyJson = (JSONObject) o;
+                        companyJson = Utils.formatJson(companyJson);
                         Company company = parseCompanyData(companyJson);
+                        Utils.writeJsonCache(executorService, cacheFolder, companyJson);
                         companies.put(company.getId(), company);
                         pb.step();
                         Utils.sleep(1L);
@@ -64,7 +71,7 @@ public class CompanyService {
                 after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
                 map.put("after", after);
             }
-            Utils.shutdownExecutors(logger, executorService);
+            Utils.shutdownExecutors(logger, executorService, cacheFolder);
         }
         return companies;
     }
@@ -163,7 +170,7 @@ public class CompanyService {
         return companies;
     }
 
-    static void writeCompanyJson(HttpService httpService, PropertyData propertyData) throws HubSpotException {
+    static void writeCompanyJsons(HttpService httpService, PropertyData propertyData) throws HubSpotException {
         Map<String, Object> map = new HashMap<>();
         map.put("limit", LIMIT);
         map.put("properties", propertyData.getPropertyNamesString());
@@ -172,32 +179,20 @@ public class CompanyService {
         long count = Utils.getObjectCount(httpService, CRMObjectType.COMPANIES);
         ExecutorService executorService =
                 Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
-        Path jsonFolder = Paths.get("./cache/companies/");
         try {
-            Files.createDirectories(jsonFolder);
+            Files.createDirectories(cacheFolder);
         } catch (IOException e) {
-            logger.fatal("Unable to create folder {}", jsonFolder, e);
+            logger.fatal("Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
-        try (ProgressBar pb = Utils.createProgressBar("Grabbing Companies", count)) {
+        try (ProgressBar pb = Utils.createProgressBar("Writing Companies", count)) {
             while (true) {
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
                 Runnable process = () -> {
                     for (Object o : jsonObject.getJSONArray("results")) {
                         JSONObject companyJson = (JSONObject) o;
                         companyJson = Utils.formatJson(companyJson);
-                        long id = companyJson.has("id") ? companyJson.getLong("id") : 0;
-                        Path companyFilePath = jsonFolder.resolve(id + ".json");
-                        try {
-                            FileWriter fileWriter = new FileWriter(companyFilePath.toFile());
-                            fileWriter.write(companyJson.toString(4));
-                            fileWriter.close();
-                        } catch (IOException e) {
-                            logger.fatal("Unable to write file for id {}", id, e);
-                            executorService.shutdownNow();
-                            Utils.deleteDirectory(jsonFolder);
-                            System.exit(ErrorCodes.IO_WRITE.getErrorCode());
-                        }
+                        Utils.writeJsonCache(executorService, cacheFolder, companyJson);
                         pb.step();
                         Utils.sleep(1L);
                     }
@@ -209,7 +204,7 @@ public class CompanyService {
                 after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
                 map.put("after", after);
             }
-            Utils.shutdownExecutors(logger, executorService, jsonFolder);
+            Utils.shutdownExecutors(logger, executorService, cacheFolder);
         }
     }
 }

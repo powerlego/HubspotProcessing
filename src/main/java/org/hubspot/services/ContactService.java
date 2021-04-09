@@ -10,7 +10,6 @@ import org.hubspot.utils.*;
 import org.json.JSONObject;
 
 import java.io.File;
-import java.io.FileWriter;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -30,6 +29,7 @@ class ContactService {
      */
     private static final Logger logger = LogManager.getLogger();
     private static final int LIMIT = 10;
+    private static final Path cacheFolder = Paths.get("./cache/contacts/");
 
     static ArrayList<Contact> filterContacts(ArrayList<Contact> contacts) {
         List<Contact> filteredContacts = Collections.synchronizedList(new ArrayList<>());
@@ -92,13 +92,21 @@ class ContactService {
         long count = Utils.getObjectCount(httpService, CRMObjectType.CONTACTS);
         ExecutorService executorService =
                 Executors.newFixedThreadPool(20, new CustomThreadFactory("ContactGrabber"));
+        try {
+            Files.createDirectories(cacheFolder);
+        } catch (IOException e) {
+            logger.fatal("Unable to create folder {}", cacheFolder, e);
+            System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
+        }
         try (ProgressBar pb = Utils.createProgressBar("Grabbing Contacts", count)) {
             while (true) {
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
                 Runnable process = () -> {
                     for (Object o : jsonObject.getJSONArray("results")) {
                         JSONObject contactJson = (JSONObject) o;
+                        contactJson = Utils.formatJson(contactJson);
                         Contact contact = parseContactData(contactJson);
+                        Utils.writeJsonCache(executorService, cacheFolder, contactJson);
                         contacts.add(contact);
                         pb.step();
                     }
@@ -110,7 +118,7 @@ class ContactService {
                 after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
                 map.put("after", after);
             }
-            Utils.shutdownExecutors(logger, executorService);
+            Utils.shutdownExecutors(logger, executorService, cacheFolder);
         }
         return (ArrayList<Contact>) contacts;
     }
@@ -221,11 +229,10 @@ class ContactService {
         long count = Utils.getObjectCount(httpService, CRMObjectType.CONTACTS);
         ExecutorService executorService =
                 Executors.newFixedThreadPool(20, new CustomThreadFactory("ContactGrabber"));
-        Path jsonFolder = Paths.get("./cache/contacts/");
         try {
-            Files.createDirectories(jsonFolder);
+            Files.createDirectories(cacheFolder);
         } catch (IOException e) {
-            logger.fatal("Unable to create folder {}", jsonFolder, e);
+            logger.fatal("Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         try (ProgressBar pb = Utils.createProgressBar("Writing Contacts", count)) {
@@ -235,18 +242,7 @@ class ContactService {
                     for (Object o : jsonObject.getJSONArray("results")) {
                         JSONObject contactJson = (JSONObject) o;
                         contactJson = Utils.formatJson(contactJson);
-                        long id = contactJson.has("id") ? contactJson.getLong("id") : 0;
-                        Path contactFilePath = jsonFolder.resolve(id + ".json");
-                        try {
-                            FileWriter fileWriter = new FileWriter(contactFilePath.toFile());
-                            fileWriter.write(contactJson.toString(4));
-                            fileWriter.close();
-                        } catch (IOException e) {
-                            logger.fatal("Unable to write file for id {}", id, e);
-                            executorService.shutdownNow();
-                            Utils.deleteDirectory(jsonFolder);
-                            System.exit(ErrorCodes.IO_WRITE.getErrorCode());
-                        }
+                        Utils.writeJsonCache(executorService, cacheFolder, contactJson);
                         pb.step();
                         Utils.sleep(1L);
                     }
@@ -258,7 +254,7 @@ class ContactService {
                 after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
                 map.put("after", after);
             }
-            Utils.shutdownExecutors(logger, executorService, jsonFolder);
+            Utils.shutdownExecutors(logger, executorService, cacheFolder);
         }
     }
 

@@ -14,9 +14,11 @@ import java.io.*;
 import java.lang.reflect.Array;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -74,19 +76,6 @@ public class Utils {
                 .setTaskName(taskName)
                 .setStyle(ProgressBarStyle.ASCII)
                 .setUpdateIntervalMillis(5);
-    }
-
-    public static void shutdownExecutors(Logger logger, ExecutorService executorService, Path folder) {
-        executorService.shutdown();
-        try {
-            if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
-                logger.warn("Termination Timeout");
-            }
-        } catch (InterruptedException e) {
-            logger.fatal("Thread interrupted", e);
-            deleteDirectory(folder);
-            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
-        }
     }
 
     public static String format(String string) {
@@ -241,6 +230,33 @@ public class Utils {
         }
     }
 
+    public static void shutdownExecutors(Logger logger, ExecutorService executorService, Path folder) {
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                logger.warn("Termination Timeout");
+            }
+        } catch (InterruptedException e) {
+            logger.fatal("Thread interrupted", e);
+            deleteDirectory(folder);
+            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
+        }
+    }
+
+    /**
+     * Deletes the specified directory
+     *
+     * @param directoryToBeDeleted The directory to be deleted
+     */
+    public static void deleteDirectory(Path directoryToBeDeleted) {
+        try {
+            Files.walkFileTree(directoryToBeDeleted, new DeletingVisitor(false));
+        } catch (IOException e) {
+            logger.fatal("Unable to delete directory {}", directoryToBeDeleted, e);
+            System.exit(ErrorCodes.IO_DELETE_DIRECTORY.getErrorCode());
+        }
+    }
+
     public static void shutdownExecutors(Logger logger, ExecutorService executorService) {
         executorService.shutdown();
         try {
@@ -253,27 +269,8 @@ public class Utils {
         }
     }
 
-    /**
-     * Deletes the specified directory
-     *
-     * @param directoryToBeDeleted The directory to be deleted
-     */
-    public static void deleteDirectory(Path directoryToBeDeleted) {
-        try {
-            Files.walkFileTree(directoryToBeDeleted, new DeletingVisitor(true));
-        } catch (IOException e) {
-            logger.fatal("Unable to delete directory {}", directoryToBeDeleted, e);
-            System.exit(ErrorCodes.IO_DELETE_DIRECTORY.getErrorCode());
-        }
-        /*File[] allContents = directoryToBeDeleted.listFiles();
-        if (allContents != null) {
-            for (File file : allContents) {
-                deleteDirectory(file);
-            }
-        }
-        if(!directoryToBeDeleted.delete()){
-            logger.fatal(directoryToBeDeleted.getName() + "was not deleted.");
-        }*/
+    public static void sleep(int seconds) {
+        sleep((long) 1000 * seconds);
     }
 
     /*public static void getCompleted(Logger logger, AtomicInteger completed, long startTime) {
@@ -289,10 +286,6 @@ public class Utils {
         String info = String.format(formatInfo, "Completed: ", completed.get(), "Elapsed Time: ", duration);
         logger.debug(info);
     }*/
-
-    public static void sleep(int seconds) {
-        sleep((long) 1000 * seconds);
-    }
 
     public static void sleep(long milliseconds) {
         try {
@@ -343,5 +336,47 @@ public class Utils {
             lists.add(chunks - 1, sublist);
         }
         return lists;
+    }
+
+    public static void writeJsonCache(ForkJoinPool forkJoinPool, Path folder, JSONObject jsonObject) {
+        Path cacheRoot = Paths.get("./cache/");
+        Path filePath = getFilePath(folder, jsonObject);
+        try {
+            FileWriter fileWriter = new FileWriter(filePath.toFile());
+            fileWriter.write(jsonObject.toString(4));
+            fileWriter.close();
+        } catch (IOException e) {
+            logger.fatal("Unable to write file {}", cacheRoot.relativize(filePath), e);
+            forkJoinPool.shutdownNow();
+            Utils.deleteDirectory(cacheRoot.resolve(cacheRoot.relativize(filePath).getName(0)));
+            System.exit(ErrorCodes.IO_WRITE.getErrorCode());
+        }
+    }
+
+    private static Path getFilePath(Path folder, JSONObject jsonObject) {
+        long id;
+        if (jsonObject.has("id")) {
+            id = jsonObject.getLong("id");
+        } else if (jsonObject.has("engagement")) {
+            id = jsonObject.getJSONObject("engagement").getLong("id");
+        } else {
+            id = 0;
+        }
+        return folder.resolve(id + ".json");
+    }
+
+    public static void writeJsonCache(ExecutorService executorService, Path folder, JSONObject jsonObject) {
+        Path cacheRoot = Paths.get("./cache/");
+        Path filePath = getFilePath(folder, jsonObject);
+        try {
+            FileWriter fileWriter = new FileWriter(filePath.toFile());
+            fileWriter.write(jsonObject.toString(4));
+            fileWriter.close();
+        } catch (IOException e) {
+            logger.fatal("Unable to write file {}", cacheRoot.relativize(filePath), e);
+            executorService.shutdownNow();
+            Utils.deleteDirectory(cacheRoot.resolve(cacheRoot.relativize(filePath).getName(0)));
+            System.exit(ErrorCodes.IO_WRITE.getErrorCode());
+        }
     }
 }

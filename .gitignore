@@ -1,7 +1,6 @@
 # Project exclude paths
 /target/
 /logs/
-/.idea/
 /contacts/
 /cache/
 /jsons/
