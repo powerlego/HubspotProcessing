@@ -1,5 +1,6 @@
 package org.hubspot.services;
 
+import com.google.common.util.concurrent.RateLimiter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.HubSpotObject;
@@ -30,10 +31,15 @@ public class CRMProperties extends HubSpotObject {
         super(0);
     }
 
-    public static PropertyData getAllProperties(HttpService service, CRMObjectType type, boolean includeHidden)
+    public static PropertyData getAllProperties(HttpService service,
+                                                CRMObjectType type,
+                                                boolean includeHidden,
+                                                RateLimiter rateLimiter
+    )
     throws HubSpotException {
         Map<String, Object> properties = new HashMap<>();
         ArrayList<String> propertyNames = new ArrayList<>();
+        rateLimiter.acquire();
         JSONObject jsonObject = (JSONObject) service.getRequest(urlBase + type.getValue());
         JSONArray results = jsonObject.getJSONArray("results");
         for (Object o : results) {
@@ -55,10 +61,12 @@ public class CRMProperties extends HubSpotObject {
     public static PropertyData getPropertiesByGroupName(HttpService service,
                                                         CRMObjectType type,
                                                         String groupName,
-                                                        boolean includeHidden
+                                                        boolean includeHidden,
+                                                        RateLimiter rateLimiter
     ) throws HubSpotException {
         Map<String, Object> properties = new HashMap<>();
         ArrayList<String> propertyNames = new ArrayList<>();
+        rateLimiter.acquire();
         JSONObject jsonObject = (JSONObject) service.getRequest(urlBase + type.getValue());
         JSONArray results = jsonObject.getJSONArray("results");
         for (Object o : results) {

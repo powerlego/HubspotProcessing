@@ -29,7 +29,8 @@ public enum ErrorCodes {
     HTTP_501(246),
     HTTP_502(247),
     HTTP_503(248),
-    HTTP_504(249);
+    HTTP_504(249),
+    HTTP_524(14);
     private final int errorCode;
 
     ErrorCodes(int errorCode) {

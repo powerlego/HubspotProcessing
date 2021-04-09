@@ -1,5 +1,6 @@
 package org.hubspot.services;
 
+import com.google.common.util.concurrent.RateLimiter;
 import me.tongfei.progressbar.ProgressBar;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -37,7 +38,10 @@ public class CompanyService {
         return cacheFolder.toFile().exists();
     }
 
-    static ConcurrentHashMap<Long, Company> getAllCompanies(HttpService httpService, PropertyData propertyData)
+    static ConcurrentHashMap<Long, Company> getAllCompanies(HttpService httpService,
+                                                            PropertyData propertyData,
+                                                            RateLimiter rateLimiter
+    )
     throws HubSpotException {
         Map<String, Object> map = new HashMap<>();
         ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
@@ -45,7 +49,7 @@ public class CompanyService {
         map.put("properties", propertyData.getPropertyNamesString());
         map.put("archived", false);
         long after;
-        long count = Utils.getObjectCount(httpService, CRMObjectType.COMPANIES);
+        long count = Utils.getObjectCount(httpService, CRMObjectType.COMPANIES, rateLimiter);
         try {
             Files.createDirectories(cacheFolder);
         }
@@ -56,6 +60,7 @@ public class CompanyService {
         ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
         try (ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Companies", count)) {
             while (true) {
+                rateLimiter.acquire();
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
                 Runnable process = () -> {
                     for (Object o : jsonObject.getJSONArray("results")) {
@@ -120,8 +125,10 @@ public class CompanyService {
         return company;
     }
 
-    static Company getByID(HttpService service, String propertyString, long id) throws HubSpotException {
+    static Company getByID(HttpService service, String propertyString, long id, RateLimiter rateLimiter)
+    throws HubSpotException {
         String urlString = url + id;
+        rateLimiter.acquire();
         return getCompany(service, propertyString, urlString);
     }
 
@@ -171,13 +178,14 @@ public class CompanyService {
         return companies;
     }
 
-    static void writeCompanyJsons(HttpService httpService, PropertyData propertyData) throws HubSpotException {
+    static void writeCompanyJsons(HttpService httpService, PropertyData propertyData, RateLimiter rateLimiter)
+    throws HubSpotException {
         Map<String, Object> map = new HashMap<>();
         map.put("limit", LIMIT);
         map.put("properties", propertyData.getPropertyNamesString());
         map.put("archived", false);
         long after;
-        long count = Utils.getObjectCount(httpService, CRMObjectType.COMPANIES);
+        long count = Utils.getObjectCount(httpService, CRMObjectType.COMPANIES, rateLimiter);
         ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
         try {
             Files.createDirectories(cacheFolder);
@@ -186,8 +194,10 @@ public class CompanyService {
             logger.fatal("Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
+
         try (ProgressBar pb = Utils.createProgressBar("Writing Companies", count)) {
             while (true) {
+                rateLimiter.acquire();
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
                 Runnable process = () -> {
                     for (Object o : jsonObject.getJSONArray("results")) {

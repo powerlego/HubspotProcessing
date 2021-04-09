@@ -19,6 +19,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 
 /**
  * @author Nicholas Curl
@@ -53,9 +55,10 @@ public class Main {
                                                               ? null
                                                               : hubspot.crm().readEngagementJsons();
         ArrayList<Contact> filteredContacts = hubspot.crm().filterContacts(contacts);
+        ForkJoinPool forkJoinPool = new ForkJoinPool(5);
         if (engagements == null) {
             try (ProgressBar pb = Utils.createProgressBar("Processing Filtered Contacts", filteredContacts.size())) {
-                filteredContacts.parallelStream().forEach(contact -> {
+                forkJoinPool.submit(() -> filteredContacts.parallelStream().forEach(contact -> {
                     EngagementData engagementData = hubspot.crm().getContactEngagements(contact);
                     contact.setEngagementIds(engagementData.getEngagementIds());
                     contact.setEngagements(engagementData.getEngagements());
@@ -71,13 +74,28 @@ public class Main {
                     ContactWriter.write(contact);
                     pb.step();
                     Utils.sleep(1L);
-                });
+                }));
+            }
+            forkJoinPool.shutdown();
+            try {
+                if (!forkJoinPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                    logger.warn("Termination Timeout");
+                }
+            }
+            catch (InterruptedException e) {
+                logger.fatal("Thread interrupted", e);
+                System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
             }
         }
         else {
             try (ProgressBar pb = Utils.createProgressBar("Processing Filtered Contacts", filteredContacts.size())) {
-                filteredContacts.parallelStream().forEach(contact -> {
-                    EngagementData engagementData = engagements.get(contact.getId());
+                forkJoinPool.submit(() -> filteredContacts.parallelStream().forEach(contact -> {
+                    EngagementData engagementData = !engagements.containsKey(contact.getId())
+                                                    ? hubspot.crm()
+                                                             .getContactEngagements(contact)
+                                                    : engagements.get(contact.getId());
+                    contact.setEngagementIds(engagementData.getEngagementIds());
+                    contact.setEngagements(engagementData.getEngagements());
                     String companyProperty = contact.getProperty("company").toString();
                     if (companyProperty == null || companyProperty.equalsIgnoreCase("null")) {
                         long associatedCompanyId = contact.getAssociatedCompany();
@@ -90,7 +108,17 @@ public class Main {
                     ContactWriter.write(contact);
                     pb.step();
                     Utils.sleep(1L);
-                });
+                }));
+            }
+            forkJoinPool.shutdown();
+            try {
+                if (!forkJoinPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                    logger.warn("Termination Timeout");
+                }
+            }
+            catch (InterruptedException e) {
+                logger.fatal("Thread interrupted", e);
+                System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
             }
         }
     }

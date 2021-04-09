@@ -1,5 +1,6 @@
 package org.hubspot.services;
 
+import com.google.common.util.concurrent.RateLimiter;
 import me.tongfei.progressbar.ProgressBar;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
@@ -60,7 +61,10 @@ public class ContactService {
         return new ArrayList<>(filteredContacts);
     }
 
-    static ArrayList<Contact> getAllContacts(HttpService httpService, PropertyData propertyData)
+    static ArrayList<Contact> getAllContacts(HttpService httpService,
+                                             PropertyData propertyData,
+                                             RateLimiter rateLimiter
+    )
     throws HubSpotException {
         Map<String, Object> map = new HashMap<>();
         List<Contact> contacts = Collections.synchronizedList(new ArrayList<>());
@@ -69,7 +73,7 @@ public class ContactService {
         map.put("archived", false);
         String url = "/crm/v3/objects/contacts/";
         long after;
-        long count = Utils.getObjectCount(httpService, CRMObjectType.CONTACTS);
+        long count = Utils.getObjectCount(httpService, CRMObjectType.CONTACTS, rateLimiter);
         ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("ContactGrabber"));
         try {
             Files.createDirectories(cacheFolder);
@@ -80,6 +84,7 @@ public class ContactService {
         }
         try (ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Contacts", count)) {
             while (true) {
+                rateLimiter.acquire();
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
                 Runnable process = () -> {
                     for (Object o : jsonObject.getJSONArray("results")) {
@@ -143,8 +148,10 @@ public class ContactService {
         return contact;
     }
 
-    static Contact getByID(HttpService service, String propertyString, long id) throws HubSpotException {
+    static Contact getByID(HttpService service, String propertyString, long id, RateLimiter rateLimiter)
+    throws HubSpotException {
         String url = "/crm/v3/objects/contacts/" + id;
+        rateLimiter.acquire();
         return getContact(service, propertyString, url);
     }
 
@@ -194,14 +201,15 @@ public class ContactService {
         return new ArrayList<>(contacts);
     }
 
-    static void writeContactJson(HttpService httpService, PropertyData propertyData) throws HubSpotException {
+    static void writeContactJson(HttpService httpService, PropertyData propertyData, RateLimiter rateLimiter)
+    throws HubSpotException {
         Map<String, Object> map = new HashMap<>();
         map.put("limit", LIMIT);
         map.put("properties", propertyData.getPropertyNamesString());
         map.put("archived", false);
         String url = "/crm/v3/objects/contacts/";
         long after;
-        long count = Utils.getObjectCount(httpService, CRMObjectType.CONTACTS);
+        long count = Utils.getObjectCount(httpService, CRMObjectType.CONTACTS, rateLimiter);
         ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("ContactGrabber"));
         try {
             Files.createDirectories(cacheFolder);
@@ -212,6 +220,7 @@ public class ContactService {
         }
         try (ProgressBar pb = Utils.createProgressBar("Writing Contacts", count)) {
             while (true) {
+                rateLimiter.acquire();
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
                 Runnable process = () -> {
                     for (Object o : jsonObject.getJSONArray("results")) {

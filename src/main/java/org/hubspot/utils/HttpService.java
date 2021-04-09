@@ -6,6 +6,7 @@ import kong.unirest.JsonNode;
 import kong.unirest.Unirest;
 import kong.unirest.UnirestException;
 import kong.unirest.json.JSONObject;
+import org.apache.http.impl.execchain.RequestAbortedException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 
@@ -24,7 +25,12 @@ public class HttpService {
 
     public HttpService(String apiKey, String apiBase) {
         this.apiKey = apiKey;
-        Unirest.config().automaticRetries(true).socketTimeout(0).defaultBaseUrl(apiBase).connectTimeout(0);
+        Unirest.config()
+               .automaticRetries(true)
+               .socketTimeout(0)
+               .defaultBaseUrl(apiBase)
+               .connectTimeout(0)
+               .concurrency(200, 15);
     }
 
     public Object getRequest(String url, Map<String, Object> queryParams) throws HubSpotException {
@@ -40,10 +46,12 @@ public class HttpService {
                 }
             }
             catch (UnirestException e) {
-                throw new HubSpotException("Can not get data\n URL:" + url,
-                                           ErrorCodes.UNIREST_EXCEPTION.getErrorCode(),
-                                           e
-                );
+                if (!(e.getCause() instanceof RequestAbortedException)) {
+                    throw new HubSpotException("Can not get data\n URL:" + url,
+                                               ErrorCodes.UNIREST_EXCEPTION.getErrorCode(),
+                                               e
+                    );
+                }
             }
         }
     }
@@ -56,7 +64,8 @@ public class HttpService {
             }
         }
         catch (HubSpotException e) {
-            if (e.getCode() == ErrorCodes.HTTP_502.getErrorCode()) {
+            if (e.getCode() == ErrorCodes.HTTP_502.getErrorCode() ||
+                e.getCode() == ErrorCodes.HTTP_524.getErrorCode()) {
                 Utils.sleep(50L);
             }
             else if (e.getCode() == ErrorCodes.HTTP_429.getErrorCode()) {
@@ -121,10 +130,12 @@ public class HttpService {
                 }
             }
             catch (UnirestException e) {
-                throw new HubSpotException("Can not get data\n URL:" + url,
-                                           ErrorCodes.UNIREST_EXCEPTION.getErrorCode(),
-                                           e
-                );
+                if (!(e.getCause() instanceof RequestAbortedException)) {
+                    throw new HubSpotException("Can not get data\n URL:" + url,
+                                               ErrorCodes.UNIREST_EXCEPTION.getErrorCode(),
+                                               e
+                    );
+                }
             }
         }
     }
@@ -139,10 +150,13 @@ public class HttpService {
                 }
             }
             catch (UnirestException e) {
-                throw new HubSpotException("Can not get data\n URL:" + url,
-                                           ErrorCodes.UNIREST_EXCEPTION.getErrorCode(),
-                                           e
-                );
+                if (!(e.getCause() instanceof RequestAbortedException)) {
+                    throw new HubSpotException("Can not get data\n URL:" + url,
+                                               ErrorCodes.UNIREST_EXCEPTION.getErrorCode(),
+                                               e
+                    );
+                }
+
             }
         }
     }
@@ -169,10 +183,12 @@ public class HttpService {
                 }
             }
             catch (UnirestException e) {
-                throw new HubSpotException("Cannot make a request: \n" + properties,
-                                           ErrorCodes.UNIREST_EXCEPTION.getErrorCode(),
-                                           e
-                );
+                if (!(e.getCause() instanceof RequestAbortedException)) {
+                    throw new HubSpotException("Cannot make a request: \n" + properties,
+                                               ErrorCodes.UNIREST_EXCEPTION.getErrorCode(),
+                                               e
+                    );
+                }
             }
         }
     }

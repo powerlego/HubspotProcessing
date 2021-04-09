@@ -1,5 +1,6 @@
 package org.hubspot.utils;
 
+import com.google.common.util.concurrent.RateLimiter;
 import me.tongfei.progressbar.ProgressBar;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import me.tongfei.progressbar.ProgressBarStyle;
@@ -89,7 +90,7 @@ public class Utils {
         return getProgressBarBuilder(taskName).build();
     }
 
-    public static long getObjectCount(HttpService service, CRMObjectType type) {
+    public static long getObjectCount(HttpService service, CRMObjectType type, RateLimiter rateLimiter) {
         JSONObject body = new JSONObject();
         JSONArray filterGroupsArray = new JSONArray();
         JSONObject filters = new JSONObject();
@@ -104,6 +105,7 @@ public class Utils {
         propertyArray.put("hs_object_id");
         body.put("properties", propertyArray).put("limit", 1);
         try {
+            rateLimiter.acquire();
             JSONObject resp = (JSONObject) service.postRequest("/crm/v3/objects/" + type.getValue() + "/search", body);
             return resp.getLong("total");
         }
@@ -368,6 +370,15 @@ public class Utils {
         catch (IOException e) {
             logger.fatal("Unable to write file {}", cacheRoot.relativize(filePath), e);
             executorService.shutdownNow();
+            try {
+                if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                    logger.warn("Termination Timeout");
+                }
+            }
+            catch (InterruptedException interruptedException) {
+                logger.fatal("Thread interrupted", interruptedException);
+                System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
+            }
             Utils.deleteDirectory(cacheRoot.resolve(cacheRoot.relativize(filePath).getName(0)));
             System.exit(ErrorCodes.IO_WRITE.getErrorCode());
         }
