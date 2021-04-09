@@ -9,16 +9,17 @@ import java.util.List;
  * @author Nicholas Curl
  */
 public class Email extends Engagement {
+
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
-    private final String body;
-    private final List<Details> to;
-    private final List<Details> cc;
-    private final List<Details> bcc;
-    private final Details from;
-    private final String subject;
+    private static final Logger        logger = LogManager.getLogger();
+    private final        String        body;
+    private final        List<Details> to;
+    private final        List<Details> cc;
+    private final        List<Details> bcc;
+    private final        Details       from;
+    private final        String        subject;
 
     public Email(long id,
                  List<Details> to,
@@ -69,33 +70,43 @@ public class Email extends Engagement {
         for (int i = 0; i < to.size(); i++) {
             if ((i + 1) == to.size()) {
                 toBuilder.append(to.get(i));
-            } else {
+            }
+            else {
                 toBuilder.append(to.get(i)).append(", ");
             }
         }
         for (int i = 0; i < cc.size(); i++) {
             if ((i + 1) == cc.size()) {
                 ccBuilder.append(cc.get(i));
-            } else {
+            }
+            else {
                 ccBuilder.append(cc.get(i)).append(", \n\t");
             }
         }
         for (int i = 0; i < bcc.size(); i++) {
             if ((i + 1) == bcc.size()) {
                 bccBuilder.append(bcc.get(i));
-            } else {
+            }
+            else {
                 bccBuilder.append(bcc.get(i)).append(", ");
             }
         }
-        return "To:\t" + toBuilder.toString() +
-                "\nCC:\t" + ccBuilder.toString() +
-                "\nBCC:\t" + bccBuilder.toString() +
-                "\nFrom:\t" + from +
-                "\nSubject:\t" + subject +
-                "\n" + body;
+        return "To:\t" +
+               toBuilder.toString() +
+               "\nCC:\t" +
+               ccBuilder.toString() +
+               "\nBCC:\t" +
+               bccBuilder.toString() +
+               "\nFrom:\t" +
+               from +
+               "\nSubject:\t" +
+               subject +
+               "\n" +
+               body;
     }
 
     public static class Details {
+
         private final String firstName;
         private final String lastName;
         private final String email;

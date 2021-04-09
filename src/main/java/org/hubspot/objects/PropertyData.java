@@ -11,12 +11,13 @@ import java.util.Map;
  * @author Nicholas Curl
  */
 public class PropertyData {
+
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
-    private final List<String> propertyNames;
-    private final Map<String, Object> properties;
+    private static final Logger              logger = LogManager.getLogger();
+    private final        List<String>        propertyNames;
+    private final        Map<String, Object> properties;
 
     public PropertyData(List<String> propertyNames, Map<String, Object> properties) {
         this.properties = properties;

@@ -160,6 +160,67 @@ public class EngagementsProcessor {
         }
     }
 
+    private static EngagementData readContactEngagementJsons(File contactFolder, ProgressBar pb, long contactId) {
+        pb.stepTo(0);
+        File[] files = contactFolder.listFiles();
+        List<Long> engagementIds = Collections.synchronizedList(new ArrayList<>());
+        List<Engagement> engagements = Collections.synchronizedList(new ArrayList<>());
+        if (files != null) {
+            pb.maxHint(files.length).setExtraMessage("Contact ID: " + contactId).resume();
+            Arrays.stream(files).parallel().forEach(file -> {
+                String jsonString = Utils.readFile(file);
+                JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
+                long engagementId = jsonObject.getJSONObject("engagement").getLong("id");
+                Engagement engagement = process(jsonObject);
+                engagementIds.add(engagementId);
+                engagements.add(engagement);
+                pb.step();
+            });
+        }
+        pb.pause();
+        return new EngagementData((ArrayList<Long>) engagementIds, (ArrayList<Engagement>) engagements);
+    }
+
+    private static Email.Details emailDetails(JSONObject jsonDetails) {
+        String firstName = "";
+        String lastName = "";
+        String email = "";
+        if (jsonDetails.has("firstName")) {
+            firstName = jsonDetails.get("firstName").toString();
+        }
+        if (jsonDetails.has("lastName")) {
+            lastName = jsonDetails.get("lastName").toString();
+        }
+        if (jsonDetails.has("email")) {
+            email = jsonDetails.get("email").toString();
+        }
+        return new Email.Details(firstName, lastName, email);
+    }
+
+    public static Path getCacheFolder() {
+        return cacheFolder;
+    }
+
+    static ConcurrentHashMap<Long, EngagementData> readEngagementJsons() {
+        ConcurrentHashMap<Long, EngagementData> contactsEngagementData = new ConcurrentHashMap<>();
+        File[] files = cacheFolder.toFile().listFiles(File::isDirectory);
+        if (files != null) {
+            try (ProgressBar pb = Utils.createProgressBar("Reading Engagement Cache", files.length);
+                 ProgressBar pb1 = Utils.createProgressBar("Reading Engagements")
+            ) {
+                Arrays.stream(files).forEach(file -> {
+                    long contactId = Long.parseLong(file.getName());
+                    pb.pause();
+                    EngagementData engagementData = readContactEngagementJsons(file, pb1, contactId);
+                    pb.resume();
+                    contactsEngagementData.put(contactId, engagementData);
+                    pb.step();
+                });
+            }
+        }
+        return contactsEngagementData;
+    }
+
     private static Engagement process(JSONObject engagementJson) {
         JSONObject engagementData = engagementJson.getJSONObject("engagement");
         String type = engagementData.getString("type");
@@ -212,8 +273,8 @@ public class EngagementsProcessor {
                 emailBody = emailBody.replaceAll("\r", "");
                 if (emailBody.contains("From:")) {
                     String[] bodySplit = emailBody.split("From:");
-                    StringBuilder builder = new StringBuilder();
-                    builder.append(Utils.format(bodySplit[0], WORDWRAP)).append("\n");
+                    StringBuilder builder = new StringBuilder().append(Utils.format(bodySplit[0], WORDWRAP))
+                                                               .append("\n");
                     for (int i = 1; i < bodySplit.length; i++) {
                         builder.append(Utils.createLineDivider(WORDWRAP));
                         String rest = "From:" + bodySplit[i];
@@ -336,69 +397,6 @@ public class EngagementsProcessor {
         }
     }
 
-    private static Email.Details emailDetails(JSONObject jsonDetails) {
-        String firstName = "";
-        String lastName = "";
-        String email = "";
-        if (jsonDetails.has("firstName")) {
-            firstName = jsonDetails.get("firstName").toString();
-        }
-        if (jsonDetails.has("lastName")) {
-            lastName = jsonDetails.get("lastName").toString();
-        }
-        if (jsonDetails.has("email")) {
-            email = jsonDetails.get("email").toString();
-        }
-        return new Email.Details(firstName, lastName, email);
-    }
-
-    public static Path getCacheFolder() {
-        return cacheFolder;
-    }
-
-    static ConcurrentHashMap<Long, EngagementData> readEngagementJsons() {
-        ConcurrentHashMap<Long, EngagementData> contactsEngagementData = new ConcurrentHashMap<>();
-        File[] files = cacheFolder.toFile().listFiles(File::isDirectory);
-        if (files != null) {
-            try (ProgressBar pb = Utils.createProgressBar("Reading Engagement Cache", files.length);
-                 ProgressBar pb1 = Utils.createProgressBar("Reading Engagements")
-            ) {
-                Arrays.stream(files).forEach(file -> {
-                    long contactId = Long.parseLong(file.getName());
-                    pb.pause();
-                    EngagementData engagementData = readContactEngagementJsons(file, pb1, contactId);
-                    pb.resume();
-                    contactsEngagementData.put(contactId, engagementData);
-                    pb.step();
-                });
-            }
-        }
-        return contactsEngagementData;
-    }
-
-    private static EngagementData readContactEngagementJsons(File contactFolder, ProgressBar pb, long contactId) {
-        pb.stepTo(0);
-        File[] files = contactFolder.listFiles();
-        List<Long> engagementIds = Collections.synchronizedList(new ArrayList<>());
-        List<Engagement> engagements = Collections.synchronizedList(new ArrayList<>());
-        if (files != null) {
-            pb.maxHint(files.length);
-            pb.setExtraMessage("Contact ID: " + contactId);
-            pb.resume();
-            Arrays.stream(files).parallel().forEach(file -> {
-                String jsonString = Utils.readFile(file);
-                JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
-                long engagementId = jsonObject.getJSONObject("engagement").getLong("id");
-                Engagement engagement = process(jsonObject);
-                engagementIds.add(engagementId);
-                engagements.add(engagement);
-                pb.step();
-            });
-        }
-        pb.pause();
-        return new EngagementData((ArrayList<Long>) engagementIds, (ArrayList<Engagement>) engagements);
-    }
-
     static void writeContactEngagementJsons(HttpService httpService, long contactId) throws HubSpotException {
         Path folder = cacheFolder.resolve(contactId + "/");
         try {
@@ -414,31 +412,23 @@ public class EngagementsProcessor {
             Files.createDirectories(folder);
         }
         catch (IOException e) {
-            throw new HubSpotException
-                    ("Unable to write engagement jsons for contact id" + contactId,
-                     ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode(),
-                     e
-                    );
+            throw new HubSpotException("Unable to write engagement jsons for contact id" + contactId,
+                                       ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode(),
+                                       e
+            );
         }
         ArrayList<JSONObject> engagementJsons = getEngagementJson(httpService, contactId);
         ForkJoinPool forkJoinPool = new ForkJoinPool();
-        forkJoinPool.submit
-                (() -> ProgressBar.wrap
-                        (engagementJsons.parallelStream(),
-                         Utils.getProgressBarBuilder
-                                 ("Writing Engagements for contact id " +
-                                  contactId
-                                 )
-                        )
-                                  .forEach(jsonObject -> {
-                                      Utils.writeJsonCache(forkJoinPool, folder, jsonObject);
-                                  })
-                );
+        forkJoinPool.submit(() -> ProgressBar.wrap(engagementJsons.parallelStream(),
+                                                   Utils.getProgressBarBuilder("Writing Engagements for contact id " +
+                                                                               contactId)
+        ).forEach(jsonObject -> {
+            Utils.writeJsonCache(forkJoinPool, folder, jsonObject);
+        }));
     }
 
-    private static ArrayList<JSONObject> getEngagementJson(HttpService httpService,
-                                                           long contactId
-    ) throws HubSpotException {
+    private static ArrayList<JSONObject> getEngagementJson(HttpService httpService, long contactId)
+    throws HubSpotException {
         try {
             ArrayList<Long> engagementIdsToIterate = getAllEngagementIds(httpService, contactId);
             List<JSONObject> engagementJsons = Collections.synchronizedList(new ArrayList<>());
@@ -447,10 +437,9 @@ public class EngagementsProcessor {
                 try {
                     JSONObject jsonEngagement = (JSONObject) httpService.getRequest(engagementUrl);
                     if (jsonEngagement == null) {
-                        throw new HubSpotException
-                                (new NullException("Json Object is null"),
-                                 ErrorCodes.NULL_EXCEPTION.getErrorCode()
-                                );
+                        throw new HubSpotException(new NullException("Json Object is null"),
+                                                   ErrorCodes.NULL_EXCEPTION.getErrorCode()
+                        );
                     }
                     engagementJsons.add(jsonEngagement);
                 }
@@ -489,6 +478,4 @@ public class EngagementsProcessor {
             return engagements;
         }
     }
-
-
 }

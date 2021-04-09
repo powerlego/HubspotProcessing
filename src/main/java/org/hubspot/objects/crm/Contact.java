@@ -14,17 +14,18 @@ import java.util.List;
  * @author Nicholas Curl
  */
 public class Contact extends CRMObject {
+
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
-    private List<Long> engagementIds = new LinkedList<>();
-    private List<Engagement> engagements = new LinkedList<>();
-    private String leadStatus;
-    private String lifeCycleStage;
-    private String firstName;
-    private String lastName;
-    private String email;
+    private static final Logger           logger        = LogManager.getLogger();
+    private              List<Long>       engagementIds = new LinkedList<>();
+    private              List<Engagement> engagements   = new LinkedList<>();
+    private              String           leadStatus;
+    private              String           lifeCycleStage;
+    private              String           firstName;
+    private              String           lastName;
+    private              String           email;
 
     public Contact(long id) {
         super(id);
@@ -38,6 +39,21 @@ public class Contact extends CRMObject {
         this.engagementIds.add(engagementId);
     }
 
+    public long getAssociatedCompany() {
+        Object companyIdObject = this.getProperties().get("associatedcompanyid");
+        if (companyIdObject instanceof Integer) {
+            return (int) companyIdObject;
+        }
+        if (companyIdObject.toString().equalsIgnoreCase("null")) {
+            return 0;
+        }
+        return (long) this.getProperties().get("associatedcompanyid");
+    }
+
+    public String getEmail() {
+        return email;
+    }
+
     public List<Long> getEngagementIds() {
         return engagementIds;
     }
@@ -46,23 +62,12 @@ public class Contact extends CRMObject {
         this.engagementIds = engagementIds;
     }
 
-    public long getAssociatedCompany() {
-        Object companyIdObject = this.getProperties().get("associatedcompanyid");
-        if (companyIdObject instanceof Integer) {
-            return (int) companyIdObject;
-        }
-        if(companyIdObject.toString().equalsIgnoreCase("null")){
-            return 0;
-        }
-        return (long) this.getProperties().get("associatedcompanyid");
-    }
-
     public List<Engagement> getEngagements() {
         return engagements;
     }
 
-    public String getEmail() {
-        return email;
+    public void setEngagements(List<Engagement> engagements) {
+        this.engagements = engagements;
     }
 
     public String getFirstName() {
@@ -79,10 +84,6 @@ public class Contact extends CRMObject {
 
     public String getLifeCycleStage() {
         return lifeCycleStage;
-    }
-
-    public void setEngagements(List<Engagement> engagements) {
-        this.engagements = engagements;
     }
 
     @Override
@@ -109,30 +110,28 @@ public class Contact extends CRMObject {
         return toJson().toString();
     }
 
+    public JSONObject toJson() {
+        JSONObject jo = new JSONObject(super.getProperties());
+        JSONArray ja = new JSONArray(engagementIds);
+        return new JSONObject().put("class", this.getClass().getName())
+                               .put("id", getId())
+                               .put("properties", jo)
+                               .put("engagements", ja);
+    }
+
     @Override
     public String toString() {
-        StringBuilder builder = new StringBuilder(super.toString());
-        builder.append("\nEngagement IDs {\n");
+        StringBuilder builder = new StringBuilder(super.toString()).append("\nEngagement IDs {\n");
         for (Iterator<Long> iterator = engagementIds.iterator(); iterator.hasNext(); ) {
             long engagementId = iterator.next();
             if (!iterator.hasNext()) {
                 builder.append("\t").append(engagementId).append("\n");
-            } else {
+            }
+            else {
                 builder.append("\t").append(engagementId).append(",\n");
             }
         }
         builder.append("}");
         return builder.toString();
-    }
-
-    public JSONObject toJson() {
-        JSONObject jo = new JSONObject(super.getProperties());
-        JSONArray ja = new JSONArray(engagementIds);
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("class", this.getClass().getName());
-        jsonObject.put("id", getId());
-        jsonObject.put("properties", jo);
-        jsonObject.put("engagements", ja);
-        return jsonObject;
     }
 }

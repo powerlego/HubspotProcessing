@@ -27,16 +27,18 @@ import java.util.regex.Pattern;
  * @author Nicholas Curl
  */
 public class Utils {
-    public static final Instant now = Instant.now();
+
+    public static final  Instant now    = Instant.now();
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger  logger = LogManager.getLogger();
 
     public static <T> T convertInstanceObject(Object o, Class<T> clazz) {
         try {
             return clazz.cast(o);
-        } catch (ClassCastException e) {
+        }
+        catch (ClassCastException e) {
             return null;
         }
     }
@@ -59,29 +61,6 @@ public class Utils {
         return getProgressBarBuilder(taskName, size).build();
     }
 
-    public static ProgressBarBuilder getProgressBarBuilder(String taskName, long size) {
-        return new ProgressBarBuilder()
-                .setTaskName(taskName)
-                .setInitialMax(size)
-                .setStyle(ProgressBarStyle.ASCII)
-                .setUpdateIntervalMillis(5);
-    }
-
-    public static ProgressBar createProgressBar(String taskName) {
-        return getProgressBarBuilder(taskName).build();
-    }
-
-    public static ProgressBarBuilder getProgressBarBuilder(String taskName) {
-        return new ProgressBarBuilder()
-                .setTaskName(taskName)
-                .setStyle(ProgressBarStyle.ASCII)
-                .setUpdateIntervalMillis(5);
-    }
-
-    public static String format(String string) {
-        return format(string, 80);
-    }
-
     public static String format(String string, int columnWrap) {
         Pattern paragraphs = Pattern.compile("<p>(.*?)</p>");
         Matcher paragraphMatcher = paragraphs.matcher(string);
@@ -102,13 +81,12 @@ public class Utils {
             String line = WordUtils.wrap(s, columnWrap, "\n", false);
             stringBuilder.append(line).append("\n");
         }
-        string = stringBuilder.toString().strip();
-        string = string.replace("&amp;", "&");
+        string = stringBuilder.toString().strip().replace("&amp;", "&");
         return string;
     }
 
-    public static JSONObject formatJson(JSONObject jsonObjectToFormat) {
-        return (JSONObject) recurseCheckingFormat(jsonObjectToFormat);
+    public static ProgressBar createProgressBar(String taskName) {
+        return getProgressBarBuilder(taskName).build();
     }
 
     public static long getObjectCount(HttpService service, CRMObjectType type) {
@@ -118,31 +96,46 @@ public class Utils {
         JSONArray filtersArray = new JSONArray();
         JSONObject filter = new JSONObject();
         JSONArray propertyArray = new JSONArray();
-        filter.put("propertyName", "hs_object_id");
-        filter.put("operator", "HAS_PROPERTY");
+        filter.put("propertyName", "hs_object_id").put("operator", "HAS_PROPERTY");
         filtersArray.put(filter);
         filters.put("filters", filtersArray);
         filterGroupsArray.put(filters);
         body.put("filterGroups", filterGroupsArray);
         propertyArray.put("hs_object_id");
-        body.put("properties", propertyArray);
-        body.put("limit", 1);
+        body.put("properties", propertyArray).put("limit", 1);
         try {
-            JSONObject resp =
-                    (JSONObject) service.postRequest("/crm/v3/objects/" + type.getValue() + "/search", body);
+            JSONObject resp = (JSONObject) service.postRequest("/crm/v3/objects/" + type.getValue() + "/search", body);
             return resp.getLong("total");
-        } catch (HubSpotException e) {
+        }
+        catch (HubSpotException e) {
             logger.fatal("Unable to get object count.", e);
             return 0;
         }
     }
 
+    public static String format(String string) {
+        return format(string, 80);
+    }
+
+    public static ProgressBarBuilder getProgressBarBuilder(String taskName, long size) {
+        return new ProgressBarBuilder().setTaskName(taskName)
+                                       .setInitialMax(size)
+                                       .setStyle(ProgressBarStyle.ASCII)
+                                       .setUpdateIntervalMillis(5);
+    }
+
+    public static JSONObject formatJson(JSONObject jsonObjectToFormat) {
+        return (JSONObject) recurseCheckingFormat(jsonObjectToFormat);
+    }
+
+    public static ProgressBarBuilder getProgressBarBuilder(String taskName) {
+        return new ProgressBarBuilder().setTaskName(taskName)
+                                       .setStyle(ProgressBarStyle.ASCII)
+                                       .setUpdateIntervalMillis(5);
+    }
+
     public static String propertyListToString(List<String> properties) {
-        String propertyString = properties.toString();
-        propertyString = propertyString.replace("[", "");
-        propertyString = propertyString.replace("]", "");
-        propertyString = propertyString.replace(" ", "");
-        return propertyString;
+        return properties.toString().replace("[", "").replace("]", "").replace(" ", "");
     }
 
     public static String readFile(File file) {
@@ -157,7 +150,8 @@ public class Utils {
                 fileString.append(line).append("\n");
             }
             return fileString.toString().strip();
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to read file {}", file, e);
             System.exit(ErrorCodes.IO_READ.getErrorCode());
             return "";
@@ -174,25 +168,30 @@ public class Utils {
                 jsonObject.put(key, recurseCheckingConversion(o1));
             }
             return jsonObject;
-        } else if (object instanceof kong.unirest.json.JSONArray) {
+        }
+        else if (object instanceof kong.unirest.json.JSONArray) {
             kong.unirest.json.JSONArray o = (kong.unirest.json.JSONArray) object;
             JSONArray jsonArray = new JSONArray();
             for (Object o1 : o) {
                 jsonArray.put(recurseCheckingConversion(o1));
             }
             return jsonArray;
-        } else if (object instanceof String) {
+        }
+        else if (object instanceof String) {
             String o = (String) object;
             try {
                 return Long.parseLong(o);
-            } catch (NumberFormatException e) {
+            }
+            catch (NumberFormatException e) {
                 if (o.equalsIgnoreCase("true") || o.equalsIgnoreCase("false")) {
                     return Boolean.parseBoolean(o);
-                } else {
+                }
+                else {
                     return o;
                 }
             }
-        } else {
+        }
+        else {
             return Objects.requireNonNullElse(object, JSONObject.NULL);
         }
     }
@@ -207,25 +206,30 @@ public class Utils {
                 jsonObject.put(key, recurseCheckingFormat(o1));
             }
             return jsonObject;
-        } else if (object instanceof JSONArray) {
+        }
+        else if (object instanceof JSONArray) {
             JSONArray o = (JSONArray) object;
             JSONArray jsonArray = new JSONArray();
             for (Object o1 : o) {
                 jsonArray.put(recurseCheckingFormat(o1));
             }
             return jsonArray;
-        } else if (object instanceof String) {
+        }
+        else if (object instanceof String) {
             String o = (String) object;
             try {
                 return Long.parseLong(o);
-            } catch (NumberFormatException e) {
+            }
+            catch (NumberFormatException e) {
                 if (o.equalsIgnoreCase("true") || o.equalsIgnoreCase("false")) {
                     return Boolean.parseBoolean(o);
-                } else {
+                }
+                else {
                     return o;
                 }
             }
-        } else {
+        }
+        else {
             return Objects.requireNonNullElse(object, JSONObject.NULL);
         }
     }
@@ -236,7 +240,8 @@ public class Utils {
             if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
                 logger.warn("Termination Timeout");
             }
-        } catch (InterruptedException e) {
+        }
+        catch (InterruptedException e) {
             logger.fatal("Thread interrupted", e);
             deleteDirectory(folder);
             System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
@@ -244,14 +249,13 @@ public class Utils {
     }
 
     /**
-     * Deletes the specified directory
-     *
-     * @param directoryToBeDeleted The directory to be deleted
+     * Deletes the specified directory @param directoryToBeDeleted The directory to be deleted
      */
     public static void deleteDirectory(Path directoryToBeDeleted) {
         try {
             Files.walkFileTree(directoryToBeDeleted, new DeletingVisitor(false));
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to delete directory {}", directoryToBeDeleted, e);
             System.exit(ErrorCodes.IO_DELETE_DIRECTORY.getErrorCode());
         }
@@ -263,7 +267,8 @@ public class Utils {
             if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
                 logger.warn("Termination Timeout");
             }
-        } catch (InterruptedException e) {
+        }
+        catch (InterruptedException e) {
             logger.fatal("Thread interrupted", e);
             System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
         }
@@ -273,24 +278,11 @@ public class Utils {
         sleep((long) 1000 * seconds);
     }
 
-    /*public static void getCompleted(Logger logger, AtomicInteger completed, long startTime) {
-        long currTime = System.nanoTime();
-        long elapsed = currTime - startTime;
-        long durationInMills = TimeUnit.NANOSECONDS.toMillis(elapsed);
-        long millis = durationInMills % 1000;
-        long second = (durationInMills / 1000) % 60;
-        long minute = (durationInMills / (1000 * 60)) % 60;
-        long hour = (durationInMills / (1000 * 60 * 60)) % 24;
-        String duration = String.format("%02d:%02d:%02d.%d", hour, minute, second, millis);
-        String formatInfo = "%s%-6s\t%s%s";
-        String info = String.format(formatInfo, "Completed: ", completed.get(), "Elapsed Time: ", duration);
-        logger.debug(info);
-    }*/
-
     public static void sleep(long milliseconds) {
         try {
             Thread.sleep(milliseconds);
-        } catch (InterruptedException e) {
+        }
+        catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
     }
@@ -302,19 +294,15 @@ public class Utils {
         int rest = arrayToSplit.length % chunkSize;
         int chunks = arrayToSplit.length / chunkSize + (rest > 0 ? 1 : 0);
         Class<?> arrayType = arrayToSplit.getClass().getComponentType();
-        @SuppressWarnings("unchecked")
-        T[][] arrays = (T[][]) Array.newInstance(arrayType, chunks, 0);
-        //T[][] arrays = (T[][]) new T[chunks][];
+        @SuppressWarnings("unchecked") T[][] arrays = (T[][]) Array.newInstance(arrayType, chunks, 0);
         for (int i = 0; i < (rest > 0 ? chunks - 1 : chunks); i++) {
             arrays[i] = Arrays.copyOfRange(arrayToSplit, i * chunkSize, i * chunkSize + chunkSize);
         }
         if (rest > 0) {
-            arrays[chunks - 1] =
-                    Arrays.copyOfRange
-                            (arrayToSplit,
-                                    (chunks - 1) * chunkSize,
-                                    (chunks - 1) * chunkSize + rest
-                            );
+            arrays[chunks - 1] = Arrays.copyOfRange(arrayToSplit,
+                                                    (chunks - 1) * chunkSize,
+                                                    (chunks - 1) * chunkSize + rest
+            );
         }
         return arrays;
     }
@@ -331,8 +319,9 @@ public class Utils {
             lists.add(i, sublist);
         }
         if (rest > 0) {
-            ArrayList<T> sublist =
-                    new ArrayList<>(listToSplit.subList((chunks - 1) * chunkSize, (chunks - 1) * chunkSize + rest));
+            ArrayList<T> sublist = new ArrayList<>(listToSplit.subList((chunks - 1) * chunkSize,
+                                                                       (chunks - 1) * chunkSize + rest
+            ));
             lists.add(chunks - 1, sublist);
         }
         return lists;
@@ -345,7 +334,8 @@ public class Utils {
             FileWriter fileWriter = new FileWriter(filePath.toFile());
             fileWriter.write(jsonObject.toString(4));
             fileWriter.close();
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to write file {}", cacheRoot.relativize(filePath), e);
             forkJoinPool.shutdownNow();
             Utils.deleteDirectory(cacheRoot.resolve(cacheRoot.relativize(filePath).getName(0)));
@@ -357,9 +347,11 @@ public class Utils {
         long id;
         if (jsonObject.has("id")) {
             id = jsonObject.getLong("id");
-        } else if (jsonObject.has("engagement")) {
+        }
+        else if (jsonObject.has("engagement")) {
             id = jsonObject.getJSONObject("engagement").getLong("id");
-        } else {
+        }
+        else {
             id = 0;
         }
         return folder.resolve(id + ".json");
@@ -372,7 +364,8 @@ public class Utils {
             FileWriter fileWriter = new FileWriter(filePath.toFile());
             fileWriter.write(jsonObject.toString(4));
             fileWriter.close();
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to write file {}", cacheRoot.relativize(filePath), e);
             executorService.shutdownNow();
             Utils.deleteDirectory(cacheRoot.resolve(cacheRoot.relativize(filePath).getName(0)));

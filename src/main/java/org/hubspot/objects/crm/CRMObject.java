@@ -12,12 +12,12 @@ import java.util.Map;
  * @author Nicholas Curl
  */
 public class CRMObject extends HubSpotObject {
+
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
-
-    private HashMap<String, Object> properties = new HashMap<>();
+    private static final Logger                  logger     = LogManager.getLogger();
+    private              HashMap<String, Object> properties = new HashMap<>();
 
     public CRMObject(long id) {
         super(id);
@@ -41,24 +41,26 @@ public class CRMObject extends HubSpotObject {
 
     @Override
     public String toString() {
-        StringBuilder builder = new StringBuilder();
-        builder.append("ID: ").append(getId()).append("\n");
-        builder.append("Properties {\n");
+        StringBuilder builder = new StringBuilder().append("ID: ")
+                                                   .append(getId())
+                                                   .append("\n")
+                                                   .append("Properties {\n");
         for (Iterator<String> iterator = properties.keySet().iterator(); iterator.hasNext(); ) {
             String key = iterator.next();
             Object property = properties.get(key);
             if (!iterator.hasNext()) {
                 builder.append("\t")
-                        .append(key)
-                        .append(" = ")
-                        .append(property == null ? "null" : property)
-                        .append("\n");
-            } else {
+                       .append(key)
+                       .append(" = ")
+                       .append(property == null ? "null" : property)
+                       .append("\n");
+            }
+            else {
                 builder.append("\t")
-                        .append(key)
-                        .append(" = ")
-                        .append(property == null ? "null" : property)
-                        .append(",\n");
+                       .append(key)
+                       .append(" = ")
+                       .append(property == null ? "null" : property)
+                       .append(",\n");
             }
         }
         builder.append("}");

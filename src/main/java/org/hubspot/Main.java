@@ -93,10 +93,5 @@ public class Main {
                 });
             }
         }
-        //ConcurrentHashMap<Long, Company> companies = hubspot.crm().getAllCompanies("companyinformation", false);
-        //Utils.deleteDirectory(Paths.get("./contacts"));
-        //hubspot.crm().writeContactJson("contactinformation", true);
-        //hubspot.crm().writeCompanyJson("companyinformation", false);
-        //ConcurrentHashMap<Long, Company> companies = hubspot.crm().readCompanyJsons();
     }
 }

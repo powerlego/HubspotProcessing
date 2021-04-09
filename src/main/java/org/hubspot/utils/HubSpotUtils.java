@@ -12,6 +12,7 @@ import java.util.Map;
  * @author Nicholas Curl
  */
 public class HubSpotUtils {
+
     /**
      * The instance of the logger
      */
@@ -23,7 +24,6 @@ public class HubSpotUtils {
 
     public static JSONObject mapToJson(Map<String, String> propertiesMap) {
         JSONObject jo = new JSONObject(propertiesMap);
-
         return new JSONObject().put("properties", jo);
     }
 
@@ -31,7 +31,6 @@ public class HubSpotUtils {
         if (!Strings.isNullOrEmpty(value + "") && !value.equals("null")) {
             jo.put(property, value);
         }
-
         return jo;
     }
 
@@ -42,8 +41,6 @@ public class HubSpotUtils {
     }
 
     public static JSONObject getJsonObject(String property, Object value) {
-        return new JSONObject()
-                .put("property", property)
-                .put("value", value);
+        return new JSONObject().put("property", property).put("value", value);
     }
 }

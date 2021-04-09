@@ -9,12 +9,13 @@ import java.util.List;
  * @author Nicholas Curl
  */
 public class Note extends Engagement {
+
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
-    private final String note;
-    private final List<Long> attachments;
+    private static final Logger     logger = LogManager.getLogger();
+    private final        String     note;
+    private final        List<Long> attachments;
 
     public Note(long id, String note, List<Long> attachments) {
         super(id);
@@ -28,9 +29,7 @@ public class Note extends Engagement {
 
     @Override
     public String toString() {
-        return note +
-                "\nHas Attachments: " + hasAttachments() +
-                "\nAttachments: " + attachments;
+        return note + "\nHas Attachments: " + hasAttachments() + "\nAttachments: " + attachments;
     }
 
     public boolean hasAttachments() {

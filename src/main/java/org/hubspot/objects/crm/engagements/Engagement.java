@@ -8,6 +8,7 @@ import org.hubspot.objects.HubSpotObject;
  * @author Nicholas Curl
  */
 public class Engagement extends HubSpotObject {
+
     /**
      * The instance of the logger
      */

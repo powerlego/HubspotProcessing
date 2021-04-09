@@ -9,25 +9,28 @@ import java.util.Date;
  * @author Nicholas Curl
  */
 public class Meeting extends Engagement {
+
     /**
      * The instance of the logger
      */
     private static final Logger logger = LogManager.getLogger();
-    private final Date startTime;
-    private final Date endTime;
-    private final String body;
-    private final String title;
+    private final        Date   startTime;
+    private final        Date   endTime;
+    private final        String body;
+    private final        String title;
 
     public Meeting(long id, long startTime, long endTime, String body, String title) {
         super(id);
         if (startTime != -1) {
             this.startTime = new Date(startTime);
-        } else {
+        }
+        else {
             this.startTime = null;
         }
         if (endTime != -1) {
             this.endTime = new Date(endTime);
-        } else {
+        }
+        else {
             this.endTime = null;
         }
         this.body = body;
@@ -52,9 +55,6 @@ public class Meeting extends Engagement {
 
     @Override
     public String toString() {
-        return "Title:\t" + title +
-                "\nStart Time:\t" + startTime +
-                "\nEnd Time:\t" + endTime +
-                "\nBody:\n" + body;
+        return "Title:\t" + title + "\nStart Time:\t" + startTime + "\nEnd Time:\t" + endTime + "\nBody:\n" + body;
     }
 }

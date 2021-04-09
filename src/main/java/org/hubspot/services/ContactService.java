@@ -38,56 +38,30 @@ public class ContactService {
 
     static ArrayList<Contact> filterContacts(ArrayList<Contact> contacts) {
         List<Contact> filteredContacts = Collections.synchronizedList(new ArrayList<>());
-        ProgressBar.wrap
-                (contacts.parallelStream(),
-                 Utils.getProgressBarBuilder("Filtering")
-                )
-                   .forEach(contact -> {
-                       String lifeCycleStage = contact.getLifeCycleStage();
-                       String leadStatus = contact.getLeadStatus();
-                       String lifecycleOR = contact.getProperty("hr_hiring_applicant").toString();
-                    boolean b =
-                            (
-                                    (leadStatus == null || leadStatus.equalsIgnoreCase("null")) ||
-                                            (!leadStatus.toLowerCase().contains("closed")
-                                                    && !leadStatus.equalsIgnoreCase("Recruit")
-                                                    && !leadStatus.toLowerCase().contains("no contact")
-                                                    && !leadStatus.toLowerCase().contains("unqualified")
-                                            )
-                            );
-                    boolean c =
-                            (
-                                    (lifecycleOR == null || lifecycleOR.equalsIgnoreCase("null")) ||
-                                            !lifecycleOR.toLowerCase().contains("closed")
-                            );
-                    if ((lifeCycleStage == null || !lifeCycleStage.equalsIgnoreCase("subscriber"))
-                            && b
-                            && c
-                    ) {
-                        filteredContacts.add(contact);
-                    }
-                    Utils.sleep(1L);
-                });
-        /*try (ProgressBar pb = Utils.createProgressBar("Filtering")) {
-            contacts.forEach(500, (aLong, contact) -> {
-                String lifeCycleStage = contact.getLifeCycleStage();
-                String leadStatus = contact.getLeadStatus();
-                String lifecycleOtherReason = contact.getProperty("hr_hiring_applicant").toString();
-                boolean b = leadStatus == null || (!leadStatus.toLowerCase().contains("closed") && !leadStatus.equalsIgnoreCase("Recruit") && !leadStatus.toLowerCase().contains("no contact") && !leadStatus.toLowerCase().contains("unqualified"));
-                boolean c = (lifecycleOtherReason == null || lifecycleOtherReason.equalsIgnoreCase("null")) || !lifecycleOtherReason.toLowerCase().contains("closed");
-                if ((lifeCycleStage == null || !lifeCycleStage.equalsIgnoreCase("subscriber")) && b && c) {
-                    filteredContacts.put(aLong, contact);
-                }
-                pb.step();
-                Utils.sleep(1L);
-            });
-        }*/
+        ProgressBar.wrap(contacts.parallelStream(), Utils.getProgressBarBuilder("Filtering")).forEach(contact -> {
+            String lifeCycleStage = contact.getLifeCycleStage();
+            String leadStatus = contact.getLeadStatus();
+            String lifecycleOR = contact.getProperty("hr_hiring_applicant").toString();
+            boolean b = ((leadStatus == null || leadStatus.equalsIgnoreCase("null")) ||
+                         (!leadStatus.toLowerCase().contains("closed") &&
+                          !leadStatus.equalsIgnoreCase("Recruit") &&
+                          !leadStatus.toLowerCase().contains("no contact") &&
+                          !leadStatus.toLowerCase().contains("unqualified")
+                         )
+            );
+            boolean c = ((lifecycleOR == null || lifecycleOR.equalsIgnoreCase("null")) ||
+                         !lifecycleOR.toLowerCase().contains("closed")
+            );
+            if ((lifeCycleStage == null || !lifeCycleStage.equalsIgnoreCase("subscriber")) && b && c) {
+                filteredContacts.add(contact);
+            }
+            Utils.sleep(1L);
+        });
         return (ArrayList<Contact>) filteredContacts;
     }
 
-    static ArrayList<Contact> getAllContacts(HttpService httpService,
-                                             PropertyData propertyData
-    ) throws HubSpotException {
+    static ArrayList<Contact> getAllContacts(HttpService httpService, PropertyData propertyData)
+    throws HubSpotException {
         Map<String, Object> map = new HashMap<>();
         List<Contact> contacts = Collections.synchronizedList(new ArrayList<>());
         map.put("limit", LIMIT);
@@ -96,11 +70,11 @@ public class ContactService {
         String url = "/crm/v3/objects/contacts/";
         long after;
         long count = Utils.getObjectCount(httpService, CRMObjectType.CONTACTS);
-        ExecutorService executorService =
-                Executors.newFixedThreadPool(20, new CustomThreadFactory("ContactGrabber"));
+        ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("ContactGrabber"));
         try {
             Files.createDirectories(cacheFolder);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
@@ -140,44 +114,34 @@ public class ContactService {
                 JSONObject jsonProperty = (JSONObject) jsonPropertyObject;
                 Object propertyValue = jsonProperty.get("value");
                 if (propertyValue instanceof String) {
-                    String string = (String) propertyValue;
-                    string = string.strip();
-                    string = string.replaceAll("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\]", "");
+                    String string = ((String) propertyValue).strip()
+                                                            .replaceAll("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\]", "");
                     contact.setProperty(key, string);
-                } else {
+                }
+                else {
                     contact.setProperty(key, propertyValue);
                 }
-            } else {
-                if (jsonPropertyObject == null) {
-                    contact.setProperty(key, null);
-                } else {
-                    if (jsonPropertyObject instanceof String) {
-                        String propertyValue = (String) jsonPropertyObject;
-                        propertyValue = propertyValue.strip();
-                        if (key.equalsIgnoreCase("firstname") ||
-                                key.equalsIgnoreCase("lastname")
-                        ) {
-                            propertyValue = propertyValue.replaceAll
-                                    ("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\:_.\\-@;,]",
-                                            ""
-                                    );
-                        } else {
-                            propertyValue = propertyValue.replaceAll
-                                    ("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\]",
-                                            ""
-                                    );
-                        }
-                        contact.setProperty(key, propertyValue);
-                    } else {
-                        contact.setProperty(key, jsonPropertyObject);
-                    }
+            }
+            else if (jsonPropertyObject == null) {
+                contact.setProperty(key, null);
+            }
+            else if (jsonPropertyObject instanceof String) {
+                String propertyValue = ((String) jsonPropertyObject).strip();
+                if (key.equalsIgnoreCase("firstname") || key.equalsIgnoreCase("lastname")) {
+                    propertyValue = propertyValue.replaceAll("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\:_.\\-@;,]", "");
                 }
+                else {
+                    propertyValue = propertyValue.replaceAll("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\]", "");
+                }
+                contact.setProperty(key, propertyValue);
+            }
+            else {
+                contact.setProperty(key, jsonPropertyObject);
             }
         }
         contact.setData(contact.toJson());
         return contact;
     }
-
 
     static Contact getByID(HttpService service, String propertyString, long id) throws HubSpotException {
         String url = "/crm/v3/objects/contacts/" + id;
@@ -202,6 +166,34 @@ public class ContactService {
         return cacheFolder;
     }
 
+    static ArrayList<Contact> readContactJsons() {
+        List<Contact> contacts = Collections.synchronizedList(new ArrayList<>());
+        File[] files = cacheFolder.toFile().listFiles();
+        ForkJoinPool forkJoinPool = new ForkJoinPool();
+        if (files != null) {
+            forkJoinPool.submit(() -> ProgressBar.wrap(Arrays.stream(files).parallel(),
+                                                       Utils.getProgressBarBuilder("Reading Contacts")
+            ).forEach(file -> {
+                String jsonString = Utils.readFile(file);
+                JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
+                Contact contact = parseContactData(jsonObject);
+                contacts.add(contact);
+                Utils.sleep(1L);
+            }));
+        }
+        forkJoinPool.shutdown();
+        try {
+            if (!forkJoinPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                logger.warn("Termination Timeout");
+            }
+        }
+        catch (InterruptedException e) {
+            logger.fatal("Threads interrupted during wait.", e);
+            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
+        }
+        return (ArrayList<Contact>) contacts;
+    }
+
     static void writeContactJson(HttpService httpService, PropertyData propertyData) throws HubSpotException {
         Map<String, Object> map = new HashMap<>();
         map.put("limit", LIMIT);
@@ -210,11 +202,11 @@ public class ContactService {
         String url = "/crm/v3/objects/contacts/";
         long after;
         long count = Utils.getObjectCount(httpService, CRMObjectType.CONTACTS);
-        ExecutorService executorService =
-                Executors.newFixedThreadPool(20, new CustomThreadFactory("ContactGrabber"));
+        ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("ContactGrabber"));
         try {
             Files.createDirectories(cacheFolder);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
@@ -239,36 +231,5 @@ public class ContactService {
             }
             Utils.shutdownExecutors(logger, executorService, cacheFolder);
         }
-    }
-
-    static ArrayList<Contact> readContactJsons() {
-        List<Contact> contacts = Collections.synchronizedList(new ArrayList<>());
-        File[] files = cacheFolder.toFile().listFiles();
-        ForkJoinPool forkJoinPool = new ForkJoinPool();
-        if (files != null) {
-            forkJoinPool.submit(() -> ProgressBar.wrap
-                    (Arrays.stream(files).parallel(),
-                     Utils.getProgressBarBuilder("Reading Contacts")
-                    )
-                                                 .forEach(file -> {
-                                                     String jsonString = Utils.readFile(file);
-                                                     JSONObject jsonObject
-                                                             = Utils.formatJson(new JSONObject(jsonString));
-                                                     Contact contact = parseContactData(jsonObject);
-                                                     contacts.add(contact);
-                                                     Utils.sleep(1L);
-                                                 }));
-        }
-        forkJoinPool.shutdown();
-        try {
-            if (!forkJoinPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
-                logger.warn("Termination Timeout");
-            }
-        }
-        catch (InterruptedException e) {
-            logger.fatal("Threads interrupted during wait.", e);
-            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
-        }
-        return (ArrayList<Contact>) contacts;
     }
 }

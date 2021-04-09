@@ -11,18 +11,18 @@ import java.util.List;
  * @author Nicholas Curl
  */
 public class Task extends Engagement {
+
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
-
-    private final List<Date> reminders;
-    private final String taskType;
-    private final String subject;
-    private final String forObjectType;
-    private final String body;
-    private final String status;
-    private final Date completionDate;
+    private static final Logger     logger = LogManager.getLogger();
+    private final        List<Date> reminders;
+    private final        String     taskType;
+    private final        String     subject;
+    private final        String     forObjectType;
+    private final        String     body;
+    private final        String     status;
+    private final        Date       completionDate;
 
     public Task(long id,
                 String taskType,
@@ -41,7 +41,8 @@ public class Task extends Engagement {
         this.status = status;
         if (completionDateMilliseconds != -1) {
             this.completionDate = new Date(completionDateMilliseconds);
-        } else {
+        }
+        else {
             this.completionDate = null;
         }
         reminders = new LinkedList<>();
@@ -80,11 +81,17 @@ public class Task extends Engagement {
 
     @Override
     public String toString() {
-        return "Task Type:\n" + taskType +
-                "\nSubject:\n" + subject +
-                "\nFor ObjectType:\n" + forObjectType +
-                "\nStatus:\n" + status +
-                "\nReminders:\n" + reminders +
-                "\nCompletion Date:\n" + completionDate;
+        return "Task Type:\n" +
+               taskType +
+               "\nSubject:\n" +
+               subject +
+               "\nFor ObjectType:\n" +
+               forObjectType +
+               "\nStatus:\n" +
+               status +
+               "\nReminders:\n" +
+               reminders +
+               "\nCompletion Date:\n" +
+               completionDate;
     }
 }

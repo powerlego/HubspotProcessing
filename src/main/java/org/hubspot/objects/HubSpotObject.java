@@ -8,14 +8,13 @@ import org.json.JSONObject;
  * @author Nicholas Curl
  */
 public class HubSpotObject {
+
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
-
-    private final long id;
-    private JSONObject data;
-
+    private static final Logger     logger = LogManager.getLogger();
+    private final        long       id;
+    private              JSONObject data;
 
     public HubSpotObject(long id) {
         this.id = id;
@@ -36,6 +35,4 @@ public class HubSpotObject {
     public String toJSONString() {
         return data.toString();
     }
-
-
 }

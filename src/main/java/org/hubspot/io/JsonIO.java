@@ -17,11 +17,12 @@ import java.util.List;
  * @author Nicholas Curl
  */
 public class JsonIO {
+
     /**
      * The instance of the logger
      */
     private static final Logger logger = LogManager.getLogger();
-    private static final Path folder = Paths.get("./jsons/");
+    private static final Path   folder = Paths.get("./jsons/");
 
     public static List<JSONObject> read() {
         List<JSONObject> jsonObjects = new LinkedList<>();
@@ -38,7 +39,8 @@ public class JsonIO {
                         builder.append(line).append("\n");
                     }
                     jsonObjects.add(Utils.formatJson(new JSONObject(builder.toString())));
-                } catch (IOException e) {
+                }
+                catch (IOException e) {
                     logger.fatal("Cannot read file {}", file, e);
                     System.exit(ErrorCodes.IO_READ.getErrorCode());
                 }
@@ -51,7 +53,8 @@ public class JsonIO {
         long id = jsonObject.getLong("id");
         try {
             Files.createDirectories(folder);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to create engagements folder {}", folder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
@@ -60,7 +63,8 @@ public class JsonIO {
             FileWriter writer = new FileWriter(filePath.toFile());
             writer.write(jsonObject.toString(4));
             writer.close();
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to write to file {}", filePath, e);
             System.exit(ErrorCodes.IO_WRITE.getErrorCode());
         }

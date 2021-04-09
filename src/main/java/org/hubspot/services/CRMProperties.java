@@ -20,17 +20,15 @@ public class CRMProperties extends HubSpotObject {
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger logger  = LogManager.getLogger();
     private static final String urlBase = "/crm/v3/properties/";
 
     public CRMProperties() {
         super(0);
     }
 
-    public static PropertyData getAllProperties(HttpService service,
-                                                CRMObjectType type,
-                                                boolean includeHidden
-    ) throws HubSpotException {
+    public static PropertyData getAllProperties(HttpService service, CRMObjectType type, boolean includeHidden)
+    throws HubSpotException {
         Map<String, Object> properties = new HashMap<>();
         List<String> propertyNames = new LinkedList<>();
         JSONObject jsonObject = (JSONObject) service.getRequest(urlBase + type.getValue());

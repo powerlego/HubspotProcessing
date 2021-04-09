@@ -10,12 +10,13 @@ import java.util.concurrent.ThreadFactory;
  * @author Nicholas Curl
  */
 public class CustomThreadFactory implements ThreadFactory {
+
     /**
      * The instance of the logger
      */
     private static final Logger logger = LogManager.getLogger();
-    private final String name;
-    private int counter;
+    private final        String name;
+    private              int    counter;
 
     public CustomThreadFactory(String name) {
         counter = 1;

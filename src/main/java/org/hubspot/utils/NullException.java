@@ -7,6 +7,7 @@ import org.apache.logging.log4j.Logger;
  * @author Nicholas Curl
  */
 public class NullException extends Exception {
+
     /**
      * The instance of the logger
      */

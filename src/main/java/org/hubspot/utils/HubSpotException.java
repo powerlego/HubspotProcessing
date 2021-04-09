@@ -7,18 +7,18 @@ import org.apache.logging.log4j.Logger;
  * @author Nicholas Curl
  */
 public class HubSpotException extends Exception {
+
     /**
      * The instance of the logger
      */
     private static final Logger logger = LogManager.getLogger();
-    private final int code;
-    private String policyName;
-    private String rawMessage;
+    private final        int    code;
+    private              String policyName;
+    private              String rawMessage;
 
     public HubSpotException(String message) {
         this(message, null, -1, null);
     }
-
 
     public HubSpotException(String message, String policyName, int code, Throwable cause) {
         super(message, cause);
@@ -67,5 +67,4 @@ public class HubSpotException extends Exception {
     public void setRawMessage(String rawMessage) {
         this.rawMessage = rawMessage;
     }
-
 }

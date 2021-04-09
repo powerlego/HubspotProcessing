@@ -37,9 +37,8 @@ public class CompanyService {
         return cacheFolder.toFile().exists();
     }
 
-    static ConcurrentHashMap<Long, Company> getAllCompanies(HttpService httpService,
-                                                            PropertyData propertyData
-    ) throws HubSpotException {
+    static ConcurrentHashMap<Long, Company> getAllCompanies(HttpService httpService, PropertyData propertyData)
+    throws HubSpotException {
         Map<String, Object> map = new HashMap<>();
         ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
         map.put("limit", LIMIT);
@@ -49,12 +48,12 @@ public class CompanyService {
         long count = Utils.getObjectCount(httpService, CRMObjectType.COMPANIES);
         try {
             Files.createDirectories(cacheFolder);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
-        ExecutorService executorService =
-                Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
+        ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
         try (ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Companies", count)) {
             while (true) {
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
@@ -92,36 +91,29 @@ public class CompanyService {
                 JSONObject jsonProperty = (JSONObject) jsonPropertyObject;
                 Object propertyValue = jsonProperty.get("value");
                 if (propertyValue instanceof String) {
-                    String string = (String) propertyValue;
-                    string = string.strip();
-                    string = string.replaceAll("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\]", "");
+                    String string = ((String) propertyValue).strip()
+                                                            .replaceAll("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\]", "");
                     company.setProperty(key, string);
-                } else {
+                }
+                else {
                     company.setProperty(key, propertyValue);
                 }
-            } else {
-                if (jsonPropertyObject == null) {
-                    company.setProperty(key, null);
-                } else {
-                    if (jsonPropertyObject instanceof String) {
-                        String propertyValue = (String) jsonPropertyObject;
-                        propertyValue = propertyValue.strip();
-                        if (key.equalsIgnoreCase("name")) {
-                            propertyValue = propertyValue.replaceAll
-                                    ("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\:_.\\-@;,]",
-                                            ""
-                                    );
-                        } else {
-                            propertyValue = propertyValue.replaceAll
-                                    ("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\]",
-                                            ""
-                                    );
-                        }
-                        company.setProperty(key, propertyValue);
-                    } else {
-                        company.setProperty(key, jsonPropertyObject);
-                    }
+            }
+            else if (jsonPropertyObject == null) {
+                company.setProperty(key, null);
+            }
+            else if (jsonPropertyObject instanceof String) {
+                String propertyValue = ((String) jsonPropertyObject).strip();
+                if (key.equalsIgnoreCase("name")) {
+                    propertyValue = propertyValue.replaceAll("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\:_.\\-@;,]", "");
                 }
+                else {
+                    propertyValue = propertyValue.replaceAll("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\]", "");
+                }
+                company.setProperty(key, propertyValue);
+            }
+            else {
+                company.setProperty(key, jsonPropertyObject);
             }
         }
         company.setData();
@@ -151,6 +143,34 @@ public class CompanyService {
         return cacheFolder;
     }
 
+    static ConcurrentHashMap<Long, Company> readCompanyJsons() {
+        ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
+        File[] files = cacheFolder.toFile().listFiles();
+        ForkJoinPool forkJoinPool = new ForkJoinPool();
+        if (files != null) {
+            forkJoinPool.submit(() -> ProgressBar.wrap(Arrays.stream(files).parallel(),
+                                                       Utils.getProgressBarBuilder("Reading Companies")
+            ).forEach(file -> {
+                String jsonString = Utils.readFile(file);
+                JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
+                Company company = parseCompanyData(jsonObject);
+                companies.put(company.getId(), company);
+                Utils.sleep(1L);
+            }));
+        }
+        forkJoinPool.shutdown();
+        try {
+            if (!forkJoinPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                logger.warn("Termination Timeout");
+            }
+        }
+        catch (InterruptedException e) {
+            logger.fatal("Threads interrupted during wait.", e);
+            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
+        }
+        return companies;
+    }
+
     static void writeCompanyJsons(HttpService httpService, PropertyData propertyData) throws HubSpotException {
         Map<String, Object> map = new HashMap<>();
         map.put("limit", LIMIT);
@@ -158,11 +178,11 @@ public class CompanyService {
         map.put("archived", false);
         long after;
         long count = Utils.getObjectCount(httpService, CRMObjectType.COMPANIES);
-        ExecutorService executorService =
-                Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
+        ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
         try {
             Files.createDirectories(cacheFolder);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
@@ -187,36 +207,5 @@ public class CompanyService {
             }
             Utils.shutdownExecutors(logger, executorService, cacheFolder);
         }
-    }
-
-    static ConcurrentHashMap<Long, Company> readCompanyJsons() {
-        ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
-        File[] files = cacheFolder.toFile().listFiles();
-        ForkJoinPool forkJoinPool = new ForkJoinPool();
-        if (files != null) {
-            forkJoinPool.submit(() -> ProgressBar.wrap
-                    (Arrays.stream(files).parallel(),
-                     Utils.getProgressBarBuilder("Reading Companies")
-                    )
-                                                 .forEach(file -> {
-                                                     String jsonString = Utils.readFile(file);
-                                                     JSONObject jsonObject
-                                                             = Utils.formatJson(new JSONObject(jsonString));
-                                                     Company company = parseCompanyData(jsonObject);
-                                                     companies.put(company.getId(), company);
-                                                     Utils.sleep(1L);
-                                                 }));
-        }
-        forkJoinPool.shutdown();
-        try {
-            if (!forkJoinPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
-                logger.warn("Termination Timeout");
-            }
-        }
-        catch (InterruptedException e) {
-            logger.fatal("Threads interrupted during wait.", e);
-            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
-        }
-        return companies;
     }
 }

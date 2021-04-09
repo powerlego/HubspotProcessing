@@ -7,17 +7,17 @@ import org.apache.logging.log4j.Logger;
  * @author Nicholas Curl
  */
 public class Call extends Engagement {
+
     /**
      * The instance of the logger
      */
     private static final Logger logger = LogManager.getLogger();
-
-    private final String title;
-    private final String body;
-    private final String recordingURL;
-    private final String duration;
-    private final String toNumber;
-    private final String fromNumber;
+    private final        String title;
+    private final        String body;
+    private final        String recordingURL;
+    private final        String duration;
+    private final        String toNumber;
+    private final        String fromNumber;
 
     public Call(long id,
                 String title,
@@ -66,11 +66,17 @@ public class Call extends Engagement {
 
     @Override
     public String toString() {
-        return "To:\n" + toNumber +
-                "From:\n" + fromNumber +
-                "\nTitle:\n" + title +
-                "\nBody:\n" + body +
-                "\nDuration:\n" + duration +
-                "Recording URL:\n" + recordingURL;
+        return "To:\n" +
+               toNumber +
+               "From:\n" +
+               fromNumber +
+               "\nTitle:\n" +
+               title +
+               "\nBody:\n" +
+               body +
+               "\nDuration:\n" +
+               duration +
+               "Recording URL:\n" +
+               recordingURL;
     }
 }

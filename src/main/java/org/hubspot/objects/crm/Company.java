@@ -8,11 +8,12 @@ import org.json.JSONObject;
  * @author Nicholas Curl
  */
 public class Company extends CRMObject {
+
     /**
      * The instance of the logger
      */
     private static final Logger logger = LogManager.getLogger();
-    private String name;
+    private              String name;
 
     public Company(long id) {
         super(id);
@@ -27,9 +28,7 @@ public class Company extends CRMObject {
     }
 
     public JSONObject toJson() {
-        JSONObject jsonObject = new JSONObject();
-        jsonObject.put("id", getId());
-        jsonObject.put("properties", super.getProperties());
+        JSONObject jsonObject = new JSONObject().put("id", getId()).put("properties", super.getProperties());
         return jsonObject;
     }
 

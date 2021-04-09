@@ -16,23 +16,26 @@ import java.util.List;
  * @author Nicholas Curl
  */
 public class EngagementsWriter {
+
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
-    private static final Path engagementsFolder = Paths.get("./contacts/engagements/");
+    private static final Logger logger            = LogManager.getLogger();
+    private static final Path   engagementsFolder = Paths.get("./contacts/engagements/");
 
     public static void write(long id, List<?> engagements) {
         try {
             Files.createDirectories(engagementsFolder);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to create engagements folder {}", engagementsFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         Path contact = engagementsFolder.resolve(id + "/");
         try {
             Files.createDirectories(contact);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to create contact directory for id {}", id, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
@@ -43,31 +46,36 @@ public class EngagementsWriter {
         Path meetings = contact.resolve("meetings/");
         try {
             Files.createDirectories(emails);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to make emails directory for contact id {}", id, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         try {
             Files.createDirectories(notes);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to make notes directory for contact id {}", id, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         try {
             Files.createDirectories(tasks);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to make tasks directory for contact id {}", id, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         try {
             Files.createDirectories(calls);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to make calls directory for contact id {}", id, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         try {
             Files.createDirectories(meetings);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to make meetings directory for contact id {}", id, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
@@ -85,11 +93,13 @@ public class EngagementsWriter {
                     writer.write(email.toString());
                     writer.close();
                     emailNum++;
-                } catch (IOException e) {
+                }
+                catch (IOException e) {
                     logger.fatal("Unable to write to file {}", emailPath, e);
                     System.exit(ErrorCodes.IO_WRITE.getErrorCode());
                 }
-            } else if (o instanceof Note) {
+            }
+            else if (o instanceof Note) {
                 Note note = (Note) o;
                 Path notePath = emails.resolve("note_" + noteNum + ".txt");
                 try {
@@ -97,11 +107,13 @@ public class EngagementsWriter {
                     writer.write(note.toString());
                     writer.close();
                     noteNum++;
-                } catch (IOException e) {
+                }
+                catch (IOException e) {
                     logger.fatal("Unable to write to file {}", notePath, e);
                     System.exit(ErrorCodes.IO_WRITE.getErrorCode());
                 }
-            } else if (o instanceof Meeting) {
+            }
+            else if (o instanceof Meeting) {
                 Meeting meeting = (Meeting) o;
                 Path meetingPath = emails.resolve("meeting_" + meetingNum + ".txt");
                 try {
@@ -109,11 +121,13 @@ public class EngagementsWriter {
                     writer.write(meeting.toString());
                     writer.close();
                     meetingNum++;
-                } catch (IOException e) {
+                }
+                catch (IOException e) {
                     logger.fatal("Unable to write to file {}", meetingPath, e);
                     System.exit(ErrorCodes.IO_WRITE.getErrorCode());
                 }
-            } else if (o instanceof Call) {
+            }
+            else if (o instanceof Call) {
                 Call call = (Call) o;
                 Path callPath = calls.resolve("call_" + callNum + ".txt");
                 try {
@@ -121,11 +135,13 @@ public class EngagementsWriter {
                     writer.write(call.toString());
                     writer.close();
                     callNum++;
-                } catch (IOException e) {
+                }
+                catch (IOException e) {
                     logger.fatal("Unable to write to file {}", callPath, e);
                     System.exit(ErrorCodes.IO_WRITE.getErrorCode());
                 }
-            } else if (o instanceof Task) {
+            }
+            else if (o instanceof Task) {
                 Task task = (Task) o;
                 Path taskPath = tasks.resolve("task_" + taskNum + ".txt");
                 try {
@@ -133,11 +149,13 @@ public class EngagementsWriter {
                     writer.write(task.toString());
                     writer.close();
                     taskNum++;
-                } catch (IOException e) {
+                }
+                catch (IOException e) {
                     logger.fatal("Unable to write to file {}", taskPath, e);
                     System.exit(ErrorCodes.IO_WRITE.getErrorCode());
                 }
-            } else {
+            }
+            else {
                 logger.fatal("Unknown engagement {}", o);
                 System.exit(ErrorCodes.INVALID_ENGAGEMENT.getErrorCode());
             }
