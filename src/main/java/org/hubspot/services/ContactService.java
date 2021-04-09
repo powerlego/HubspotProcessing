@@ -57,7 +57,7 @@ public class ContactService {
             }
             Utils.sleep(1L);
         });
-        return (ArrayList<Contact>) filteredContacts;
+        return new ArrayList<>(filteredContacts);
     }
 
     static ArrayList<Contact> getAllContacts(HttpService httpService, PropertyData propertyData)
@@ -78,7 +78,7 @@ public class ContactService {
             logger.fatal("Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
-        try (ProgressBar pb = Utils.createProgressBar("Grabbing Contacts", count)) {
+        try (ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Contacts", count)) {
             while (true) {
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
                 Runnable process = () -> {
@@ -100,7 +100,7 @@ public class ContactService {
             }
             Utils.shutdownExecutors(logger, executorService, cacheFolder);
         }
-        return (ArrayList<Contact>) contacts;
+        return new ArrayList<>(contacts);
     }
 
     static Contact parseContactData(JSONObject jsonObject) {
@@ -191,7 +191,7 @@ public class ContactService {
             logger.fatal("Threads interrupted during wait.", e);
             System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
         }
-        return (ArrayList<Contact>) contacts;
+        return new ArrayList<>(contacts);
     }
 
     static void writeContactJson(HttpService httpService, PropertyData propertyData) throws HubSpotException {

@@ -4,6 +4,7 @@ import me.tongfei.progressbar.ProgressBar;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.crm.engagements.*;
+import org.hubspot.objects.crm.engagements.Email.Details;
 import org.hubspot.utils.*;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -69,7 +70,7 @@ public class EngagementsProcessor {
                 System.exit(e.getCode());
             }
         }));
-        return new EngagementData((ArrayList<Long>) engagementIds, (ArrayList<Engagement>) engagements);
+        return new EngagementData(new ArrayList<>(engagementIds), new ArrayList<>(engagements));
     }
 
     static ArrayList<Long> getAllEngagementIds(HttpService httpService, long contactId) throws HubSpotException {
@@ -112,7 +113,7 @@ public class EngagementsProcessor {
                                            e
                 );
             }
-            return (ArrayList<Long>) engagementIds;
+            return new ArrayList<>(engagementIds);
         }
         catch (HubSpotException e) {
             if (e.getMessage().equalsIgnoreCase("Not Found")) {
@@ -160,45 +161,41 @@ public class EngagementsProcessor {
         }
     }
 
-    private static EngagementData readContactEngagementJsons(File contactFolder, ProgressBar pb, long contactId) {
-        pb.stepTo(0);
-        File[] files = contactFolder.listFiles();
-        List<Long> engagementIds = Collections.synchronizedList(new ArrayList<>());
-        List<Engagement> engagements = Collections.synchronizedList(new ArrayList<>());
-        if (files != null) {
-            pb.maxHint(files.length).setExtraMessage("Contact ID: " + contactId).resume();
-            Arrays.stream(files).parallel().forEach(file -> {
-                String jsonString = Utils.readFile(file);
-                JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
-                long engagementId = jsonObject.getJSONObject("engagement").getLong("id");
-                Engagement engagement = process(jsonObject);
-                engagementIds.add(engagementId);
-                engagements.add(engagement);
-                pb.step();
-            });
-        }
-        pb.pause();
-        return new EngagementData((ArrayList<Long>) engagementIds, (ArrayList<Engagement>) engagements);
-    }
-
-    private static Email.Details emailDetails(JSONObject jsonDetails) {
-        String firstName = "";
-        String lastName = "";
-        String email = "";
-        if (jsonDetails.has("firstName")) {
-            firstName = jsonDetails.get("firstName").toString();
-        }
-        if (jsonDetails.has("lastName")) {
-            lastName = jsonDetails.get("lastName").toString();
-        }
-        if (jsonDetails.has("email")) {
-            email = jsonDetails.get("email").toString();
-        }
-        return new Email.Details(firstName, lastName, email);
-    }
-
     public static Path getCacheFolder() {
         return cacheFolder;
+    }
+
+    private static ArrayList<JSONObject> getEngagementJson(HttpService httpService, long contactId)
+    throws HubSpotException {
+        try {
+            ArrayList<Long> engagementIdsToIterate = getAllEngagementIds(httpService, contactId);
+            List<JSONObject> engagementJsons = Collections.synchronizedList(new ArrayList<>());
+            engagementIdsToIterate.parallelStream().forEach(engagementId -> {
+                String engagementUrl = "/engagements/v1/engagements/" + engagementId;
+                try {
+                    JSONObject jsonEngagement = (JSONObject) httpService.getRequest(engagementUrl);
+                    if (jsonEngagement == null) {
+                        throw new HubSpotException(new NullException("Json Object is null"),
+                                                   ErrorCodes.NULL_EXCEPTION.getErrorCode()
+                        );
+                    }
+                    engagementJsons.add(jsonEngagement);
+                }
+                catch (HubSpotException e) {
+                    logger.fatal("Unable to grab engagement of id {}", engagementId, e);
+                    System.exit(e.getCode());
+                }
+            });
+            return new ArrayList<>(engagementJsons);
+        }
+        catch (HubSpotException e) {
+            if (e.getMessage().equalsIgnoreCase("Not Found")) {
+                return new ArrayList<>();
+            }
+            else {
+                throw e;
+            }
+        }
     }
 
     static ConcurrentHashMap<Long, EngagementData> readEngagementJsons() {
@@ -219,6 +216,27 @@ public class EngagementsProcessor {
             }
         }
         return contactsEngagementData;
+    }
+
+    private static EngagementData readContactEngagementJsons(File contactFolder, ProgressBar pb, long contactId) {
+        pb.stepTo(0);
+        File[] files = contactFolder.listFiles();
+        List<Long> engagementIds = Collections.synchronizedList(new ArrayList<>());
+        List<Engagement> engagements = Collections.synchronizedList(new ArrayList<>());
+        if (files != null) {
+            pb.maxHint(files.length).setExtraMessage("Contact ID: " + contactId).resume();
+            Arrays.stream(files).parallel().forEach(file -> {
+                String jsonString = Utils.readFile(file);
+                JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
+                long engagementId = jsonObject.getJSONObject("engagement").getLong("id");
+                Engagement engagement = process(jsonObject);
+                engagementIds.add(engagementId);
+                engagements.add(engagement);
+                pb.step();
+            });
+        }
+        pb.pause();
+        return new EngagementData(new ArrayList<>(engagementIds), new ArrayList<>(engagements));
     }
 
     private static Engagement process(JSONObject engagementJson) {
@@ -254,9 +272,9 @@ public class EngagementsProcessor {
                 if (engagementMetadata.has("text")) {
                     emailBody = engagementMetadata.get("text").toString();
                 }
-                ArrayList<Email.Details> to = new ArrayList<>();
-                ArrayList<Email.Details> cc = new ArrayList<>();
-                ArrayList<Email.Details> bcc = new ArrayList<>();
+                ArrayList<Details> to = new ArrayList<>();
+                ArrayList<Details> cc = new ArrayList<>();
+                ArrayList<Details> bcc = new ArrayList<>();
                 for (int i = 0; i < jsonTo.length(); i++) {
                     JSONObject jsonDetails = jsonTo.getJSONObject(i);
                     to.add(emailDetails(jsonDetails));
@@ -269,7 +287,7 @@ public class EngagementsProcessor {
                     JSONObject jsonDetails = jsonBcc.getJSONObject(i);
                     bcc.add(emailDetails(jsonDetails));
                 }
-                Email.Details from = emailDetails(jsonFrom);
+                Details from = emailDetails(jsonFrom);
                 emailBody = emailBody.replaceAll("\r", "");
                 if (emailBody.contains("From:")) {
                     String[] bodySplit = emailBody.split("From:");
@@ -427,37 +445,20 @@ public class EngagementsProcessor {
         }));
     }
 
-    private static ArrayList<JSONObject> getEngagementJson(HttpService httpService, long contactId)
-    throws HubSpotException {
-        try {
-            ArrayList<Long> engagementIdsToIterate = getAllEngagementIds(httpService, contactId);
-            List<JSONObject> engagementJsons = Collections.synchronizedList(new ArrayList<>());
-            engagementIdsToIterate.parallelStream().forEach(engagementId -> {
-                String engagementUrl = "/engagements/v1/engagements/" + engagementId;
-                try {
-                    JSONObject jsonEngagement = (JSONObject) httpService.getRequest(engagementUrl);
-                    if (jsonEngagement == null) {
-                        throw new HubSpotException(new NullException("Json Object is null"),
-                                                   ErrorCodes.NULL_EXCEPTION.getErrorCode()
-                        );
-                    }
-                    engagementJsons.add(jsonEngagement);
-                }
-                catch (HubSpotException e) {
-                    logger.fatal("Unable to grab engagement of id {}", engagementId, e);
-                    System.exit(e.getCode());
-                }
-            });
-            return (ArrayList<JSONObject>) engagementJsons;
+    private static Details emailDetails(JSONObject jsonDetails) {
+        String firstName = "";
+        String lastName = "";
+        String email = "";
+        if (jsonDetails.has("firstName")) {
+            firstName = jsonDetails.get("firstName").toString();
         }
-        catch (HubSpotException e) {
-            if (e.getMessage().equalsIgnoreCase("Not Found")) {
-                return new ArrayList<>();
-            }
-            else {
-                throw e;
-            }
+        if (jsonDetails.has("lastName")) {
+            lastName = jsonDetails.get("lastName").toString();
         }
+        if (jsonDetails.has("email")) {
+            email = jsonDetails.get("email").toString();
+        }
+        return new Details(firstName, lastName, email);
     }
 
     public static class EngagementData {

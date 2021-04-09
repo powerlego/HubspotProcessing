@@ -10,7 +10,10 @@ import org.hubspot.utils.HubSpotException;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
 
 /**
  * @author Nicholas Curl
@@ -30,7 +33,7 @@ public class CRMProperties extends HubSpotObject {
     public static PropertyData getAllProperties(HttpService service, CRMObjectType type, boolean includeHidden)
     throws HubSpotException {
         Map<String, Object> properties = new HashMap<>();
-        List<String> propertyNames = new LinkedList<>();
+        ArrayList<String> propertyNames = new ArrayList<>();
         JSONObject jsonObject = (JSONObject) service.getRequest(urlBase + type.getValue());
         JSONArray results = jsonObject.getJSONArray("results");
         for (Object o : results) {
@@ -55,7 +58,7 @@ public class CRMProperties extends HubSpotObject {
                                                         boolean includeHidden
     ) throws HubSpotException {
         Map<String, Object> properties = new HashMap<>();
-        List<String> propertyNames = new LinkedList<>();
+        ArrayList<String> propertyNames = new ArrayList<>();
         JSONObject jsonObject = (JSONObject) service.getRequest(urlBase + type.getValue());
         JSONArray results = jsonObject.getJSONArray("results");
         for (Object o : results) {
