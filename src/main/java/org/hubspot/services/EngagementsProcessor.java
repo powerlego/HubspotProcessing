@@ -20,12 +20,17 @@ import java.util.concurrent.*;
  * @author Nicholas Curl
  */
 public class EngagementsProcessor {
+
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
-    private static final int WORDWRAP = 80;
-    private static final Path cacheFolder = Paths.get("./cache/engagements");
+    private static final Logger logger      = LogManager.getLogger();
+    private static final int    WORDWRAP    = 80;
+    private static final Path   cacheFolder = Paths.get("./cache/engagements");
+
+    public static boolean cacheExists() {
+        return cacheFolder.toFile().exists();
+    }
 
     static EngagementData getAllEngagements(HttpService httpService, long contactId) throws HubSpotException {
         ArrayList<Long> engagementIdsToIterate = getAllEngagementIds(httpService, contactId);
@@ -34,7 +39,8 @@ public class EngagementsProcessor {
         ForkJoinPool forkJoinPool = new ForkJoinPool();
         try {
             Files.createDirectories(cacheFolder);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             logger.fatal("Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
@@ -42,7 +48,8 @@ public class EngagementsProcessor {
             Path folder = cacheFolder.resolve(contactId + "/");
             try {
                 Files.createDirectories(folder);
-            } catch (IOException e) {
+            }
+            catch (IOException e) {
                 logger.fatal("Unable to write engagement jsons for contact id {}", contactId, e);
                 System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
             }
@@ -50,10 +57,12 @@ public class EngagementsProcessor {
                 Engagement engagement = getEngagement(httpService, engagementId, forkJoinPool, folder);
                 if (engagement == null) {
                     engagementIds.remove(engagementId);
-                } else {
+                }
+                else {
                     engagements.add(engagement);
                 }
-            } catch (HubSpotException e) {
+            }
+            catch (HubSpotException e) {
                 logger.fatal("Unable to get engagement id {} for contact id {}", engagementId, contactId, e);
                 forkJoinPool.shutdownNow();
                 Utils.deleteDirectory(cacheFolder);
@@ -69,7 +78,10 @@ public class EngagementsProcessor {
         queryParam.put("limit", 5);
         List<Long> engagementIds = Collections.synchronizedList(new ArrayList<>());
         long offset;
-        ExecutorService executorService = Executors.newFixedThreadPool(10, new CustomThreadFactory(contactId + "_engagementIds"));
+        ExecutorService executorService = Executors.newFixedThreadPool(10,
+                                                                       new CustomThreadFactory(contactId +
+                                                                                               "_engagementIds")
+        );
         try {
             while (true) {
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, queryParam);
@@ -93,25 +105,34 @@ public class EngagementsProcessor {
                 if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
                     logger.warn("Termination Timeout");
                 }
-            } catch (InterruptedException e) {
-                throw new HubSpotException("Thread interrupted", ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode(), e);
+            }
+            catch (InterruptedException e) {
+                throw new HubSpotException("Thread interrupted",
+                                           ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode(),
+                                           e
+                );
             }
             return (ArrayList<Long>) engagementIds;
-        } catch (HubSpotException e) {
+        }
+        catch (HubSpotException e) {
             if (e.getMessage().equalsIgnoreCase("Not Found")) {
                 return new ArrayList<>();
-            } else {
+            }
+            else {
                 throw e;
             }
         }
     }
 
-    static Engagement getEngagement(HttpService service, long engagementId, ForkJoinPool forkJoinPool, Path folder) throws HubSpotException {
+    static Engagement getEngagement(HttpService service, long engagementId, ForkJoinPool forkJoinPool, Path folder)
+    throws HubSpotException {
         String engagementUrl = "/engagements/v1/engagements/" + engagementId;
         try {
             JSONObject engagementJson = (JSONObject) service.getRequest(engagementUrl);
             if (engagementJson == null) {
-                throw new HubSpotException(new NullException("Unable to grab engagement"), ErrorCodes.NULL_EXCEPTION.getErrorCode());
+                throw new HubSpotException(new NullException("Unable to grab engagement"),
+                                           ErrorCodes.NULL_EXCEPTION.getErrorCode()
+                );
             }
             Engagement engagement = process(engagementJson);
             if (engagement == null) {
@@ -119,17 +140,21 @@ public class EngagementsProcessor {
                 String type = engagementDataJson.getString("type");
                 if (!type.toLowerCase().contains("conversation")) {
                     throw new HubSpotException("Invalid engagement type", ErrorCodes.INVALID_ENGAGEMENT.getErrorCode());
-                } else {
+                }
+                else {
                     return null;
                 }
-            } else {
+            }
+            else {
                 Utils.writeJsonCache(forkJoinPool, folder, engagementJson);
                 return engagement;
             }
-        } catch (HubSpotException e) {
+        }
+        catch (HubSpotException e) {
             if (e.getMessage().equalsIgnoreCase("Not Found")) {
                 return null;
-            } else {
+            }
+            else {
                 throw e;
             }
         }
@@ -195,7 +220,8 @@ public class EngagementsProcessor {
                         builder.append(Utils.format(rest, WORDWRAP)).append("\n");
                     }
                     return new Email(id, to, cc, bcc, from, emailSubject, builder.toString().strip());
-                } else {
+                }
+                else {
                     return new Email(id, to, cc, bcc, from, emailSubject, Utils.format(emailBody, WORDWRAP));
                 }
             case "NOTE":
@@ -250,8 +276,9 @@ public class EngagementsProcessor {
                 if (engagementMetadata.has("startTime")) {
                     meetingStartTime = engagementMetadata.getLong("startTime");
                 }
-                if (engagementMetadata.has("endTime"))
+                if (engagementMetadata.has("endTime")) {
                     meetingEndTime = engagementMetadata.getLong("endTime");
+                }
                 if (engagementMetadata.has("body")) {
                     meetingBody = engagementMetadata.get("body").toString();
                     meetingBody = Utils.format(meetingBody, WORDWRAP);
@@ -295,7 +322,15 @@ public class EngagementsProcessor {
                         remindersMilliseconds.add(jsonArray.getLong(i));
                     }
                 }
-                return new Task(id, taskType, taskSubject, taskBody, taskForObjectType, taskStatus, taskCompletionDateMilliseconds, remindersMilliseconds);
+                return new Task(id,
+                                taskType,
+                                taskSubject,
+                                taskBody,
+                                taskForObjectType,
+                                taskStatus,
+                                taskCompletionDateMilliseconds,
+                                remindersMilliseconds
+                );
             default:
                 return null;
         }
@@ -317,12 +352,17 @@ public class EngagementsProcessor {
         return new Email.Details(firstName, lastName, email);
     }
 
+    public static Path getCacheFolder() {
+        return cacheFolder;
+    }
+
     static ConcurrentHashMap<Long, EngagementData> readEngagementJsons() {
         ConcurrentHashMap<Long, EngagementData> contactsEngagementData = new ConcurrentHashMap<>();
-        File[] files = Paths.get("./cache/engagements/").toFile().listFiles(File::isDirectory);
+        File[] files = cacheFolder.toFile().listFiles(File::isDirectory);
         if (files != null) {
             try (ProgressBar pb = Utils.createProgressBar("Reading Engagement Cache", files.length);
-                 ProgressBar pb1 = Utils.createProgressBar("Reading Engagements")) {
+                 ProgressBar pb1 = Utils.createProgressBar("Reading Engagements")
+            ) {
                 Arrays.stream(files).forEach(file -> {
                     long contactId = Long.parseLong(file.getName());
                     pb.pause();
@@ -336,7 +376,7 @@ public class EngagementsProcessor {
         return contactsEngagementData;
     }
 
-    static EngagementData readContactEngagementJsons(File contactFolder, ProgressBar pb, long contactId) {
+    private static EngagementData readContactEngagementJsons(File contactFolder, ProgressBar pb, long contactId) {
         pb.stepTo(0);
         File[] files = contactFolder.listFiles();
         List<Long> engagementIds = Collections.synchronizedList(new ArrayList<>());
@@ -362,12 +402,22 @@ public class EngagementsProcessor {
     static void writeContactEngagementJsons(HttpService httpService, long contactId) throws HubSpotException {
         Path folder = cacheFolder.resolve(contactId + "/");
         try {
+            Files.createDirectories(cacheFolder);
+        }
+        catch (IOException e) {
+            throw new HubSpotException("Unable to create cache directory " + cacheFolder,
+                                       ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode(),
+                                       e
+            );
+        }
+        try {
             Files.createDirectories(folder);
-        } catch (IOException e) {
+        }
+        catch (IOException e) {
             throw new HubSpotException
                     ("Unable to write engagement jsons for contact id" + contactId,
-                            ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode(),
-                            e
+                     ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode(),
+                     e
                     );
         }
         ArrayList<JSONObject> engagementJsons = getEngagementJson(httpService, contactId);
@@ -375,14 +425,14 @@ public class EngagementsProcessor {
         forkJoinPool.submit
                 (() -> ProgressBar.wrap
                         (engagementJsons.parallelStream(),
-                                Utils.getProgressBarBuilder
-                                        ("Writing Engagements for contact id " +
-                                                contactId
-                                        )
+                         Utils.getProgressBarBuilder
+                                 ("Writing Engagements for contact id " +
+                                  contactId
+                                 )
                         )
-                        .forEach(jsonObject -> {
-                            Utils.writeJsonCache(forkJoinPool, folder, jsonObject);
-                        })
+                                  .forEach(jsonObject -> {
+                                      Utils.writeJsonCache(forkJoinPool, folder, jsonObject);
+                                  })
                 );
     }
 
@@ -399,27 +449,31 @@ public class EngagementsProcessor {
                     if (jsonEngagement == null) {
                         throw new HubSpotException
                                 (new NullException("Json Object is null"),
-                                        ErrorCodes.NULL_EXCEPTION.getErrorCode()
+                                 ErrorCodes.NULL_EXCEPTION.getErrorCode()
                                 );
                     }
                     engagementJsons.add(jsonEngagement);
-                } catch (HubSpotException e) {
+                }
+                catch (HubSpotException e) {
                     logger.fatal("Unable to grab engagement of id {}", engagementId, e);
                     System.exit(e.getCode());
                 }
             });
             return (ArrayList<JSONObject>) engagementJsons;
-        } catch (HubSpotException e) {
+        }
+        catch (HubSpotException e) {
             if (e.getMessage().equalsIgnoreCase("Not Found")) {
                 return new ArrayList<>();
-            } else {
+            }
+            else {
                 throw e;
             }
         }
     }
 
     public static class EngagementData {
-        private final ArrayList<Long> engagementIds;
+
+        private final ArrayList<Long>       engagementIds;
         private final ArrayList<Engagement> engagements;
 
         public EngagementData(ArrayList<Long> engagementIds, ArrayList<Engagement> engagements) {

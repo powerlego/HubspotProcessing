@@ -122,6 +122,20 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="\src\main\java\org\hubspot\objects\crm\engagements\Call.java">
+          <value>
+            <Attribute>
+              <option name="separator" value=";" />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\src\main\java\org\hubspot\objects\crm\engagements\Email.java">
+          <value>
+            <Attribute>
+              <option name="separator" value=";" />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\src\main\java\org\hubspot\objects\crm\engagements\EngagementsProcessor.java">
           <value>
             <Attribute>

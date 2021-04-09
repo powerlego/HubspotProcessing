@@ -24,13 +24,18 @@ import java.util.concurrent.*;
  * @author Nicholas Curl
  */
 public class CompanyService {
+
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
-    private static final int LIMIT = 10;
-    private static final String url = "/crm/v3/objects/companies/";
-    private static final Path cacheFolder = Paths.get("./cache/companies/");
+    private static final Logger logger      = LogManager.getLogger();
+    private static final int    LIMIT       = 10;
+    private static final String url         = "/crm/v3/objects/companies/";
+    private static final Path   cacheFolder = Paths.get("./cache/companies/");
+
+    public static boolean cacheExists() {
+        return cacheFolder.toFile().exists();
+    }
 
     static ConcurrentHashMap<Long, Company> getAllCompanies(HttpService httpService,
                                                             PropertyData propertyData
@@ -131,43 +136,19 @@ public class CompanyService {
     static Company getCompany(HttpService httpService, String propertyString, String url) throws HubSpotException {
         try {
             return parseCompanyData((JSONObject) httpService.getRequest(url, propertyString));
-        } catch (HubSpotException e) {
+        }
+        catch (HubSpotException e) {
             if (e.getMessage().equalsIgnoreCase("Not Found")) {
                 return null;
-            } else {
+            }
+            else {
                 throw e;
             }
         }
     }
 
-    static ConcurrentHashMap<Long, Company> readCompanyJsons() {
-        ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
-        Path jsonFolder = Paths.get("./cache/companies/");
-        File[] files = jsonFolder.toFile().listFiles();
-        ForkJoinPool forkJoinPool = new ForkJoinPool();
-        if (files != null) {
-            forkJoinPool.submit(() -> ProgressBar.wrap
-                    (Arrays.stream(files).parallel(),
-                            Utils.getProgressBarBuilder("Reading Companies")
-                    )
-                    .forEach(file -> {
-                        String jsonString = Utils.readFile(file);
-                        JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
-                        Company company = parseCompanyData(jsonObject);
-                        companies.put(company.getId(), company);
-                        Utils.sleep(1L);
-                    }));
-        }
-        forkJoinPool.shutdown();
-        try {
-            if (!forkJoinPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
-                logger.warn("Termination Timeout");
-            }
-        } catch (InterruptedException e) {
-            logger.fatal("Threads interrupted during wait.", e);
-            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
-        }
-        return companies;
+    public static Path getCacheFolder() {
+        return cacheFolder;
     }
 
     static void writeCompanyJsons(HttpService httpService, PropertyData propertyData) throws HubSpotException {
@@ -206,5 +187,36 @@ public class CompanyService {
             }
             Utils.shutdownExecutors(logger, executorService, cacheFolder);
         }
+    }
+
+    static ConcurrentHashMap<Long, Company> readCompanyJsons() {
+        ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
+        File[] files = cacheFolder.toFile().listFiles();
+        ForkJoinPool forkJoinPool = new ForkJoinPool();
+        if (files != null) {
+            forkJoinPool.submit(() -> ProgressBar.wrap
+                    (Arrays.stream(files).parallel(),
+                     Utils.getProgressBarBuilder("Reading Companies")
+                    )
+                                                 .forEach(file -> {
+                                                     String jsonString = Utils.readFile(file);
+                                                     JSONObject jsonObject
+                                                             = Utils.formatJson(new JSONObject(jsonString));
+                                                     Company company = parseCompanyData(jsonObject);
+                                                     companies.put(company.getId(), company);
+                                                     Utils.sleep(1L);
+                                                 }));
+        }
+        forkJoinPool.shutdown();
+        try {
+            if (!forkJoinPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                logger.warn("Termination Timeout");
+            }
+        }
+        catch (InterruptedException e) {
+            logger.fatal("Threads interrupted during wait.", e);
+            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
+        }
+        return companies;
     }
 }

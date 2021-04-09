@@ -23,23 +23,29 @@ import java.util.concurrent.TimeUnit;
 /**
  * @author Nicholas Curl
  */
-class ContactService {
+public class ContactService {
+
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
-    private static final int LIMIT = 10;
-    private static final Path cacheFolder = Paths.get("./cache/contacts/");
+    private static final Logger logger      = LogManager.getLogger();
+    private static final int    LIMIT       = 10;
+    private static final Path   cacheFolder = Paths.get("./cache/contacts/");
+
+    public static boolean cacheExists() {
+        return cacheFolder.toFile().exists();
+    }
 
     static ArrayList<Contact> filterContacts(ArrayList<Contact> contacts) {
         List<Contact> filteredContacts = Collections.synchronizedList(new ArrayList<>());
         ProgressBar.wrap
                 (contacts.parallelStream(),
-                        Utils.getProgressBarBuilder("Filtering"))
-                .forEach(contact -> {
-                    String lifeCycleStage = contact.getLifeCycleStage();
-                    String leadStatus = contact.getLeadStatus();
-                    String lifecycleOR = contact.getProperty("hr_hiring_applicant").toString();
+                 Utils.getProgressBarBuilder("Filtering")
+                )
+                   .forEach(contact -> {
+                       String lifeCycleStage = contact.getLifeCycleStage();
+                       String leadStatus = contact.getLeadStatus();
+                       String lifecycleOR = contact.getProperty("hr_hiring_applicant").toString();
                     boolean b =
                             (
                                     (leadStatus == null || leadStatus.equalsIgnoreCase("null")) ||
@@ -181,42 +187,19 @@ class ContactService {
     static Contact getContact(HttpService httpService, String propertyString, String url) throws HubSpotException {
         try {
             return parseContactData((JSONObject) httpService.getRequest(url, propertyString));
-        } catch (HubSpotException e) {
+        }
+        catch (HubSpotException e) {
             if (e.getMessage().equalsIgnoreCase("Not Found")) {
                 return null;
-            } else {
+            }
+            else {
                 throw e;
             }
         }
     }
 
-    static ArrayList<Contact> readContactJsons() {
-        List<Contact> contacts = Collections.synchronizedList(new ArrayList<>());
-        Path jsonFolder = Paths.get("./cache/contacts/");
-        File[] files = jsonFolder.toFile().listFiles();
-        ForkJoinPool forkJoinPool = new ForkJoinPool();
-        if (files != null) {
-            forkJoinPool.submit(() -> ProgressBar.wrap
-                    (Arrays.stream(files).parallel(),
-                            Utils.getProgressBarBuilder("Reading Contacts"))
-                    .forEach(file -> {
-                        String jsonString = Utils.readFile(file);
-                        JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
-                        Contact contact = parseContactData(jsonObject);
-                        contacts.add(contact);
-                        Utils.sleep(1L);
-                    }));
-        }
-        forkJoinPool.shutdown();
-        try {
-            if (!forkJoinPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
-                logger.warn("Termination Timeout");
-            }
-        } catch (InterruptedException e) {
-            logger.fatal("Threads interrupted during wait.", e);
-            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
-        }
-        return (ArrayList<Contact>) contacts;
+    public static Path getCacheFolder() {
+        return cacheFolder;
     }
 
     static void writeContactJson(HttpService httpService, PropertyData propertyData) throws HubSpotException {
@@ -258,4 +241,34 @@ class ContactService {
         }
     }
 
+    static ArrayList<Contact> readContactJsons() {
+        List<Contact> contacts = Collections.synchronizedList(new ArrayList<>());
+        File[] files = cacheFolder.toFile().listFiles();
+        ForkJoinPool forkJoinPool = new ForkJoinPool();
+        if (files != null) {
+            forkJoinPool.submit(() -> ProgressBar.wrap
+                    (Arrays.stream(files).parallel(),
+                     Utils.getProgressBarBuilder("Reading Contacts")
+                    )
+                                                 .forEach(file -> {
+                                                     String jsonString = Utils.readFile(file);
+                                                     JSONObject jsonObject
+                                                             = Utils.formatJson(new JSONObject(jsonString));
+                                                     Contact contact = parseContactData(jsonObject);
+                                                     contacts.add(contact);
+                                                     Utils.sleep(1L);
+                                                 }));
+        }
+        forkJoinPool.shutdown();
+        try {
+            if (!forkJoinPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                logger.warn("Termination Timeout");
+            }
+        }
+        catch (InterruptedException e) {
+            logger.fatal("Threads interrupted during wait.", e);
+            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
+        }
+        return (ArrayList<Contact>) contacts;
+    }
 }

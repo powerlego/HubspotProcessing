@@ -6,6 +6,7 @@ import org.hubspot.objects.PropertyData;
 import org.hubspot.objects.crm.CRMObjectType;
 import org.hubspot.objects.crm.Company;
 import org.hubspot.objects.crm.Contact;
+import org.hubspot.services.EngagementsProcessor.EngagementData;
 import org.hubspot.utils.HttpService;
 import org.hubspot.utils.HubSpotException;
 
@@ -209,10 +210,24 @@ public class CRM {
         PropertyData propertyData = propsByGroupName(CRMObjectType.CONTACTS, propertyGroup, includeHiddenProperties);
         try {
             ContactService.writeContactJson(httpService, propertyData);
-        } catch (HubSpotException e) {
+        }
+        catch (HubSpotException e) {
             logger.fatal("Unable to write contacts");
             System.exit(e.getCode());
         }
+    }
 
+    public ConcurrentHashMap<Long, EngagementData> readEngagementJsons() {
+        return EngagementsProcessor.readEngagementJsons();
+    }
+
+    public void writeContactEngagementJsons(long contactId) {
+        try {
+            EngagementsProcessor.writeContactEngagementJsons(httpService, contactId);
+        }
+        catch (HubSpotException e) {
+            logger.fatal("Unable to write engagement for contact id {}", contactId, e);
+            System.exit(e.getCode());
+        }
     }
 }
