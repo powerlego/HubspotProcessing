@@ -181,7 +181,7 @@ public class ContactService {
             forkJoinPool.submit(() -> ProgressBar.wrap(Arrays.stream(files).parallel(),
                                                        Utils.getProgressBarBuilder("Reading Contacts")
             ).forEach(file -> {
-                String jsonString = Utils.readFile(file);
+                String jsonString = Utils.readJsonString(logger, file);
                 JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
                 Contact contact = parseContactData(jsonObject);
                 contacts.add(contact);

@@ -39,7 +39,7 @@ public class EngagementsProcessor {
         ArrayList<Long> engagementIdsToIterate = getAllEngagementIds(httpService, contactId, rateLimiter);
         List<Long> engagementIds = Collections.synchronizedList(new ArrayList<>(engagementIdsToIterate));
         List<Engagement> engagements = Collections.synchronizedList(new ArrayList<>());
-        ForkJoinPool forkJoinPool = new ForkJoinPool(5);
+        ForkJoinPool forkJoinPool = new ForkJoinPool();
         try {
             Files.createDirectories(cacheFolder);
         }
@@ -229,7 +229,7 @@ public class EngagementsProcessor {
         if (files != null) {
             pb.maxHint(files.length).setExtraMessage("Contact ID: " + contactId).resume();
             Arrays.stream(files).parallel().forEach(file -> {
-                String jsonString = Utils.readFile(file);
+                String jsonString = Utils.readJsonString(logger, file);
                 JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
                 long engagementId = jsonObject.getJSONObject("engagement").getLong("id");
                 Engagement engagement = process(jsonObject);

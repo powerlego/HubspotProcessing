@@ -28,8 +28,7 @@ public class Company extends CRMObject {
     }
 
     public JSONObject toJson() {
-        JSONObject jsonObject = new JSONObject().put("id", getId()).put("properties", super.getProperties());
-        return jsonObject;
+        return new JSONObject().put("id", getId()).put("properties", super.getProperties());
     }
 
     @Override

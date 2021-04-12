@@ -62,6 +62,24 @@ public class Utils {
         return getProgressBarBuilder(taskName, size).build();
     }
 
+    public static ProgressBar createProgressBar(String taskName) {
+        return getProgressBarBuilder(taskName).build();
+    }
+
+    public static ProgressBarBuilder getProgressBarBuilder(String taskName) {
+        return new ProgressBarBuilder().setTaskName(taskName)
+                                       .setStyle(ProgressBarStyle.ASCII)
+                                       .setUpdateIntervalMillis(5);
+    }
+
+    public static String format(String string) {
+        return format(string, 80);
+    }
+
+    public static JSONObject formatJson(JSONObject jsonObjectToFormat) {
+        return (JSONObject) recurseCheckingFormat(jsonObjectToFormat);
+    }
+
     public static String format(String string, int columnWrap) {
         Pattern paragraphs = Pattern.compile("<p>(.*?)</p>");
         Matcher paragraphMatcher = paragraphs.matcher(string);
@@ -86,8 +104,11 @@ public class Utils {
         return string;
     }
 
-    public static ProgressBar createProgressBar(String taskName) {
-        return getProgressBarBuilder(taskName).build();
+    public static ProgressBarBuilder getProgressBarBuilder(String taskName, long size) {
+        return new ProgressBarBuilder().setTaskName(taskName)
+                                       .setInitialMax(size)
+                                       .setStyle(ProgressBarStyle.ASCII)
+                                       .setUpdateIntervalMillis(5);
     }
 
     public static long getObjectCount(HttpService service, CRMObjectType type, RateLimiter rateLimiter) {
@@ -115,49 +136,55 @@ public class Utils {
         }
     }
 
-    public static String format(String string) {
-        return format(string, 80);
-    }
-
-    public static ProgressBarBuilder getProgressBarBuilder(String taskName, long size) {
-        return new ProgressBarBuilder().setTaskName(taskName)
-                                       .setInitialMax(size)
-                                       .setStyle(ProgressBarStyle.ASCII)
-                                       .setUpdateIntervalMillis(5);
-    }
-
-    public static JSONObject formatJson(JSONObject jsonObjectToFormat) {
-        return (JSONObject) recurseCheckingFormat(jsonObjectToFormat);
-    }
-
-    public static ProgressBarBuilder getProgressBarBuilder(String taskName) {
-        return new ProgressBarBuilder().setTaskName(taskName)
-                                       .setStyle(ProgressBarStyle.ASCII)
-                                       .setUpdateIntervalMillis(5);
-    }
-
     public static String propertyListToString(List<String> properties) {
         return properties.toString().replace("[", "").replace("]", "").replace(" ", "");
     }
 
-    public static String readFile(File file) {
+    public static String readJsonString(Logger logger, Path path) {
+        return readJsonString(logger, path.toFile());
+    }
+
+    public static String readJsonString(Logger logger, File file) {
+        String jsonString = "";
         try {
-            FileInputStream inputStream = new FileInputStream(file);
-            InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
-            BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
-            String line;
-            StringBuilder fileString = new StringBuilder();
-            while ((line = bufferedReader.readLine()) != null) {
-                line = line.strip();
-                fileString.append(line).append("\n");
-            }
-            return fileString.toString().strip();
+            jsonString = Utils.readFile(file);
         }
         catch (IOException e) {
-            logger.fatal("Unable to read file {}", file, e);
+            logger.fatal("Unable to read json string", e);
             System.exit(ErrorCodes.IO_READ.getErrorCode());
-            return "";
         }
+        return jsonString;
+    }
+
+    public static String readFile(File file) throws IOException {
+        String fileString;
+        FileInputStream inputStream = new FileInputStream(file);
+        InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+        BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
+        String line;
+        StringBuilder fileStringBuilder = new StringBuilder();
+        while ((line = bufferedReader.readLine()) != null) {
+            line = line.strip();
+            fileStringBuilder.append(line).append("\n");
+        }
+        fileString = fileStringBuilder.toString().strip();
+        return fileString;
+    }
+
+    public static long readLastExecution() {
+        long lastExecuted = -1;
+        Path lastExecutedFile = Paths.get("./cache/last_executed.txt");
+        try {
+            String value = readFile(lastExecutedFile);
+            lastExecuted = Long.parseLong(value);
+        }
+        catch (NumberFormatException | IOException ignored) {
+        }
+        return lastExecuted;
+    }
+
+    public static String readFile(Path path) throws IOException {
+        return readFile(path.toFile());
     }
 
     private static Object recurseCheckingConversion(Object object) {
@@ -382,5 +409,20 @@ public class Utils {
             Utils.deleteDirectory(cacheRoot.resolve(cacheRoot.relativize(filePath).getName(0)));
             System.exit(ErrorCodes.IO_WRITE.getErrorCode());
         }
+    }
+
+    public static long writeLastExecution() {
+        long lastExecuted = Instant.now().toEpochMilli();
+        Path lastExecutedFile = Paths.get("./cache/last_executed.txt");
+        try {
+            FileWriter fileWriter = new FileWriter(lastExecutedFile.toFile());
+            fileWriter.write(String.valueOf(lastExecuted));
+            fileWriter.close();
+        }
+        catch (IOException e) {
+            logger.fatal("Unable to write file {}", lastExecutedFile, e);
+            System.exit(ErrorCodes.IO_WRITE.getErrorCode());
+        }
+        return lastExecuted;
     }
 }

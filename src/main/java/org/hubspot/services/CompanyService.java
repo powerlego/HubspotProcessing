@@ -158,7 +158,7 @@ public class CompanyService {
             forkJoinPool.submit(() -> ProgressBar.wrap(Arrays.stream(files).parallel(),
                                                        Utils.getProgressBarBuilder("Reading Companies")
             ).forEach(file -> {
-                String jsonString = Utils.readFile(file);
+                String jsonString = Utils.readJsonString(logger, file);
                 JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
                 Company company = parseCompanyData(jsonObject);
                 companies.put(company.getId(), company);

@@ -33,6 +33,10 @@ public class Main {
     private static final Logger logger = LogManager.getLogger();
 
     public static void main(String[] args) {
+        long lastExecuted = Utils.readLastExecution();
+        if (lastExecuted == -1) {
+            lastExecuted = Utils.writeLastExecution();
+        }
         HubSpot hubspot = new HubSpot("6ab73220-900f-462b-b753-b6757d94cd1d");
         try {
             Files.createDirectories(Paths.get("./cache"));

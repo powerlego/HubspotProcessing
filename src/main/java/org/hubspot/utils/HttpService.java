@@ -29,8 +29,7 @@ public class HttpService {
                .automaticRetries(true)
                .socketTimeout(0)
                .defaultBaseUrl(apiBase)
-               .connectTimeout(0)
-               .concurrency(200, 15);
+               .connectTimeout(0);
     }
 
     public Object getRequest(String url, Map<String, Object> queryParams) throws HubSpotException {
@@ -156,7 +155,6 @@ public class HttpService {
                                                e
                     );
                 }
-
             }
         }
     }
