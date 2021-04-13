@@ -75,7 +75,7 @@ public class EngagementsProcessor {
                 System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
             }
             try {
-                Engagement engagement = getEngagement(httpService, engagementId, forkJoinPool, folder, rateLimiter);
+                Engagement engagement = getEngagement(httpService, engagementId, forkJoinPool, folder);
                 if (engagement == null) {
                     engagementIds.remove(engagementId);
                 }
@@ -381,7 +381,7 @@ public class EngagementsProcessor {
     throws HubSpotException {
         String engagementUrl = "/engagements/v1/engagements/" + engagementId;
         try {
-            return getEngagement(service, forkJoinPool, folder, rateLimiter, engagementUrl);
+            return getEngagement(service, forkJoinPool, folder, engagementUrl);
         }
         catch (HubSpotException e) {
             forkJoinPool.shutdownNow();
@@ -487,14 +487,12 @@ public class EngagementsProcessor {
                                        e
             );
         }
-        ArrayList<JSONObject> engagementJsons = getEngagementJson(httpService, contactId, rateLimiter);
+        ArrayList<JSONObject> engagementJsons = getEngagementJson(httpService, contactId);
         ForkJoinPool forkJoinPool = new ForkJoinPool();
         forkJoinPool.submit(() -> ProgressBar.wrap(engagementJsons.parallelStream(),
                                                    Utils.getProgressBarBuilder("Writing Engagements for contact id " +
                                                                                contactId)
-        ).forEach(jsonObject -> {
-            Utils.writeJsonCache(forkJoinPool, folder, jsonObject);
-        }));
+        ).forEach(jsonObject -> Utils.writeJsonCache(forkJoinPool, folder, jsonObject)));
         Utils.shutdownForkJoinPool(logger, forkJoinPool, folder);
     }
 

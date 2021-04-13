@@ -92,11 +92,11 @@ public class Email extends Engagement {
             }
         }
         return "To:\t" +
-               toBuilder.toString() +
+               toBuilder +
                "\nCC:\t" +
-               ccBuilder.toString() +
+               ccBuilder +
                "\nBCC:\t" +
-               bccBuilder.toString() +
+               bccBuilder +
                "\nFrom:\t" +
                from +
                "\nSubject:\t" +
