@@ -8,6 +8,7 @@ import org.hubspot.objects.PropertyData;
 import org.hubspot.objects.crm.CRMObjectType;
 import org.hubspot.objects.crm.Company;
 import org.hubspot.utils.*;
+import org.jetbrains.annotations.NotNull;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -62,17 +63,7 @@ public class CompanyService {
             while (true) {
                 rateLimiter.acquire();
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
-                Runnable process = () -> {
-                    for (Object o : jsonObject.getJSONArray("results")) {
-                        JSONObject companyJson = (JSONObject) o;
-                        companyJson = Utils.formatJson(companyJson);
-                        Company company = parseCompanyData(companyJson);
-                        Utils.writeJsonCache(executorService, cacheFolder, companyJson);
-                        companies.put(company.getId(), company);
-                        pb.step();
-                        Utils.sleep(1L);
-                    }
-                };
+                Runnable process = process(companies, executorService, pb, jsonObject);
                 executorService.submit(process);
                 if (!jsonObject.has("paging")) {
                     break;
@@ -83,6 +74,25 @@ public class CompanyService {
             Utils.shutdownExecutors(logger, executorService, cacheFolder);
         }
         return companies;
+    }
+
+    @NotNull
+    private static Runnable process(ConcurrentHashMap<Long, Company> companies,
+                                    ExecutorService executorService,
+                                    ProgressBar pb,
+                                    JSONObject jsonObject
+    ) {
+        return () -> {
+            for (Object o : jsonObject.getJSONArray("results")) {
+                JSONObject companyJson = (JSONObject) o;
+                companyJson = Utils.formatJson(companyJson);
+                Company company = parseCompanyData(companyJson);
+                Utils.writeJsonCache(executorService, cacheFolder, companyJson);
+                companies.put(company.getId(), company);
+                pb.step();
+                Utils.sleep(1L);
+            }
+        };
     }
 
     static Company parseCompanyData(JSONObject jsonObject) {
@@ -148,6 +158,34 @@ public class CompanyService {
 
     public static Path getCacheFolder() {
         return cacheFolder;
+    }
+
+    static ConcurrentHashMap<Long, Company> getUpdatedContacts(HttpService httpService,
+                                                               PropertyData propertyData,
+                                                               long lastExecution, long lastFinished
+    ) throws HubSpotException {
+        String url = "/crm/v3/objects/companies/search";
+        RateLimiter rateLimiter = RateLimiter.create(4);
+        ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
+        JSONObject body = Utils.getUpdateBody(CRMObjectType.COMPANIES, propertyData, lastExecution, LIMIT);
+        long after;
+        long count = Utils.getUpdateCount(httpService, rateLimiter, CRMObjectType.COMPANIES, lastExecution);
+        ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
+        try (ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Updated Companies", count)) {
+            while (true) {
+                rateLimiter.acquire();
+                JSONObject jsonObject = (JSONObject) httpService.postRequest(url, body);
+                Runnable process = process(companies, executorService, pb, jsonObject);
+                executorService.submit(process);
+                if (!jsonObject.has("paging")) {
+                    break;
+                }
+                after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
+                body.put("after", after);
+            }
+            Utils.shutdownUpdateExecutors(logger, executorService, cacheFolder, lastFinished);
+        }
+        return companies;
     }
 
     static ConcurrentHashMap<Long, Company> readCompanyJsons() {

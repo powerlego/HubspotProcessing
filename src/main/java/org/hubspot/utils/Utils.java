@@ -1,5 +1,6 @@
 package org.hubspot.utils;
 
+
 import com.google.common.util.concurrent.RateLimiter;
 import me.tongfei.progressbar.ProgressBar;
 import me.tongfei.progressbar.ProgressBarBuilder;
@@ -7,6 +8,7 @@ import me.tongfei.progressbar.ProgressBarStyle;
 import org.apache.commons.text.WordUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.hubspot.objects.PropertyData;
 import org.hubspot.objects.crm.CRMObjectType;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -62,22 +64,35 @@ public class Utils {
         return getProgressBarBuilder(taskName, size).build();
     }
 
+    public static void deleteRecentlyUpdated(File folder, long lastFinished) {
+        File[] files = folder.listFiles(pathname -> pathname.lastModified() > lastFinished);
+        if (files != null && files.length > 0) {
+            for (File file : files) {
+                if (file.isDirectory()) {
+                    deleteRecentlyUpdated(file, lastFinished);
+                }
+                else {
+                    try {
+                        Files.delete(file.toPath());
+                    }
+                    catch (IOException e) {
+                        logger.fatal("Unable to delete file {}. Please delete manually.", file, e);
+                    }
+                }
+            }
+        }
+    }
+
     public static ProgressBar createProgressBar(String taskName) {
         return getProgressBarBuilder(taskName).build();
     }
 
-    public static ProgressBarBuilder getProgressBarBuilder(String taskName) {
-        return new ProgressBarBuilder().setTaskName(taskName)
-                                       .setStyle(ProgressBarStyle.ASCII)
-                                       .setUpdateIntervalMillis(5);
+    public static void deleteRecentlyUpdated(Path folder, long lastFinished) {
+        deleteRecentlyUpdated(folder.toFile(), lastFinished);
     }
 
     public static String format(String string) {
         return format(string, 80);
-    }
-
-    public static JSONObject formatJson(JSONObject jsonObjectToFormat) {
-        return (JSONObject) recurseCheckingFormat(jsonObjectToFormat);
     }
 
     public static String format(String string, int columnWrap) {
@@ -104,11 +119,24 @@ public class Utils {
         return string;
     }
 
-    public static ProgressBarBuilder getProgressBarBuilder(String taskName, long size) {
-        return new ProgressBarBuilder().setTaskName(taskName)
-                                       .setInitialMax(size)
-                                       .setStyle(ProgressBarStyle.ASCII)
-                                       .setUpdateIntervalMillis(5);
+    public static long findMostRecentModification(Path dir) {
+        return findMostRecentModification(dir.toFile());
+    }
+
+    public static long findMostRecentModification(File dir) {
+        long lastModified = -1;
+        if (dir.isDirectory()) {
+            File[] files = dir.listFiles(File::isFile);
+            if (files != null && files.length > 0) {
+                Arrays.sort(files, LastModifiedFileComparator.LASTMODIFIED_REVERSE);
+                lastModified = files[0].lastModified();
+            }
+        }
+        return lastModified;
+    }
+
+    public static JSONObject formatJson(JSONObject jsonObjectToFormat) {
+        return (JSONObject) recurseCheckingFormat(jsonObjectToFormat);
     }
 
     public static long getObjectCount(HttpService service, CRMObjectType type, RateLimiter rateLimiter) {
@@ -117,13 +145,12 @@ public class Utils {
         JSONObject filters = new JSONObject();
         JSONArray filtersArray = new JSONArray();
         JSONObject filter = new JSONObject();
-        JSONArray propertyArray = new JSONArray();
+        JSONArray propertyArray = new JSONArray(PropertyData.EMPTY.getPropertyNames());
         filter.put("propertyName", "hs_object_id").put("operator", "HAS_PROPERTY");
         filtersArray.put(filter);
         filters.put("filters", filtersArray);
         filterGroupsArray.put(filters);
         body.put("filterGroups", filterGroupsArray);
-        propertyArray.put("hs_object_id");
         body.put("properties", propertyArray).put("limit", 1);
         try {
             rateLimiter.acquire();
@@ -135,6 +162,20 @@ public class Utils {
             return 0;
         }
     }
+
+    public static ProgressBarBuilder getProgressBarBuilder(String taskName, long size) {
+        return new ProgressBarBuilder().setTaskName(taskName)
+                                       .setInitialMax(size)
+                                       .setStyle(ProgressBarStyle.ASCII)
+                                       .setUpdateIntervalMillis(5).setMaxRenderedLength(-1);
+    }
+
+    public static ProgressBarBuilder getProgressBarBuilder(String taskName) {
+        return new ProgressBarBuilder().setTaskName(taskName)
+                                       .setStyle(ProgressBarStyle.ASCII)
+                                       .setUpdateIntervalMillis(5).setMaxRenderedLength(-1);
+    }
+
 
     public static String propertyListToString(List<String> properties) {
         return properties.toString().replace("[", "").replace("]", "").replace(" ", "");
@@ -181,6 +222,71 @@ public class Utils {
         catch (NumberFormatException | IOException ignored) {
         }
         return lastExecuted;
+    }
+
+    public static long getUpdateCount(HttpService service,
+                                      RateLimiter rateLimiter,
+                                      CRMObjectType type,
+                                      long lastExecution
+    ) {
+        JSONObject body = getUpdateBody(type, PropertyData.EMPTY, lastExecution, 1);
+        try {
+            rateLimiter.acquire();
+            JSONObject resp = (JSONObject) service.postRequest("/crm/v3/objects/" + type.getValue() + "/search", body);
+            return resp.getLong("total");
+        }
+        catch (HubSpotException e) {
+            logger.fatal("Unable to get object count.", e);
+            return 0;
+        }
+    }
+
+    public static JSONObject getUpdateBody(CRMObjectType type,
+                                           PropertyData propertyData,
+                                           long lastExecution,
+                                           int limit
+    ) {
+        JSONObject body = new JSONObject();
+        JSONArray filterGroupsArray = new JSONArray();
+        JSONObject filters1 = new JSONObject();
+        JSONArray filtersArray1 = new JSONArray();
+        JSONObject filter1 = new JSONObject();
+        JSONObject filters2 = new JSONObject();
+        JSONArray filtersArray2 = new JSONArray();
+        JSONObject filter2 = new JSONObject();
+        filter1.put("propertyName", "createdate").put("operator", "GTE").put("value", lastExecution);
+        filtersArray1.put(filter1);
+        filters1.put("filters", filtersArray1);
+        switch (type) {
+            case CONTACTS:
+                filter2.put("propertyName", "lastmodifieddate").put("operator", "GTE").put("value", lastExecution);
+                break;
+            case COMPANIES:
+            case DEALS:
+            case TICKETS:
+                filter2.put("propertyName", "hs_lastmodifieddate").put("operator", "GTE").put("value", lastExecution);
+                break;
+        }
+        filtersArray2.put(filter2);
+        filters2.put("filters", filtersArray2);
+        filterGroupsArray.put(filters1).put(filters2);
+        JSONArray propertyArray = new JSONArray(propertyData.getPropertyNames());
+        body.put("filterGroups", filterGroupsArray);
+        body.put("properties", propertyArray);
+        body.put("limit", limit);
+        return body;
+    }
+
+    public static long readLastFinished() {
+        long lastFinished = -1;
+        Path lastFinishedFile = Paths.get("./cache/last_finished.txt");
+        try {
+            String value = readFile(lastFinishedFile);
+            lastFinished = Long.parseLong(value);
+        }
+        catch (NumberFormatException | IOException ignored) {
+        }
+        return lastFinished;
     }
 
     public static String readFile(Path path) throws IOException {
@@ -277,6 +383,38 @@ public class Utils {
         }
     }
 
+    public static void shutdownForkJoinPool(Logger logger, ForkJoinPool forkJoinPool, Path folder) {
+        forkJoinPool.shutdown();
+        try {
+            if (!forkJoinPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                logger.warn("Termination Timeout");
+            }
+        }
+        catch (InterruptedException e) {
+            logger.fatal("Thread interrupted", e);
+            deleteDirectory(folder);
+            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
+        }
+    }
+
+    public static void shutdownUpdateExecutors(Logger logger,
+                                               ExecutorService executorService,
+                                               Path folder,
+                                               long lastFinished
+    ) {
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                logger.warn("Termination Timeout");
+            }
+        }
+        catch (InterruptedException e) {
+            logger.fatal("Thread interrupted", e);
+            Utils.deleteRecentlyUpdated(folder, lastFinished);
+            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
+        }
+    }
+
     /**
      * Deletes the specified directory @param directoryToBeDeleted The directory to be deleted
      */
@@ -299,6 +437,24 @@ public class Utils {
         }
         catch (InterruptedException e) {
             logger.fatal("Thread interrupted", e);
+            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
+        }
+    }
+
+    public static void shutdownUpdateForkJoinPool(Logger logger,
+                                                  ForkJoinPool forkJoinPool,
+                                                  Path folder,
+                                                  long lastFinished
+    ) {
+        forkJoinPool.shutdown();
+        try {
+            if (!forkJoinPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                logger.warn("Termination Timeout");
+            }
+        }
+        catch (InterruptedException e) {
+            logger.fatal("Thread interrupted", e);
+            Utils.deleteRecentlyUpdated(folder, lastFinished);
             System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
         }
     }
@@ -367,6 +523,10 @@ public class Utils {
         catch (IOException e) {
             logger.fatal("Unable to write file {}", cacheRoot.relativize(filePath), e);
             forkJoinPool.shutdownNow();
+            long wait = 0;
+            while (forkJoinPool.isTerminating()) {
+                wait++;
+            }
             Utils.deleteDirectory(cacheRoot.resolve(cacheRoot.relativize(filePath).getName(0)));
             System.exit(ErrorCodes.IO_WRITE.getErrorCode());
         }
@@ -424,5 +584,19 @@ public class Utils {
             System.exit(ErrorCodes.IO_WRITE.getErrorCode());
         }
         return lastExecuted;
+    }
+
+    public static void writeLastFinished() {
+        long lastFinished = Instant.now().toEpochMilli();
+        Path lastFinishedFile = Paths.get("./cache/last_finished.txt");
+        try {
+            FileWriter fileWriter = new FileWriter(lastFinishedFile.toFile());
+            fileWriter.write(String.valueOf(lastFinished));
+            fileWriter.close();
+        }
+        catch (IOException e) {
+            logger.fatal("Unable to write file {}", lastFinishedFile, e);
+            System.exit(ErrorCodes.IO_WRITE.getErrorCode());
+        }
     }
 }

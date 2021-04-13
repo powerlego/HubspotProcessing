@@ -24,6 +24,7 @@ public enum ErrorCodes {
     HTTP_406(150),
     HTTP_407(151),
     HTTP_408(152),
+    HTTP_409(153),
     HTTP_429(173),
     DAILY_LIMIT_REACHED(173),
     HTTP_500(244),

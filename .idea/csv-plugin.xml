@@ -24,6 +24,13 @@
             </Attribute>
           </value>
         </entry>
+        <entry key="C:\Users\nicho\AppData\Roaming\JetBrains\IntelliJIdea2021.1\scratches\rest-api.http">
+          <value>
+            <Attribute>
+              <option name="separator" value=":" />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="\contacts\contacts\17960390.txt">
           <value>
             <Attribute>
@@ -144,6 +151,13 @@
           </value>
         </entry>
         <entry key="\src\main\java\org\hubspot\services\CRM.java">
+          <value>
+            <Attribute>
+              <option name="separator" value=";" />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\src\main\java\org\hubspot\services\CRMProperties.java">
           <value>
             <Attribute>
               <option name="separator" value=";" />

@@ -8,6 +8,7 @@ import org.hubspot.objects.PropertyData;
 import org.hubspot.objects.crm.CRMObjectType;
 import org.hubspot.objects.crm.Contact;
 import org.hubspot.utils.*;
+import org.jetbrains.annotations.NotNull;
 import org.json.JSONObject;
 
 import java.io.File;
@@ -15,11 +16,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.*;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
+import java.util.Arrays;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.*;
 
 /**
  * @author Nicholas Curl
@@ -37,37 +38,40 @@ public class ContactService {
         return cacheFolder.toFile().exists();
     }
 
-    static ArrayList<Contact> filterContacts(ArrayList<Contact> contacts) {
-        List<Contact> filteredContacts = Collections.synchronizedList(new ArrayList<>());
-        ProgressBar.wrap(contacts.parallelStream(), Utils.getProgressBarBuilder("Filtering")).forEach(contact -> {
-            String lifeCycleStage = contact.getLifeCycleStage();
-            String leadStatus = contact.getLeadStatus();
-            String lifecycleOR = contact.getProperty("hr_hiring_applicant").toString();
-            boolean b = ((leadStatus == null || leadStatus.equalsIgnoreCase("null")) ||
-                         (!leadStatus.toLowerCase().contains("closed") &&
-                          !leadStatus.equalsIgnoreCase("Recruit") &&
-                          !leadStatus.toLowerCase().contains("no contact") &&
-                          !leadStatus.toLowerCase().contains("unqualified")
-                         )
-            );
-            boolean c = ((lifecycleOR == null || lifecycleOR.equalsIgnoreCase("null")) ||
-                         !lifecycleOR.toLowerCase().contains("closed")
-            );
-            if ((lifeCycleStage == null || !lifeCycleStage.equalsIgnoreCase("subscriber")) && b && c) {
-                filteredContacts.add(contact);
-            }
-            Utils.sleep(1L);
-        });
-        return new ArrayList<>(filteredContacts);
+    static ConcurrentHashMap<Long, Contact> filterContacts(ConcurrentHashMap<Long, Contact> contacts) {
+        ConcurrentHashMap<Long, Contact> filteredContacts = new ConcurrentHashMap<>();
+        try (ProgressBar pb = Utils.createProgressBar("Filtering", contacts.size())) {
+            contacts.forEach(1, (contactId, contact) -> {
+                String lifeCycleStage = contact.getLifeCycleStage();
+                String leadStatus = contact.getLeadStatus();
+                String lifecycleOR = contact.getProperty("hr_hiring_applicant").toString();
+                boolean b = ((leadStatus == null || leadStatus.equalsIgnoreCase("null")) ||
+                             (!leadStatus.toLowerCase().contains("closed") &&
+                              !leadStatus.equalsIgnoreCase("Recruit") &&
+                              !leadStatus.toLowerCase().contains("no contact") &&
+                              !leadStatus.toLowerCase().contains("unqualified")
+                             )
+                );
+                boolean c = ((lifecycleOR == null || lifecycleOR.equalsIgnoreCase("null")) ||
+                             !lifecycleOR.toLowerCase().contains("closed")
+                );
+                if ((lifeCycleStage == null || !lifeCycleStage.equalsIgnoreCase("subscriber")) && b && c) {
+                    filteredContacts.put(contactId, contact);
+                }
+                pb.step();
+                Utils.sleep(1L);
+            });
+        }
+        return filteredContacts;
     }
 
-    static ArrayList<Contact> getAllContacts(HttpService httpService,
-                                             PropertyData propertyData,
-                                             RateLimiter rateLimiter
+    static ConcurrentHashMap<Long, Contact> getAllContacts(HttpService httpService,
+                                                           PropertyData propertyData,
+                                                           RateLimiter rateLimiter
     )
     throws HubSpotException {
         Map<String, Object> map = new HashMap<>();
-        List<Contact> contacts = Collections.synchronizedList(new ArrayList<>());
+        ConcurrentHashMap<Long, Contact> contacts = new ConcurrentHashMap<>();
         map.put("limit", LIMIT);
         map.put("properties", propertyData.getPropertyNamesString());
         map.put("archived", false);
@@ -86,16 +90,7 @@ public class ContactService {
             while (true) {
                 rateLimiter.acquire();
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
-                Runnable process = () -> {
-                    for (Object o : jsonObject.getJSONArray("results")) {
-                        JSONObject contactJson = (JSONObject) o;
-                        contactJson = Utils.formatJson(contactJson);
-                        Contact contact = parseContactData(contactJson);
-                        Utils.writeJsonCache(executorService, cacheFolder, contactJson);
-                        contacts.add(contact);
-                        pb.step();
-                    }
-                };
+                Runnable process = process(contacts, executorService, pb, jsonObject);
                 executorService.submit(process);
                 if (!jsonObject.has("paging")) {
                     break;
@@ -105,7 +100,7 @@ public class ContactService {
             }
             Utils.shutdownExecutors(logger, executorService, cacheFolder);
         }
-        return new ArrayList<>(contacts);
+        return contacts;
     }
 
     static Contact parseContactData(JSONObject jsonObject) {
@@ -173,8 +168,54 @@ public class ContactService {
         return cacheFolder;
     }
 
-    static ArrayList<Contact> readContactJsons() {
-        List<Contact> contacts = Collections.synchronizedList(new ArrayList<>());
+    @NotNull
+    private static Runnable process(ConcurrentHashMap<Long, Contact> contacts,
+                                    ExecutorService executorService,
+                                    ProgressBar pb,
+                                    JSONObject jsonObject
+    ) {
+        return () -> {
+            for (Object o : jsonObject.getJSONArray("results")) {
+                JSONObject contactJson = (JSONObject) o;
+                contactJson = Utils.formatJson(contactJson);
+                Contact contact = parseContactData(contactJson);
+                Utils.writeJsonCache(executorService, cacheFolder, contactJson);
+                contacts.put(contact.getId(), contact);
+                pb.step();
+            }
+        };
+    }
+
+    static ConcurrentHashMap<Long, Contact> getUpdatedContacts(HttpService httpService,
+                                                               PropertyData propertyData,
+                                                               long lastExecution, long lastFinished
+    ) throws HubSpotException {
+        String url = "/crm/v3/objects/contacts/search";
+        RateLimiter rateLimiter = RateLimiter.create(4);
+        ConcurrentHashMap<Long, Contact> contacts = new ConcurrentHashMap<>();
+        JSONObject body = Utils.getUpdateBody(CRMObjectType.CONTACTS, propertyData, lastExecution, LIMIT);
+        long after;
+        ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("ContactGrabber"));
+        long count = Utils.getUpdateCount(httpService, rateLimiter, CRMObjectType.CONTACTS, lastExecution);
+        try (ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Updated Contacts", count)) {
+            while (true) {
+                rateLimiter.acquire();
+                JSONObject jsonObject = (JSONObject) httpService.postRequest(url, body);
+                Runnable process = process(contacts, executorService, pb, jsonObject);
+                executorService.submit(process);
+                if (!jsonObject.has("paging")) {
+                    break;
+                }
+                after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
+                body.put("after", after);
+            }
+            Utils.shutdownUpdateExecutors(logger, executorService, cacheFolder, lastFinished);
+        }
+        return contacts;
+    }
+
+    static ConcurrentHashMap<Long, Contact> readContactJsons() {
+        ConcurrentHashMap<Long, Contact> contacts = new ConcurrentHashMap<>();
         File[] files = cacheFolder.toFile().listFiles();
         ForkJoinPool forkJoinPool = new ForkJoinPool();
         if (files != null) {
@@ -184,7 +225,7 @@ public class ContactService {
                 String jsonString = Utils.readJsonString(logger, file);
                 JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
                 Contact contact = parseContactData(jsonObject);
-                contacts.add(contact);
+                contacts.put(contact.getId(), contact);
                 Utils.sleep(1L);
             }));
         }
@@ -198,7 +239,7 @@ public class ContactService {
             logger.fatal("Threads interrupted during wait.", e);
             System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
         }
-        return new ArrayList<>(contacts);
+        return contacts;
     }
 
     static void writeContactJson(HttpService httpService, PropertyData propertyData, RateLimiter rateLimiter)

@@ -5,6 +5,8 @@ import org.apache.logging.log4j.Logger;
 import org.hubspot.utils.Utils;
 
 import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -18,6 +20,9 @@ public class PropertyData {
     private static final Logger              logger = LogManager.getLogger();
     private final        ArrayList<String>   propertyNames;
     private final        Map<String, Object> properties;
+    public static final  PropertyData        EMPTY  = new PropertyData(new ArrayList<>(List.of("hs_object_id")),
+                                                                       new HashMap<>()
+    );
 
     public PropertyData(ArrayList<String> propertyNames, Map<String, Object> properties) {
         this.properties = properties;
