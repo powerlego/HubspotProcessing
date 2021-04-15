@@ -9,6 +9,7 @@ import kong.unirest.json.JSONObject;
 import org.apache.http.impl.execchain.RequestAbortedException;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.hubspot.utils.exceptions.HubSpotException;
 
 import java.util.Map;
 
@@ -95,7 +96,11 @@ public class HttpService {
             }
             if (!Strings.isNullOrEmpty(message)) {
                 if (resp.getStatus() == 429) {
-                    String policyName = resp.getBody().getObject().getString("policyName");
+                    String policyName = resp.getBody().getObject().has("policyName")
+                                        ? resp.getBody()
+                                              .getObject()
+                                              .getString("policyName")
+                                        : "";
                     throw new HubSpotException(resp.getStatus() + " " + message,
                                                policyName,
                                                ErrorCodes.HTTP_429.getErrorCode()

@@ -9,13 +9,13 @@ import org.hubspot.objects.crm.Company;
 import org.hubspot.objects.crm.Contact;
 import org.hubspot.services.EngagementsProcessor.EngagementData;
 import org.hubspot.utils.HttpService;
-import org.hubspot.utils.HubSpotException;
 import org.hubspot.utils.Utils;
+import org.hubspot.utils.exceptions.HubSpotException;
 import org.jetbrains.annotations.NotNull;
 
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.concurrent.ConcurrentHashMap;
+import java.util.HashMap;
 
 /**
  * @author Nicholas Curl
@@ -29,16 +29,23 @@ public class CRM {
     private final        HttpService httpService;
     private final        RateLimiter rateLimiter;
 
-    public CRM(HttpService httpService, RateLimiter rateLimiter) {
+    public CRM(HttpService httpService, final RateLimiter rateLimiter) {
         this.httpService = httpService;
         this.rateLimiter = rateLimiter;
     }
 
-    public ConcurrentHashMap<Long, Contact> filterContacts(ConcurrentHashMap<Long, Contact> contacts) {
-        return ContactService.filterContacts(contacts);
+    public HashMap<Long, Contact> filterContacts(HashMap<Long, Contact> contacts) {
+        try {
+            return ContactService.filterContacts(contacts);
+        }
+        catch (HubSpotException e) {
+            logger.fatal("Unable to filter contacts", e);
+            System.exit(e.getCode());
+            return new HashMap<>();
+        }
     }
 
-    public ConcurrentHashMap<Long, Company> getAllCompanies(String propertyGroup, boolean includeHiddenProperties) {
+    public HashMap<Long, Company> getAllCompanies(String propertyGroup, boolean includeHiddenProperties) {
         PropertyData propertyData = propsByGroupName(CRMObjectType.COMPANIES, propertyGroup, includeHiddenProperties);
         return getCompanies(propertyData);
     }
@@ -55,7 +62,7 @@ public class CRM {
     }
 
     @NotNull
-    private ConcurrentHashMap<Long, Company> getCompanies(PropertyData propertyData) {
+    private HashMap<Long, Company> getCompanies(PropertyData propertyData) {
         try {
             return CompanyService.getAllCompanies(httpService, propertyData, rateLimiter);
         }
@@ -63,11 +70,11 @@ public class CRM {
             logger.fatal("Unable to get all companies", e);
             Utils.deleteDirectory(CompanyService.getCacheFolder());
             System.exit(e.getCode());
-            return new ConcurrentHashMap<>();
+            return new HashMap<>();
         }
     }
 
-    public ConcurrentHashMap<Long, Company> getAllCompanies(boolean includeHiddenProperties) {
+    public HashMap<Long, Company> getAllCompanies(boolean includeHiddenProperties) {
         PropertyData propertyData = allProperties(CRMObjectType.COMPANIES, includeHiddenProperties);
         return getCompanies(propertyData);
     }
@@ -83,13 +90,13 @@ public class CRM {
         }
     }
 
-    public ConcurrentHashMap<Long, Contact> getAllContacts(String propertyGroup, boolean includeHiddenProperties) {
+    public HashMap<Long, Contact> getAllContacts(String propertyGroup, boolean includeHiddenProperties) {
         PropertyData propertyData = propsByGroupName(CRMObjectType.CONTACTS, propertyGroup, includeHiddenProperties);
         return getContacts(propertyData);
     }
 
     @NotNull
-    private ConcurrentHashMap<Long, Contact> getContacts(PropertyData propertyData) {
+    private HashMap<Long, Contact> getContacts(PropertyData propertyData) {
         try {
             return ContactService.getAllContacts(httpService, propertyData, rateLimiter);
         }
@@ -97,11 +104,11 @@ public class CRM {
             logger.fatal("Unable to get all contacts", e);
             Utils.deleteDirectory(ContactService.getCacheFolder());
             System.exit(e.getCode());
-            return new ConcurrentHashMap<>();
+            return new HashMap<>();
         }
     }
 
-    public ConcurrentHashMap<Long, Contact> getAllContacts(boolean includeHiddenProperties) {
+    public HashMap<Long, Contact> getAllContacts(boolean includeHiddenProperties) {
         PropertyData propertyData = allProperties(CRMObjectType.CONTACTS, includeHiddenProperties);
         return getContacts(propertyData);
     }
@@ -178,56 +185,50 @@ public class CRM {
         }
     }
 
-    public ConcurrentHashMap<Long, Company> getUpdatedCompanies(String propertyGroup,
-                                                                boolean includeHiddenProperties,
-                                                                long lastExecuted,
-                                                                long lastFinished
+    public HashMap<Long, Company> getUpdatedCompanies(String propertyGroup,
+                                                      boolean includeHiddenProperties,
+                                                      long lastExecuted,
+                                                      long lastFinished
     ) {
         PropertyData propertyData = propsByGroupName(CRMObjectType.COMPANIES, propertyGroup, includeHiddenProperties);
         return getCompanies(lastExecuted, propertyData, lastFinished);
     }
 
     @NotNull
-    private ConcurrentHashMap<Long, Company> getCompanies(long lastExecuted,
-                                                          PropertyData propertyData,
-                                                          long lastFinished
-    ) {
+    private HashMap<Long, Company> getCompanies(long lastExecuted, PropertyData propertyData, long lastFinished) {
         if (lastFinished == -1) {
             lastFinished = Utils.findMostRecentModification(CompanyService.getCacheFolder());
         }
         try {
-            return CompanyService.getUpdatedContacts(httpService, propertyData, lastExecuted, lastFinished);
+            return CompanyService.getUpdatedCompanies(httpService, propertyData, lastExecuted, lastFinished);
         }
         catch (HubSpotException e) {
             logger.fatal("Unable to get updated companies", e);
             Utils.deleteRecentlyUpdated(CompanyService.getCacheFolder(), lastFinished);
             System.exit(e.getCode());
-            return new ConcurrentHashMap<>();
+            return new HashMap<>();
         }
     }
 
-    public ConcurrentHashMap<Long, Company> getUpdatedCompanies(boolean includeHiddenProperties,
-                                                                long lastExecuted,
-                                                                long lastFinished
+    public HashMap<Long, Company> getUpdatedCompanies(boolean includeHiddenProperties,
+                                                      long lastExecuted,
+                                                      long lastFinished
     ) {
         PropertyData propertyData = allProperties(CRMObjectType.COMPANIES, includeHiddenProperties);
         return getCompanies(lastExecuted, propertyData, lastFinished);
     }
 
-    public ConcurrentHashMap<Long, Contact> getUpdatedContacts(String propertyGroup,
-                                                               boolean includeHiddenProperties,
-                                                               long lastExecuted,
-                                                               long lastFinished
+    public HashMap<Long, Contact> getUpdatedContacts(String propertyGroup,
+                                                     boolean includeHiddenProperties,
+                                                     long lastExecuted,
+                                                     long lastFinished
     ) {
         PropertyData propertyData = propsByGroupName(CRMObjectType.CONTACTS, propertyGroup, includeHiddenProperties);
         return getContacts(lastExecuted, propertyData, lastFinished);
     }
 
     @NotNull
-    private ConcurrentHashMap<Long, Contact> getContacts(long lastExecuted,
-                                                         PropertyData propertyData,
-                                                         long lastFinished
-    ) {
+    private HashMap<Long, Contact> getContacts(long lastExecuted, PropertyData propertyData, long lastFinished) {
         if (lastFinished == -1) {
             lastFinished = Utils.findMostRecentModification(ContactService.getCacheFolder());
         }
@@ -238,13 +239,13 @@ public class CRM {
             logger.fatal("Unable to get updated contacts", e);
             Utils.deleteRecentlyUpdated(ContactService.getCacheFolder(), lastFinished);
             System.exit(e.getCode());
-            return new ConcurrentHashMap<>();
+            return new HashMap<>();
         }
     }
 
-    public ConcurrentHashMap<Long, Contact> getUpdatedContacts(boolean includeHiddenProperties,
-                                                               long lastExecuted,
-                                                               long lastFinished
+    public HashMap<Long, Contact> getUpdatedContacts(boolean includeHiddenProperties,
+                                                     long lastExecuted,
+                                                     long lastFinished
     ) {
         PropertyData propertyData = allProperties(CRMObjectType.CONTACTS, includeHiddenProperties);
         return getContacts(lastExecuted, propertyData, lastFinished);
@@ -265,16 +266,37 @@ public class CRM {
         }
     }
 
-    public ConcurrentHashMap<Long, Company> readCompanyJsons() {
-        return CompanyService.readCompanyJsons();
+    public HashMap<Long, Company> readCompanyJsons() {
+        try {
+            return CompanyService.readCompanyJsons();
+        }
+        catch (HubSpotException e) {
+            logger.fatal("Unable to read company jsons", e);
+            System.exit(e.getCode());
+            return new HashMap<>();
+        }
     }
 
-    public ConcurrentHashMap<Long, Contact> readContactJsons() {
-        return ContactService.readContactJsons();
+    public HashMap<Long, Contact> readContactJsons() {
+        try {
+            return ContactService.readContactJsons();
+        }
+        catch (HubSpotException e) {
+            logger.fatal("Unable to read contact jsons", e);
+            System.exit(e.getCode());
+            return new HashMap<>();
+        }
     }
 
-    public ConcurrentHashMap<Long, EngagementData> readEngagementJsons() {
-        return EngagementsProcessor.readEngagementJsons();
+    public HashMap<Long, EngagementData> readEngagementJsons() {
+        try {
+            return EngagementsProcessor.readEngagementJsons();
+        }
+        catch (HubSpotException e) {
+            logger.fatal("Unable to read engagement jsons", e);
+            System.exit(e.getCode());
+            return new HashMap<>();
+        }
     }
 
     public void writeCompanyJson(boolean includeHiddenProperties) {

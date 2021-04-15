@@ -8,18 +8,16 @@ import org.hubspot.objects.crm.Company;
 import org.hubspot.objects.crm.Contact;
 import org.hubspot.services.CompanyService;
 import org.hubspot.services.ContactService;
-import org.hubspot.services.EngagementsProcessor;
 import org.hubspot.services.EngagementsProcessor.EngagementData;
 import org.hubspot.services.HubSpot;
+import org.hubspot.utils.CPUMonitor;
 import org.hubspot.utils.ErrorCodes;
 import org.hubspot.utils.Utils;
 
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.concurrent.ForkJoinPool;
-import java.util.concurrent.TimeUnit;
+import java.util.HashMap;
 
 /**
  * @author Nicholas Curl
@@ -30,8 +28,10 @@ public class Main {
      * The instance of the logger
      */
     private static final Logger logger = LogManager.getLogger();
+    private static final long   DELAY  = 25;
 
     public static void main(String[] args) {
+        CPUMonitor.startMonitoring();
         try {
             Files.createDirectories(Paths.get("./cache"));
         }
@@ -53,42 +53,50 @@ public class Main {
         }
         long lastFinished = Utils.readLastFinished();
         HubSpot hubspot = new HubSpot("6ab73220-900f-462b-b753-b6757d94cd1d");
-        ConcurrentHashMap<Long, Contact> contacts;
-        ConcurrentHashMap<Long, Contact> updatedContacts;
+        HashMap<Long, Contact> contacts;
+        HashMap<Long, Contact> updatedContacts;
         if (!ContactService.cacheExists()) {
             contacts = hubspot.crm().getAllContacts("contactinformation", true);
-            updatedContacts = new ConcurrentHashMap<>();
+            updatedContacts = new HashMap<>();
         }
         else {
             contacts = hubspot.crm().readContactJsons();
+            Utils.sleep(DELAY);
             updatedContacts = hubspot.crm().getUpdatedContacts("contactinformation", true, lastExecuted, lastFinished);
             contacts.putAll(updatedContacts);
         }
-        ConcurrentHashMap<Long, Company> companies;
+        Utils.sleep(DELAY);
+        HashMap<Long, Company> companies;
         if (!CompanyService.cacheExists()) {
             companies = hubspot.crm().getAllCompanies("companyinformation", false);
         }
         else {
             companies = hubspot.crm().readCompanyJsons();
-            ConcurrentHashMap<Long, Company> updatedCompanies = hubspot.crm()
-                                                                       .getUpdatedCompanies("companyinformation",
-                                                                                            false,
-                                                                                            lastExecuted,
-                                                                                            lastFinished
-                                                                       );
+            Utils.sleep(DELAY);
+            HashMap<Long, Company> updatedCompanies = hubspot.crm()
+                                                             .getUpdatedCompanies("companyinformation",
+                                                                                  false,
+                                                                                  lastExecuted,
+                                                                                  lastFinished
+                                                             );
             companies.putAll(updatedCompanies);
         }
-        ConcurrentHashMap<Long, EngagementData> engagements;
-        if (!EngagementsProcessor.cacheExists()) {
+        HashMap<Long, EngagementData> engagements;
+        /*if (!EngagementsProcessor.cacheExists()) {
             engagements = null;
         }
         else {
             engagements = hubspot.crm().readEngagementJsons();
-        }
-        ConcurrentHashMap<Long, Contact> filteredContacts = hubspot.crm().filterContacts(contacts);
-        ForkJoinPool forkJoinPool = new ForkJoinPool(8);
+        }*/
+        HashMap<Long, Contact> filteredContacts = hubspot.crm().filterContacts(contacts);
+        CPUMonitor.stopMonitoring();
+        /*ForkJoinPool forkJoinPool = new ForkJoinPool();
         ProgressBar progressBar = Utils.createProgressBar("Processing Filtered Contacts", filteredContacts.size());
-        if (engagements == null) {
+        Iterable<List<Long>> partitions = Iterables.partition(filteredContacts.keySet(), 10);
+        List<Future<Void>> futures = new ArrayList<>();*/
+        //ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(1,4,60,TimeUnit.SECONDS,new PriorityBlockingQueue<>());
+        //ExecutorService executorService = Executors.newFixedThreadPool(Runtime.getRuntime().availableProcessors());
+        /*if (engagements == null) {
             forkJoinPool.submit(() -> filteredContacts.forEach((contactId, contact) -> {
                 EngagementData engagementData = hubspot.crm().getContactEngagements(contact);
                 processContact(companies, contact, engagementData, progressBar);
@@ -124,10 +132,10 @@ public class Main {
             System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
         }
         progressBar.close();
-        Utils.writeLastFinished();
+        Utils.writeLastFinished();*/
     }
 
-    private static void processContact(ConcurrentHashMap<Long, Company> companies,
+    private static void processContact(HashMap<Long, Company> companies,
                                        Contact contact,
                                        EngagementData engagementData,
                                        ProgressBar progressBar
@@ -145,6 +153,6 @@ public class Main {
         contact.setData(contact.toJson());
         ContactWriter.write(contact);
         progressBar.step();
-        Utils.sleep(1L);
+        Utils.sleep(1);
     }
 }

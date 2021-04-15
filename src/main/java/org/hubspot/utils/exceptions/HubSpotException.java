@@ -1,7 +1,8 @@
-package org.hubspot.utils;
+package org.hubspot.utils.exceptions;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.hubspot.utils.ErrorCodes;
 
 /**
  * @author Nicholas Curl

@@ -1,4 +1,4 @@
-package org.hubspot.utils;
+package org.hubspot.utils.concurrent;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;

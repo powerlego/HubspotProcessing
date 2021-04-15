@@ -7,7 +7,7 @@ import org.hubspot.objects.HubSpotObject;
 import org.hubspot.objects.PropertyData;
 import org.hubspot.objects.crm.CRMObjectType;
 import org.hubspot.utils.HttpService;
-import org.hubspot.utils.HubSpotException;
+import org.hubspot.utils.exceptions.HubSpotException;
 import org.json.JSONArray;
 import org.json.JSONObject;
 

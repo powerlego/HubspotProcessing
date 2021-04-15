@@ -1,5 +1,6 @@
 package org.hubspot.services;
 
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.RateLimiter;
 import me.tongfei.progressbar.ProgressBar;
 import org.apache.logging.log4j.LogManager;
@@ -7,7 +8,13 @@ import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.PropertyData;
 import org.hubspot.objects.crm.CRMObjectType;
 import org.hubspot.objects.crm.Company;
-import org.hubspot.utils.*;
+import org.hubspot.utils.CPUMonitor;
+import org.hubspot.utils.ErrorCodes;
+import org.hubspot.utils.HttpService;
+import org.hubspot.utils.Utils;
+import org.hubspot.utils.concurrent.AutoShutdown;
+import org.hubspot.utils.concurrent.CustomThreadFactory;
+import org.hubspot.utils.exceptions.HubSpotException;
 import org.jetbrains.annotations.NotNull;
 import org.json.JSONObject;
 
@@ -16,10 +23,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.Arrays;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.*;
 
 /**
@@ -30,20 +34,24 @@ public class CompanyService {
     /**
      * The instance of the logger
      */
-    private static final Logger logger      = LogManager.getLogger();
-    private static final int    LIMIT       = 10;
-    private static final String url         = "/crm/v3/objects/companies/";
-    private static final Path   cacheFolder = Paths.get("./cache/companies/");
+    private static final Logger logger             = LogManager.getLogger();
+    private static final int    LIMIT              = 10;
+    private static final String url                = "/crm/v3/objects/companies/";
+    private static final Path   cacheFolder        = Paths.get("./cache/companies/");
+    private static final long   WARMUP             = 1000;
+    private static final long   LOOP_DELAY         = 2;
+    private static final long   UPDATE_INTERVAL    = 1100;
+    private static final int    STARTING_POOL_SIZE = 4;
+    private static final String debugMessageFormat = "Method %-20s\tProcess Load: %f";
 
     public static boolean cacheExists() {
         return cacheFolder.toFile().exists();
     }
 
-    static ConcurrentHashMap<Long, Company> getAllCompanies(HttpService httpService,
-                                                            PropertyData propertyData,
-                                                            RateLimiter rateLimiter
-    )
-    throws HubSpotException {
+    static HashMap<Long, Company> getAllCompanies(HttpService httpService,
+                                                  PropertyData propertyData,
+                                                  final RateLimiter rateLimiter
+    ) throws HubSpotException {
         Map<String, Object> map = new HashMap<>();
         ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
         map.put("limit", LIMIT);
@@ -51,6 +59,34 @@ public class CompanyService {
         map.put("archived", false);
         long after;
         long count = Utils.getObjectCount(httpService, CRMObjectType.COMPANIES, rateLimiter);
+        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(STARTING_POOL_SIZE,
+                                                                       STARTING_POOL_SIZE,
+                                                                       0L,
+                                                                       TimeUnit.MILLISECONDS,
+                                                                       new LinkedBlockingQueue<>(),
+                                                                       new CustomThreadFactory("CompanyGrabber")
+        );
+        ScheduledExecutorService scheduledExecutorService
+                = Executors.newScheduledThreadPool(2, new CustomThreadFactory("CompanyGrabberUpdater"));
+        ExecutorCompletionService<Void> completionService = new ExecutorCompletionService<>(threadPoolExecutor);
+        List<Future<Void>> futures = new ArrayList<>();
+        scheduledExecutorService.scheduleAtFixedRate(() -> {
+            double load = CPUMonitor.getProcessLoad();
+            String debugMessage = String.format(debugMessageFormat, "getAllCompanies", load);
+            logger.debug(debugMessage);
+            int comparison = Double.compare(load, 50.0);
+            if (comparison > 0) {
+                int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
+                threadPoolExecutor.setCorePoolSize(numThreads);
+                threadPoolExecutor.setMaximumPoolSize(numThreads);
+            }
+            else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != Runtime.getRuntime()
+                                                                                         .availableProcessors()) {
+                int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
+                threadPoolExecutor.setCorePoolSize(numThreads);
+                threadPoolExecutor.setMaximumPoolSize(numThreads);
+            }
+        }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
         try {
             Files.createDirectories(cacheFolder);
         }
@@ -58,40 +94,43 @@ public class CompanyService {
             logger.fatal("Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
-        ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
         try (ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Companies", count)) {
+            Utils.sleep(WARMUP);
             while (true) {
-                rateLimiter.acquire();
+                rateLimiter.acquire(1);
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
-                Runnable process = process(companies, executorService, pb, jsonObject);
-                executorService.submit(process);
+                futures.add(completionService.submit(new AutoShutdown<>(threadPoolExecutor,
+                                                                        process(companies, pb, jsonObject)
+                )));
                 if (!jsonObject.has("paging")) {
                     break;
                 }
                 after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
                 map.put("after", after);
+                Utils.sleep(LOOP_DELAY);
             }
-            Utils.shutdownExecutors(logger, executorService, cacheFolder);
+            Utils.waitForCompletion(completionService, futures);
+            Utils.shutdownExecutors(logger, threadPoolExecutor, cacheFolder);
+            scheduledExecutorService.shutdown();
         }
-        return companies;
+        return new HashMap<>(companies);
     }
 
     @NotNull
-    private static Runnable process(ConcurrentHashMap<Long, Company> companies,
-                                    ExecutorService executorService,
-                                    ProgressBar pb,
-                                    JSONObject jsonObject
+    private static Callable<Void> process(ConcurrentHashMap<Long, Company> companies,
+                                          ProgressBar pb,
+                                          JSONObject jsonObject
     ) {
         return () -> {
             for (Object o : jsonObject.getJSONArray("results")) {
                 JSONObject companyJson = (JSONObject) o;
                 companyJson = Utils.formatJson(companyJson);
                 Company company = parseCompanyData(companyJson);
-                Utils.writeJsonCache(executorService, cacheFolder, companyJson);
+                Utils.writeJsonCache(cacheFolder, companyJson);
                 companies.put(company.getId(), company);
                 pb.step();
-                Utils.sleep(1L);
             }
+            return null;
         };
     }
 
@@ -135,10 +174,10 @@ public class CompanyService {
         return company;
     }
 
-    static Company getByID(HttpService service, String propertyString, long id, RateLimiter rateLimiter)
+    static Company getByID(HttpService service, String propertyString, long id, final RateLimiter rateLimiter)
     throws HubSpotException {
         String urlString = url + id;
-        rateLimiter.acquire();
+        rateLimiter.acquire(1);
         return getCompany(service, propertyString, urlString);
     }
 
@@ -160,63 +199,135 @@ public class CompanyService {
         return cacheFolder;
     }
 
-    static ConcurrentHashMap<Long, Company> getUpdatedContacts(HttpService httpService,
-                                                               PropertyData propertyData,
-                                                               long lastExecution, long lastFinished
+    static HashMap<Long, Company> getUpdatedCompanies(HttpService httpService,
+                                                      PropertyData propertyData,
+                                                      long lastExecution,
+                                                      long lastFinished
     ) throws HubSpotException {
         String url = "/crm/v3/objects/companies/search";
-        RateLimiter rateLimiter = RateLimiter.create(4);
+        final RateLimiter rateLimiter = RateLimiter.create(3.0);
         ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
         JSONObject body = Utils.getUpdateBody(CRMObjectType.COMPANIES, propertyData, lastExecution, LIMIT);
         long after;
         long count = Utils.getUpdateCount(httpService, rateLimiter, CRMObjectType.COMPANIES, lastExecution);
-        ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
+        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(STARTING_POOL_SIZE,
+                                                                       STARTING_POOL_SIZE,
+                                                                       0L,
+                                                                       TimeUnit.MILLISECONDS,
+                                                                       new LinkedBlockingQueue<>(),
+                                                                       new CustomThreadFactory("CompanyUpdater")
+        );
+        ScheduledExecutorService scheduledExecutorService
+                = Executors.newScheduledThreadPool(2, new CustomThreadFactory("CompanyUpdaterUpdater"));
+        ExecutorCompletionService<Void> completionService = new ExecutorCompletionService<>(threadPoolExecutor);
+        List<Future<Void>> futures = new ArrayList<>();
+        scheduledExecutorService.scheduleAtFixedRate(() -> {
+            double load = CPUMonitor.getProcessLoad();
+            String debugMessage = String.format(debugMessageFormat, "getUpdatedCompanies", load);
+            logger.debug(debugMessage);
+            int comparison = Double.compare(load, 50.0);
+            if (comparison > 0) {
+                int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
+                threadPoolExecutor.setCorePoolSize(numThreads);
+                threadPoolExecutor.setMaximumPoolSize(numThreads);
+            }
+            else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != Runtime.getRuntime()
+                                                                                         .availableProcessors()) {
+                int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
+                threadPoolExecutor.setCorePoolSize(numThreads);
+                threadPoolExecutor.setMaximumPoolSize(numThreads);
+            }
+        }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
         try (ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Updated Companies", count)) {
+            Utils.sleep(WARMUP);
             while (true) {
-                rateLimiter.acquire();
+                rateLimiter.acquire(1);
                 JSONObject jsonObject = (JSONObject) httpService.postRequest(url, body);
-                Runnable process = process(companies, executorService, pb, jsonObject);
-                executorService.submit(process);
+                futures.add(completionService.submit(new AutoShutdown<>(threadPoolExecutor,
+                                                                        process(companies, pb, jsonObject)
+                )));
                 if (!jsonObject.has("paging")) {
                     break;
                 }
                 after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
                 body.put("after", after);
+                Utils.sleep(LOOP_DELAY);
             }
-            Utils.shutdownUpdateExecutors(logger, executorService, cacheFolder, lastFinished);
+            Utils.waitForCompletion(completionService, futures);
+            Utils.shutdownUpdateExecutors(logger, threadPoolExecutor, cacheFolder, lastFinished);
+            scheduledExecutorService.shutdown();
         }
-        return companies;
+        return new HashMap<>(companies);
     }
 
-    static ConcurrentHashMap<Long, Company> readCompanyJsons() {
+    static HashMap<Long, Company> readCompanyJsons() throws HubSpotException {
         ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
         File[] files = cacheFolder.toFile().listFiles();
-        ForkJoinPool forkJoinPool = new ForkJoinPool();
         if (files != null) {
-            forkJoinPool.submit(() -> ProgressBar.wrap(Arrays.stream(files).parallel(),
-                                                       Utils.getProgressBarBuilder("Reading Companies")
-            ).forEach(file -> {
-                String jsonString = Utils.readJsonString(logger, file);
-                JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
-                Company company = parseCompanyData(jsonObject);
-                companies.put(company.getId(), company);
-                Utils.sleep(1L);
-            }));
-        }
-        forkJoinPool.shutdown();
-        try {
-            if (!forkJoinPool.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
-                logger.warn("Termination Timeout");
+            List<File> fileList = Arrays.asList(files);
+            Iterable<List<File>> partitions = Iterables.partition(fileList, LIMIT);
+            ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(STARTING_POOL_SIZE,
+                                                                           STARTING_POOL_SIZE,
+                                                                           0L,
+                                                                           TimeUnit.MILLISECONDS,
+                                                                           new LinkedBlockingQueue<>(),
+                                                                           new CustomThreadFactory("CompanyReader")
+            );
+            ScheduledExecutorService scheduledExecutorService
+                    = Executors.newScheduledThreadPool(2, new CustomThreadFactory("CompanyReaderUpdater"));
+            ExecutorCompletionService<Void> completionService = new ExecutorCompletionService<>(threadPoolExecutor);
+            List<Future<Void>> futures = new ArrayList<>();
+            scheduledExecutorService.scheduleAtFixedRate(() -> {
+                double load = CPUMonitor.getProcessLoad();
+                String debugMessage = String.format(debugMessageFormat, "readCompanyJsons", load);
+                logger.debug(debugMessage);
+                int comparison = Double.compare(load, 50.0);
+                if (comparison > 0) {
+                    int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
+                    threadPoolExecutor.setCorePoolSize(numThreads);
+                    threadPoolExecutor.setMaximumPoolSize(numThreads);
+                }
+                else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != Runtime.getRuntime()
+                                                                                             .availableProcessors()) {
+                    int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
+                    threadPoolExecutor.setCorePoolSize(numThreads);
+                    threadPoolExecutor.setMaximumPoolSize(numThreads);
+                }
+            }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
+            try (ProgressBar pb = Utils.createProgressBar("Reading Companies", fileList.size())) {
+                Utils.sleep(WARMUP);
+                for (List<File> partition : partitions) {
+                    futures.add(completionService.submit(new AutoShutdown<>(threadPoolExecutor, () -> {
+                        for (File file : partition) {
+                            String jsonString = Utils.readJsonString(logger, file);
+                            JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
+                            Company company = parseCompanyData(jsonObject);
+                            companies.put(company.getId(), company);
+                            pb.step();
+                        }
+                        return null;
+                    })));
+                    Utils.sleep(LOOP_DELAY);
+                }
+                while (futures.size() > 0) {
+                    try {
+                        Future<Void> f = completionService.take();
+                        futures.remove(f);
+                        f.get();
+                    }
+                    catch (ExecutionException | InterruptedException e) {
+                        logger.fatal("Unable to read contact cache", e);
+                        System.exit(ErrorCodes.IO_READ.getErrorCode());
+                    }
+                }
             }
+            Utils.shutdownExecutors(logger, threadPoolExecutor);
+            scheduledExecutorService.shutdown();
         }
-        catch (InterruptedException e) {
-            logger.fatal("Threads interrupted during wait.", e);
-            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
-        }
-        return companies;
+        return new HashMap<>(companies);
     }
 
-    static void writeCompanyJsons(HttpService httpService, PropertyData propertyData, RateLimiter rateLimiter)
+    static void writeCompanyJsons(HttpService httpService, PropertyData propertyData, final RateLimiter rateLimiter)
     throws HubSpotException {
         Map<String, Object> map = new HashMap<>();
         map.put("limit", LIMIT);
@@ -224,7 +335,35 @@ public class CompanyService {
         map.put("archived", false);
         long after;
         long count = Utils.getObjectCount(httpService, CRMObjectType.COMPANIES, rateLimiter);
-        ExecutorService executorService = Executors.newFixedThreadPool(20, new CustomThreadFactory("CompanyGrabber"));
+        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(STARTING_POOL_SIZE,
+                                                                       STARTING_POOL_SIZE,
+                                                                       0L,
+                                                                       TimeUnit.MILLISECONDS,
+                                                                       new LinkedBlockingQueue<>(),
+                                                                       new CustomThreadFactory("CompanyWriter")
+        );
+
+        ScheduledExecutorService scheduledExecutorService
+                = Executors.newScheduledThreadPool(2, new CustomThreadFactory("CompanyWriterUpdater"));
+        ExecutorCompletionService<Void> completionService = new ExecutorCompletionService<>(threadPoolExecutor);
+        List<Future<Void>> futures = new ArrayList<>();
+        scheduledExecutorService.scheduleAtFixedRate(() -> {
+            double load = CPUMonitor.getProcessLoad();
+            String debugMessage = String.format(debugMessageFormat, "writeCompanyJsons", load);
+            logger.debug(debugMessage);
+            int comparison = Double.compare(load, 50.0);
+            if (comparison > 0) {
+                int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
+                threadPoolExecutor.setCorePoolSize(numThreads);
+                threadPoolExecutor.setMaximumPoolSize(numThreads);
+            }
+            else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != Runtime.getRuntime()
+                                                                                         .availableProcessors()) {
+                int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
+                threadPoolExecutor.setCorePoolSize(numThreads);
+                threadPoolExecutor.setMaximumPoolSize(numThreads);
+            }
+        }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
         try {
             Files.createDirectories(cacheFolder);
         }
@@ -232,28 +371,31 @@ public class CompanyService {
             logger.fatal("Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
-
         try (ProgressBar pb = Utils.createProgressBar("Writing Companies", count)) {
+            Utils.sleep(WARMUP);
             while (true) {
-                rateLimiter.acquire();
+                rateLimiter.acquire(1);
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
-                Runnable process = () -> {
+                futures.add(completionService.submit(new AutoShutdown<>(threadPoolExecutor, () -> {
                     for (Object o : jsonObject.getJSONArray("results")) {
                         JSONObject companyJson = (JSONObject) o;
                         companyJson = Utils.formatJson(companyJson);
-                        Utils.writeJsonCache(executorService, cacheFolder, companyJson);
+                        Utils.writeJsonCache(cacheFolder, companyJson);
                         pb.step();
                         Utils.sleep(1L);
                     }
-                };
-                executorService.submit(process);
+                    return null;
+                })));
                 if (!jsonObject.has("paging")) {
                     break;
                 }
                 after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
                 map.put("after", after);
+                Utils.sleep(LOOP_DELAY);
             }
-            Utils.shutdownExecutors(logger, executorService, cacheFolder);
+            Utils.waitForCompletion(completionService, futures);
+            Utils.shutdownExecutors(logger, threadPoolExecutor, cacheFolder);
+            scheduledExecutorService.shutdown();
         }
     }
 }

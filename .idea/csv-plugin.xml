@@ -3,6 +3,41 @@
   <component name="CsvFileAttributes">
     <option name="attributeMap">
       <map>
+        <entry key="C:\Program Files\Java\jdk-11.0.9\lib\src.zip!\java.base\jdk\internal\misc\Unsafe.java">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="C:\Program Files\Java\jdk-11.0.9\lib\src.zip!\java.management\java\lang\management\ManagementFactory.java">
+          <value>
+            <Attribute>
+              <option name="separator" value=";" />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="C:\Program Files\Java\jdk-11.0.9\lib\src.zip!\java.management\sun\management\BaseOperatingSystemImpl.java">
+          <value>
+            <Attribute>
+              <option name="separator" value=";" />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="C:\Program Files\Java\jdk-11.0.9\lib\src.zip!\jdk.management\com\sun\management\OperatingSystemMXBean.java">
+          <value>
+            <Attribute>
+              <option name="separator" value="," />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="C:\Program Files\Java\jdk-11.0.9\lib\src.zip!\jdk.management\com\sun\management\internal\OperatingSystemImpl.java">
+          <value>
+            <Attribute>
+              <option name="separator" value=";" />
+            </Attribute>
+          </value>
+        </entry>
         <entry key="C:\Users\nicho\.m2\repository\com\konghq\unirest-java\3.11.11\unirest-java-3.11.11-sources.jar!\kong\unirest\apache\SecurityConfig.java">
           <value>
             <Attribute>
@@ -200,6 +235,13 @@
           </value>
         </entry>
         <entry key="\src\main\java\org\hubspot\services\crm\HSContactService.java">
+          <value>
+            <Attribute>
+              <option name="separator" value=";" />
+            </Attribute>
+          </value>
+        </entry>
+        <entry key="\src\main\java\org\hubspot\utils\CPUMonitor.java">
           <value>
             <Attribute>
               <option name="separator" value=";" />

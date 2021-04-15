@@ -21,7 +21,7 @@ public class HubSpot {
     public HubSpot(String apiKey) {
         String apiBase = "https://api.hubapi.com";
         httpService = new HttpService(apiKey, apiBase);
-        this.rateLimiter = RateLimiter.create(15);
+        this.rateLimiter = RateLimiter.create(15.0);
     }
 
     public CRM crm() {
