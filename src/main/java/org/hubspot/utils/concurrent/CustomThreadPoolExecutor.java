@@ -17,6 +17,7 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
      */
     private static final Logger           logger             = LogManager.getLogger();
     private              HubSpotException executionException = null;
+    private              boolean          interrupted        = false;
 
     /**
      * Creates a new {@code ThreadPoolExecutor} with the given initial parameters, the default thread factory and the
@@ -158,6 +159,7 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
                 t = e.getCause();
             }
             catch (InterruptedException e) {
+                interrupted = true;
                 Thread.currentThread().interrupt();
             }
         }
@@ -184,7 +186,15 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
             logger.fatal("Error occurred during execution", executionException);
             System.exit(executionException.getCode());
         }
+        else if (interrupted) {
+            logger.fatal("Threads have been interrupted");
+            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
+        }
         super.terminated();
+    }
+
+    public boolean isInterrupted() {
+        return interrupted;
     }
 
     public HubSpotException getExecutionException() {

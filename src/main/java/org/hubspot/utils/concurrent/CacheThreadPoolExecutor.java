@@ -2,6 +2,7 @@ package org.hubspot.utils.concurrent;
 
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.hubspot.utils.ErrorCodes;
 import org.hubspot.utils.Utils;
 import org.hubspot.utils.exceptions.HubSpotException;
 
@@ -154,6 +155,11 @@ public class CacheThreadPoolExecutor extends CustomThreadPoolExecutor {
             logger.fatal("Error occurred during execution", hubSpotException);
             Utils.deleteDirectory(folder);
             System.exit(hubSpotException.getCode());
+        }
+        else if (super.isInterrupted()) {
+            logger.fatal("Threads have been interrupted");
+            Utils.deleteDirectory(folder);
+            System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
         }
         super.terminated();
     }

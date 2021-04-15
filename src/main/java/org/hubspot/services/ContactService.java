@@ -12,10 +12,10 @@ import org.hubspot.utils.CPUMonitor;
 import org.hubspot.utils.ErrorCodes;
 import org.hubspot.utils.HttpService;
 import org.hubspot.utils.Utils;
-import org.hubspot.utils.concurrent.AutoShutdown;
 import org.hubspot.utils.concurrent.CacheThreadPoolExecutor;
 import org.hubspot.utils.concurrent.CustomThreadFactory;
 import org.hubspot.utils.concurrent.CustomThreadPoolExecutor;
+import org.hubspot.utils.concurrent.UpdateThreadPoolExecutor;
 import org.hubspot.utils.exceptions.HubSpotException;
 import org.jetbrains.annotations.NotNull;
 import org.json.JSONObject;
@@ -54,12 +54,13 @@ public class ContactService {
         ConcurrentHashMap<Long, Contact> concurrentContacts = new ConcurrentHashMap<>(contacts);
         ConcurrentHashMap<Long, Contact> filteredContacts = new ConcurrentHashMap<>();
         Iterable<List<Long>> partitions = Iterables.partition(contacts.keySet(), LIMIT);
-        ThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
-                                                                             STARTING_POOL_SIZE,
-                                                                             0L,
-                                                                             TimeUnit.MILLISECONDS,
-                                                                             new LinkedBlockingQueue<>(),
-                                                                             new CustomThreadFactory("ContactFilter")
+        CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
+                                                                                   STARTING_POOL_SIZE,
+                                                                                   0L,
+                                                                                   TimeUnit.MILLISECONDS,
+                                                                                   new LinkedBlockingQueue<>(),
+                                                                                   new CustomThreadFactory(
+                                                                                           "ContactFilter")
         );
         ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("ContactFilterUpdater"));
@@ -70,13 +71,11 @@ public class ContactService {
             int comparison = Double.compare(load, 50.0);
             if (comparison > 0) {
                 int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                threadPoolExecutor.setCorePoolSize(numThreads);
                 threadPoolExecutor.setMaximumPoolSize(numThreads);
             }
             else if (comparison < 0 &&
                      threadPoolExecutor.getMaximumPoolSize() != Runtime.getRuntime().availableProcessors()) {
                 int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                threadPoolExecutor.setCorePoolSize(numThreads);
                 threadPoolExecutor.setMaximumPoolSize(numThreads);
             }
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
@@ -108,17 +107,6 @@ public class ContactService {
                 });
                 Utils.sleep(LOOP_DELAY);
             }
-            /*while (futures.size() > 0) {
-                try {
-                    Future<Void> f = completionService.take();
-                    futures.remove(f);
-                    f.get();
-                }
-                catch (ExecutionException | InterruptedException e) {
-                    logger.fatal("Unable to filter contacts", e);
-                    System.exit(ErrorCodes.FILTER_EXCEPTION.getErrorCode());
-                }
-            }*/
         }
         Utils.shutdownExecutors(logger, threadPoolExecutor);
         scheduledExecutorService.shutdown();
@@ -162,7 +150,6 @@ public class ContactService {
                 int comparison = Double.compare(load, 50.0);
                 if (comparison > 0) {
                     int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                    threadPoolExecutor.setCorePoolSize(numThreads);
                     threadPoolExecutor.setMaximumPoolSize(numThreads);
                 }
                 else if (comparison < 0 &&
@@ -281,19 +268,18 @@ public class ContactService {
         ConcurrentHashMap<Long, Contact> contacts = new ConcurrentHashMap<>();
         JSONObject body = Utils.getUpdateBody(CRMObjectType.CONTACTS, propertyData, lastExecution, LIMIT);
         long after;
-        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(1,
-                                                                       STARTING_POOL_SIZE,
-                                                                       0L,
-                                                                       TimeUnit.MILLISECONDS,
-                                                                       new LinkedBlockingQueue<>(),
-                                                                       new CustomThreadFactory("ContactUpdater")
+        UpdateThreadPoolExecutor threadPoolExecutor = new UpdateThreadPoolExecutor(1,
+                                                                                   STARTING_POOL_SIZE,
+                                                                                   0L,
+                                                                                   TimeUnit.MILLISECONDS,
+                                                                                   new LinkedBlockingQueue<>(),
+                                                                                   new CustomThreadFactory(
+                                                                                           "ContactUpdater"),
+                                                                                   cacheFolder,
+                                                                                   lastFinished
         );
-        ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(2,
-                                                                                             new CustomThreadFactory(
-                                                                                                     "ContactUpdaterUpdater")
-        );
-        ExecutorCompletionService<Void> completionService = new ExecutorCompletionService<>(threadPoolExecutor);
-        List<Future<Void>> futures = new ArrayList<>();
+        ScheduledExecutorService scheduledExecutorService
+                = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("ContactUpdaterUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             double load = CPUMonitor.getProcessLoad();
             String debugMessage = String.format(debugMessageFormat, "getUpdatedContacts", load);
@@ -301,13 +287,11 @@ public class ContactService {
             int comparison = Double.compare(load, 50.0);
             if (comparison > 0) {
                 int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                threadPoolExecutor.setCorePoolSize(numThreads);
                 threadPoolExecutor.setMaximumPoolSize(numThreads);
             }
             else if (comparison < 0 &&
                      threadPoolExecutor.getMaximumPoolSize() != Runtime.getRuntime().availableProcessors()) {
                 int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                threadPoolExecutor.setCorePoolSize(numThreads);
                 threadPoolExecutor.setMaximumPoolSize(numThreads);
             }
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
@@ -317,9 +301,7 @@ public class ContactService {
             while (true) {
                 rateLimiter.acquire(1);
                 JSONObject jsonObject = (JSONObject) httpService.postRequest(url, body);
-                futures.add(completionService.submit(new AutoShutdown<>(threadPoolExecutor,
-                                                                        process(contacts, pb, jsonObject)
-                )));
+                threadPoolExecutor.submit(process(contacts, pb, jsonObject));
                 if (!jsonObject.has("paging")) {
                     break;
                 }
@@ -327,7 +309,6 @@ public class ContactService {
                 body.put("after", after);
                 Utils.sleep(LOOP_DELAY);
             }
-            Utils.waitForCompletion(completionService, futures);
             Utils.shutdownUpdateExecutors(logger, threadPoolExecutor, cacheFolder, lastFinished);
             scheduledExecutorService.shutdown();
         }
@@ -340,19 +321,19 @@ public class ContactService {
         if (files != null) {
             List<File> fileList = Arrays.asList(files);
             Iterable<List<File>> partitions = Iterables.partition(fileList, LIMIT);
-            ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(1,
-                                                                           STARTING_POOL_SIZE,
-                                                                           0L,
-                                                                           TimeUnit.MILLISECONDS,
-                                                                           new LinkedBlockingQueue<>(),
-                                                                           new CustomThreadFactory("ContactReader")
+            CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
+                                                                                       STARTING_POOL_SIZE,
+                                                                                       0L,
+                                                                                       TimeUnit.MILLISECONDS,
+                                                                                       new LinkedBlockingQueue<>(),
+                                                                                       new CustomThreadFactory(
+                                                                                               "ContactReader")
             );
-            ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(2,
-                                                                                                 new CustomThreadFactory(
-                                                                                                         "ContactReaderUpdater")
+
+            ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
+                    new CustomThreadFactory(
+                            "ContactReaderUpdater")
             );
-            ExecutorCompletionService<Void> completionService = new ExecutorCompletionService<>(threadPoolExecutor);
-            List<Future<Void>> futures = new ArrayList<>();
             scheduledExecutorService.scheduleAtFixedRate(() -> {
                 double load = CPUMonitor.getProcessLoad();
                 String debugMessage = String.format(debugMessageFormat, "readContactJsons", load);
@@ -360,20 +341,18 @@ public class ContactService {
                 int comparison = Double.compare(load, 50.0);
                 if (comparison > 0) {
                     int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                    threadPoolExecutor.setCorePoolSize(numThreads);
                     threadPoolExecutor.setMaximumPoolSize(numThreads);
                 }
                 else if (comparison < 0 &&
                          threadPoolExecutor.getMaximumPoolSize() != Runtime.getRuntime().availableProcessors()) {
                     int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                    threadPoolExecutor.setCorePoolSize(numThreads);
                     threadPoolExecutor.setMaximumPoolSize(numThreads);
                 }
             }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
             try (ProgressBar pb = Utils.createProgressBar("Reading Contacts", fileList.size())) {
                 Utils.sleep(WARMUP);
                 for (List<File> partition : partitions) {
-                    futures.add(completionService.submit(new AutoShutdown<>(threadPoolExecutor, () -> {
+                    threadPoolExecutor.submit(() -> {
                         for (File file : partition) {
                             String jsonString = Utils.readJsonString(logger, file);
                             JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
@@ -382,19 +361,8 @@ public class ContactService {
                             pb.step();
                         }
                         return null;
-                    })));
+                    });
                     Utils.sleep(LOOP_DELAY);
-                }
-                while (futures.size() > 0) {
-                    try {
-                        Future<Void> f = completionService.take();
-                        futures.remove(f);
-                        f.get();
-                    }
-                    catch (ExecutionException | InterruptedException e) {
-                        logger.fatal("Unable to read contact cache", e);
-                        System.exit(ErrorCodes.IO_READ.getErrorCode());
-                    }
                 }
             }
             Utils.shutdownExecutors(logger, threadPoolExecutor);
@@ -411,19 +379,16 @@ public class ContactService {
         map.put("archived", false);
         long after;
         long count = Utils.getObjectCount(httpService, CRMObjectType.CONTACTS, rateLimiter);
-        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(1,
-                                                                       STARTING_POOL_SIZE,
-                                                                       0L,
-                                                                       TimeUnit.MILLISECONDS,
-                                                                       new LinkedBlockingQueue<>(),
-                                                                       new CustomThreadFactory("ContactWriter")
+        CacheThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,
+                                                                                 STARTING_POOL_SIZE,
+                                                                                 0L,
+                                                                                 TimeUnit.MILLISECONDS,
+                                                                                 new LinkedBlockingQueue<>(),
+                                                                                 new CustomThreadFactory("ContactWriter"),
+                                                                                 cacheFolder
         );
-        ScheduledExecutorService scheduledExecutorService = Executors.newScheduledThreadPool(2,
-                                                                                             new CustomThreadFactory(
-                                                                                                     "ContactWriterUpdater")
-        );
-        ExecutorCompletionService<Void> completionService = new ExecutorCompletionService<>(threadPoolExecutor);
-        List<Future<Void>> futures = new ArrayList<>();
+        ScheduledExecutorService scheduledExecutorService
+                = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("ContactWriterUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             double load = CPUMonitor.getProcessLoad();
             String debugMessage = String.format(debugMessageFormat, "writeContactJson", load);
@@ -431,13 +396,11 @@ public class ContactService {
             int comparison = Double.compare(load, 50.0);
             if (comparison > 0) {
                 int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                threadPoolExecutor.setCorePoolSize(numThreads);
                 threadPoolExecutor.setMaximumPoolSize(numThreads);
             }
             else if (comparison < 0 &&
                      threadPoolExecutor.getMaximumPoolSize() != Runtime.getRuntime().availableProcessors()) {
                 int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                threadPoolExecutor.setCorePoolSize(numThreads);
                 threadPoolExecutor.setMaximumPoolSize(numThreads);
             }
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
@@ -453,7 +416,7 @@ public class ContactService {
             while (true) {
                 rateLimiter.acquire(1);
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
-                futures.add(completionService.submit(new AutoShutdown<>(threadPoolExecutor, () -> {
+                threadPoolExecutor.submit(() -> {
                     for (Object o : jsonObject.getJSONArray("results")) {
                         JSONObject contactJson = (JSONObject) o;
                         contactJson = Utils.formatJson(contactJson);
@@ -461,7 +424,7 @@ public class ContactService {
                         pb.step();
                     }
                     return null;
-                })));
+                });
                 if (!jsonObject.has("paging")) {
                     break;
                 }
@@ -469,7 +432,6 @@ public class ContactService {
                 map.put("after", after);
                 Utils.sleep(LOOP_DELAY);
             }
-            Utils.waitForCompletion(completionService, futures);
             Utils.shutdownExecutors(logger, threadPoolExecutor, cacheFolder);
             scheduledExecutorService.shutdown();
         }

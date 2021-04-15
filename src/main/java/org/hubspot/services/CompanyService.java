@@ -12,8 +12,10 @@ import org.hubspot.utils.CPUMonitor;
 import org.hubspot.utils.ErrorCodes;
 import org.hubspot.utils.HttpService;
 import org.hubspot.utils.Utils;
-import org.hubspot.utils.concurrent.AutoShutdown;
+import org.hubspot.utils.concurrent.CacheThreadPoolExecutor;
 import org.hubspot.utils.concurrent.CustomThreadFactory;
+import org.hubspot.utils.concurrent.CustomThreadPoolExecutor;
+import org.hubspot.utils.concurrent.UpdateThreadPoolExecutor;
 import org.hubspot.utils.exceptions.HubSpotException;
 import org.jetbrains.annotations.NotNull;
 import org.json.JSONObject;
@@ -38,9 +40,9 @@ public class CompanyService {
     private static final int    LIMIT              = 10;
     private static final String url                = "/crm/v3/objects/companies/";
     private static final Path   cacheFolder        = Paths.get("./cache/companies/");
-    private static final long   WARMUP             = 1000;
+    private static final long   WARMUP             = 10;
     private static final long   LOOP_DELAY         = 2;
-    private static final long   UPDATE_INTERVAL    = 1100;
+    private static final long   UPDATE_INTERVAL    = 1000;
     private static final int    STARTING_POOL_SIZE = 4;
     private static final String debugMessageFormat = "Method %-20s\tProcess Load: %f";
 
@@ -59,17 +61,17 @@ public class CompanyService {
         map.put("archived", false);
         long after;
         long count = Utils.getObjectCount(httpService, CRMObjectType.COMPANIES, rateLimiter);
-        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(STARTING_POOL_SIZE,
-                                                                       STARTING_POOL_SIZE,
-                                                                       0L,
-                                                                       TimeUnit.MILLISECONDS,
-                                                                       new LinkedBlockingQueue<>(),
-                                                                       new CustomThreadFactory("CompanyGrabber")
+        CacheThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,
+                                                                                 STARTING_POOL_SIZE,
+                                                                                 0L,
+                                                                                 TimeUnit.MILLISECONDS,
+                                                                                 new LinkedBlockingQueue<>(),
+                                                                                 new CustomThreadFactory(
+                                                                                         "CompanyGrabber"),
+                                                                                 cacheFolder
         );
         ScheduledExecutorService scheduledExecutorService
-                = Executors.newScheduledThreadPool(2, new CustomThreadFactory("CompanyGrabberUpdater"));
-        ExecutorCompletionService<Void> completionService = new ExecutorCompletionService<>(threadPoolExecutor);
-        List<Future<Void>> futures = new ArrayList<>();
+                = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("CompanyGrabberUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             double load = CPUMonitor.getProcessLoad();
             String debugMessage = String.format(debugMessageFormat, "getAllCompanies", load);
@@ -77,13 +79,11 @@ public class CompanyService {
             int comparison = Double.compare(load, 50.0);
             if (comparison > 0) {
                 int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                threadPoolExecutor.setCorePoolSize(numThreads);
                 threadPoolExecutor.setMaximumPoolSize(numThreads);
             }
-            else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != Runtime.getRuntime()
-                                                                                         .availableProcessors()) {
+            else if (comparison < 0 &&
+                     threadPoolExecutor.getMaximumPoolSize() != Runtime.getRuntime().availableProcessors()) {
                 int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                threadPoolExecutor.setCorePoolSize(numThreads);
                 threadPoolExecutor.setMaximumPoolSize(numThreads);
             }
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
@@ -99,9 +99,7 @@ public class CompanyService {
             while (true) {
                 rateLimiter.acquire(1);
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
-                futures.add(completionService.submit(new AutoShutdown<>(threadPoolExecutor,
-                                                                        process(companies, pb, jsonObject)
-                )));
+                threadPoolExecutor.submit(process(companies, pb, jsonObject));
                 if (!jsonObject.has("paging")) {
                     break;
                 }
@@ -109,7 +107,6 @@ public class CompanyService {
                 map.put("after", after);
                 Utils.sleep(LOOP_DELAY);
             }
-            Utils.waitForCompletion(completionService, futures);
             Utils.shutdownExecutors(logger, threadPoolExecutor, cacheFolder);
             scheduledExecutorService.shutdown();
         }
@@ -210,17 +207,18 @@ public class CompanyService {
         JSONObject body = Utils.getUpdateBody(CRMObjectType.COMPANIES, propertyData, lastExecution, LIMIT);
         long after;
         long count = Utils.getUpdateCount(httpService, rateLimiter, CRMObjectType.COMPANIES, lastExecution);
-        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(STARTING_POOL_SIZE,
-                                                                       STARTING_POOL_SIZE,
-                                                                       0L,
-                                                                       TimeUnit.MILLISECONDS,
-                                                                       new LinkedBlockingQueue<>(),
-                                                                       new CustomThreadFactory("CompanyUpdater")
+        UpdateThreadPoolExecutor threadPoolExecutor = new UpdateThreadPoolExecutor(1,
+                                                                                   STARTING_POOL_SIZE,
+                                                                                   0L,
+                                                                                   TimeUnit.MILLISECONDS,
+                                                                                   new LinkedBlockingQueue<>(),
+                                                                                   new CustomThreadFactory(
+                                                                                           "CompanyUpdater"),
+                                                                                   cacheFolder,
+                                                                                   lastFinished
         );
         ScheduledExecutorService scheduledExecutorService
-                = Executors.newScheduledThreadPool(2, new CustomThreadFactory("CompanyUpdaterUpdater"));
-        ExecutorCompletionService<Void> completionService = new ExecutorCompletionService<>(threadPoolExecutor);
-        List<Future<Void>> futures = new ArrayList<>();
+                = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("CompanyUpdaterUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             double load = CPUMonitor.getProcessLoad();
             String debugMessage = String.format(debugMessageFormat, "getUpdatedCompanies", load);
@@ -228,13 +226,11 @@ public class CompanyService {
             int comparison = Double.compare(load, 50.0);
             if (comparison > 0) {
                 int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                threadPoolExecutor.setCorePoolSize(numThreads);
                 threadPoolExecutor.setMaximumPoolSize(numThreads);
             }
-            else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != Runtime.getRuntime()
-                                                                                         .availableProcessors()) {
+            else if (comparison < 0 &&
+                     threadPoolExecutor.getMaximumPoolSize() != Runtime.getRuntime().availableProcessors()) {
                 int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                threadPoolExecutor.setCorePoolSize(numThreads);
                 threadPoolExecutor.setMaximumPoolSize(numThreads);
             }
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
@@ -243,9 +239,7 @@ public class CompanyService {
             while (true) {
                 rateLimiter.acquire(1);
                 JSONObject jsonObject = (JSONObject) httpService.postRequest(url, body);
-                futures.add(completionService.submit(new AutoShutdown<>(threadPoolExecutor,
-                                                                        process(companies, pb, jsonObject)
-                )));
+                threadPoolExecutor.submit(process(companies, pb, jsonObject));
                 if (!jsonObject.has("paging")) {
                     break;
                 }
@@ -253,7 +247,6 @@ public class CompanyService {
                 body.put("after", after);
                 Utils.sleep(LOOP_DELAY);
             }
-            Utils.waitForCompletion(completionService, futures);
             Utils.shutdownUpdateExecutors(logger, threadPoolExecutor, cacheFolder, lastFinished);
             scheduledExecutorService.shutdown();
         }
@@ -266,17 +259,16 @@ public class CompanyService {
         if (files != null) {
             List<File> fileList = Arrays.asList(files);
             Iterable<List<File>> partitions = Iterables.partition(fileList, LIMIT);
-            ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(STARTING_POOL_SIZE,
-                                                                           STARTING_POOL_SIZE,
-                                                                           0L,
-                                                                           TimeUnit.MILLISECONDS,
-                                                                           new LinkedBlockingQueue<>(),
-                                                                           new CustomThreadFactory("CompanyReader")
+            CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
+                                                                                       STARTING_POOL_SIZE,
+                                                                                       0L,
+                                                                                       TimeUnit.MILLISECONDS,
+                                                                                       new LinkedBlockingQueue<>(),
+                                                                                       new CustomThreadFactory(
+                                                                                               "CompanyReader")
             );
             ScheduledExecutorService scheduledExecutorService
-                    = Executors.newScheduledThreadPool(2, new CustomThreadFactory("CompanyReaderUpdater"));
-            ExecutorCompletionService<Void> completionService = new ExecutorCompletionService<>(threadPoolExecutor);
-            List<Future<Void>> futures = new ArrayList<>();
+                    = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("CompanyReaderUpdater"));
             scheduledExecutorService.scheduleAtFixedRate(() -> {
                 double load = CPUMonitor.getProcessLoad();
                 String debugMessage = String.format(debugMessageFormat, "readCompanyJsons", load);
@@ -284,20 +276,18 @@ public class CompanyService {
                 int comparison = Double.compare(load, 50.0);
                 if (comparison > 0) {
                     int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                    threadPoolExecutor.setCorePoolSize(numThreads);
                     threadPoolExecutor.setMaximumPoolSize(numThreads);
                 }
-                else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != Runtime.getRuntime()
-                                                                                             .availableProcessors()) {
+                else if (comparison < 0 &&
+                         threadPoolExecutor.getMaximumPoolSize() != Runtime.getRuntime().availableProcessors()) {
                     int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                    threadPoolExecutor.setCorePoolSize(numThreads);
                     threadPoolExecutor.setMaximumPoolSize(numThreads);
                 }
             }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
             try (ProgressBar pb = Utils.createProgressBar("Reading Companies", fileList.size())) {
                 Utils.sleep(WARMUP);
                 for (List<File> partition : partitions) {
-                    futures.add(completionService.submit(new AutoShutdown<>(threadPoolExecutor, () -> {
+                    threadPoolExecutor.submit(() -> {
                         for (File file : partition) {
                             String jsonString = Utils.readJsonString(logger, file);
                             JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
@@ -306,19 +296,8 @@ public class CompanyService {
                             pb.step();
                         }
                         return null;
-                    })));
+                    });
                     Utils.sleep(LOOP_DELAY);
-                }
-                while (futures.size() > 0) {
-                    try {
-                        Future<Void> f = completionService.take();
-                        futures.remove(f);
-                        f.get();
-                    }
-                    catch (ExecutionException | InterruptedException e) {
-                        logger.fatal("Unable to read contact cache", e);
-                        System.exit(ErrorCodes.IO_READ.getErrorCode());
-                    }
                 }
             }
             Utils.shutdownExecutors(logger, threadPoolExecutor);
@@ -335,18 +314,16 @@ public class CompanyService {
         map.put("archived", false);
         long after;
         long count = Utils.getObjectCount(httpService, CRMObjectType.COMPANIES, rateLimiter);
-        ThreadPoolExecutor threadPoolExecutor = new ThreadPoolExecutor(STARTING_POOL_SIZE,
-                                                                       STARTING_POOL_SIZE,
-                                                                       0L,
-                                                                       TimeUnit.MILLISECONDS,
-                                                                       new LinkedBlockingQueue<>(),
-                                                                       new CustomThreadFactory("CompanyWriter")
+        CacheThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,
+                                                                                 STARTING_POOL_SIZE,
+                                                                                 0L,
+                                                                                 TimeUnit.MILLISECONDS,
+                                                                                 new LinkedBlockingQueue<>(),
+                                                                                 new CustomThreadFactory("CompanyWriter"),
+                                                                                 cacheFolder
         );
-
         ScheduledExecutorService scheduledExecutorService
-                = Executors.newScheduledThreadPool(2, new CustomThreadFactory("CompanyWriterUpdater"));
-        ExecutorCompletionService<Void> completionService = new ExecutorCompletionService<>(threadPoolExecutor);
-        List<Future<Void>> futures = new ArrayList<>();
+                = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("CompanyWriterUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             double load = CPUMonitor.getProcessLoad();
             String debugMessage = String.format(debugMessageFormat, "writeCompanyJsons", load);
@@ -354,13 +331,11 @@ public class CompanyService {
             int comparison = Double.compare(load, 50.0);
             if (comparison > 0) {
                 int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                threadPoolExecutor.setCorePoolSize(numThreads);
                 threadPoolExecutor.setMaximumPoolSize(numThreads);
             }
-            else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != Runtime.getRuntime()
-                                                                                         .availableProcessors()) {
+            else if (comparison < 0 &&
+                     threadPoolExecutor.getMaximumPoolSize() != Runtime.getRuntime().availableProcessors()) {
                 int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                threadPoolExecutor.setCorePoolSize(numThreads);
                 threadPoolExecutor.setMaximumPoolSize(numThreads);
             }
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
@@ -376,16 +351,15 @@ public class CompanyService {
             while (true) {
                 rateLimiter.acquire(1);
                 JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
-                futures.add(completionService.submit(new AutoShutdown<>(threadPoolExecutor, () -> {
+                threadPoolExecutor.submit(() -> {
                     for (Object o : jsonObject.getJSONArray("results")) {
                         JSONObject companyJson = (JSONObject) o;
                         companyJson = Utils.formatJson(companyJson);
                         Utils.writeJsonCache(cacheFolder, companyJson);
                         pb.step();
-                        Utils.sleep(1L);
                     }
                     return null;
-                })));
+                });
                 if (!jsonObject.has("paging")) {
                     break;
                 }
@@ -393,7 +367,6 @@ public class CompanyService {
                 map.put("after", after);
                 Utils.sleep(LOOP_DELAY);
             }
-            Utils.waitForCompletion(completionService, futures);
             Utils.shutdownExecutors(logger, threadPoolExecutor, cacheFolder);
             scheduledExecutorService.shutdown();
         }
