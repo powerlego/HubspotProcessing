@@ -17,7 +17,11 @@ public class Task extends Engagement {
     /**
      * The instance of the logger
      */
-    private static final Logger     logger = LogManager.getLogger();
+    private static final Logger     logger           = LogManager.getLogger();
+    /**
+     * The serial version UID for this class
+     */
+    private static final long       serialVersionUID = -514871948205948346L;
     /**
      * List of reminder dates
      */
@@ -48,7 +52,7 @@ public class Task extends Engagement {
     private final        Date       completionDate;
 
     /**
-     * The constructor for this object
+     * A constructor for a Task engagement
      *
      * @param id                         The engagement type
      * @param taskType                   The type of task

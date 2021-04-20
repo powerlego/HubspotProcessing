@@ -15,7 +15,11 @@ public class Email extends Engagement {
     /**
      * The instance of the logger
      */
-    private static final Logger        logger = LogManager.getLogger();
+    private static final Logger        logger           = LogManager.getLogger();
+    /**
+     * The serial version UID for this class
+     */
+    private static final long          serialVersionUID = -2353192631944889158L;
     /**
      * The body of the email
      */
@@ -42,7 +46,7 @@ public class Email extends Engagement {
     private final        String        subject;
 
     /**
-     * The constructor for this object
+     * A constructor for an Email object
      *
      * @param id      The engagement id
      * @param to      The list of email addresses that this email is being sent to
@@ -190,7 +194,7 @@ public class Email extends Engagement {
         private final String emailAddress;
 
         /**
-         * The constructor of this object
+         * A constructor for an email address details
          *
          * @param firstName    The first name associated to the email address
          * @param lastName     The last name associated to the email address

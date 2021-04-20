@@ -27,7 +27,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
- * Writes the processed Hubspot engagements to a file
+ * Writes the processed Hubspot Engagements to a file
  *
  * @author Nicholas Curl
  */

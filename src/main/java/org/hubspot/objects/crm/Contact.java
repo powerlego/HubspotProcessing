@@ -20,15 +20,19 @@ public class Contact extends CRMObject {
     /**
      * The instance of the logger
      */
-    private static final Logger           logger        = LogManager.getLogger();
+    private static final Logger           logger           = LogManager.getLogger();
+    /**
+     * The serial version UID for this class
+     */
+    private static final long             serialVersionUID = 381028750506128910L;
     /**
      * The list of engagement ids associated with the contact
      */
-    private              List<Long>       engagementIds = new LinkedList<>();
+    private              List<Long>       engagementIds    = new LinkedList<>();
     /**
      * The list of engagements associated with the contact
      */
-    private              List<Engagement> engagements   = new LinkedList<>();
+    private              List<Engagement> engagements      = new LinkedList<>();
     /**
      * The lead status of the contact
      */
@@ -51,7 +55,7 @@ public class Contact extends CRMObject {
     private              String           email;
 
     /**
-     * The constructor for this object
+     * A constructor for a Contact object
      *
      * @param id The contact's Hubspot id
      */

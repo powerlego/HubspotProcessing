@@ -17,7 +17,11 @@ public class Note extends Engagement {
     /**
      * The instance of the logger
      */
-    private static final Logger       logger = LogManager.getLogger();
+    private static final Logger       logger           = LogManager.getLogger();
+    /**
+     * The serial version UID for this class
+     */
+    private static final long         serialVersionUID = 5193737134720012436L;
     /**
      * The body of the note
      */
@@ -32,7 +36,7 @@ public class Note extends Engagement {
     private              List<HSFile> attachments;
 
     /**
-     * The constructor for this object
+     * A constructor for a Note object
      *
      * @param id            The engagement id
      * @param note          The body of the note

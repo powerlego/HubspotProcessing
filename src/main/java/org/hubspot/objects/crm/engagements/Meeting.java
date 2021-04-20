@@ -15,7 +15,11 @@ public class Meeting extends Engagement {
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger logger           = LogManager.getLogger();
+    /**
+     * The serial version UID for this class
+     */
+    private static final long   serialVersionUID = 5657344402502100558L;
     /**
      * The start date of this meeting
      */
@@ -34,7 +38,7 @@ public class Meeting extends Engagement {
     private final        String title;
 
     /**
-     * The constructor for this object
+     * A constructor for a Meeting object
      *
      * @param id        The engagement id
      * @param startTime The start time of the meeting in milliseconds since January 1, 1970, 00:00:00 GMT

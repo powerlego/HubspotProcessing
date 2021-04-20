@@ -12,7 +12,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
- * Writes the processed Hubspot contacts to a file
+ * Writes the processed Hubspot Contact to a file
  *
  * @author Nicholas Curl
  */

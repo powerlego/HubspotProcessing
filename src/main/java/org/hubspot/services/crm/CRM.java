@@ -13,6 +13,7 @@ import org.hubspot.utils.HttpService;
 import org.hubspot.utils.exceptions.HubSpotException;
 import org.jetbrains.annotations.NotNull;
 
+import java.io.Serializable;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -20,12 +21,16 @@ import java.util.HashMap;
 /**
  * @author Nicholas Curl
  */
-public class CRM {
+public class CRM implements Serializable {
 
     /**
      * The instance of the logger
      */
-    private static final Logger      logger = LogManager.getLogger();
+    private static final Logger      logger           = LogManager.getLogger();
+    /**
+     * The serial version UID for this class
+     */
+    private static final long        serialVersionUID = -548300711320850340L;
     private final        HttpService httpService;
     private final        RateLimiter rateLimiter;
 

@@ -7,15 +7,21 @@ import org.hubspot.services.cms.CMS;
 import org.hubspot.services.crm.CRM;
 import org.hubspot.utils.HttpService;
 
+import java.io.Serializable;
+
 /**
  * @author Nicholas Curl
  */
-public class HubSpot {
+public class HubSpot implements Serializable {
 
     /**
      * The instance of the logger
      */
-    private static final Logger      logger = LogManager.getLogger();
+    private static final Logger      logger           = LogManager.getLogger();
+    /**
+     * The serial version UID for this class
+     */
+    private static final long        serialVersionUID = 4317607079809884130L;
     private final        HttpService httpService;
     private final        RateLimiter rateLimiter;
 

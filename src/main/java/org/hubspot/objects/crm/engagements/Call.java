@@ -13,7 +13,11 @@ public class Call extends Engagement {
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger logger           = LogManager.getLogger();
+    /**
+     * The serial version UID for this class
+     */
+    private static final long   serialVersionUID = 3521110114441120931L;
     /**
      * The title of the call
      */
@@ -40,7 +44,7 @@ public class Call extends Engagement {
     private final        String fromNumber;
 
     /**
-     * The constructor for this object
+     * A constructor for a Call object
      *
      * @param id                   The Hubspot engagement id
      * @param title                The title of the call

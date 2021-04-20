@@ -18,14 +18,18 @@ public class CRMObject extends HubSpotObject {
     /**
      * The instance of the logger
      */
-    private static final Logger                  logger     = LogManager.getLogger();
+    private static final Logger                  logger           = LogManager.getLogger();
+    /**
+     * The serial version UID for this class
+     */
+    private static final long                    serialVersionUID = 74879428395172470L;
     /**
      * A map of properties for the CRM object
      */
-    private              HashMap<String, Object> properties = new HashMap<>();
+    private              HashMap<String, Object> properties       = new HashMap<>();
 
     /**
-     * Constructor for this object
+     * A constructor for a CRM Object
      *
      * @param id The object's Hubspot id
      */
@@ -34,7 +38,7 @@ public class CRMObject extends HubSpotObject {
     }
 
     /**
-     * Adds a map of properties to the objects property map
+     * Adds a map of properties to the object's property map
      *
      * @param properties The map of properties to add
      */

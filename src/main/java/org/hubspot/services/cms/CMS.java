@@ -9,18 +9,23 @@ import org.hubspot.objects.files.HSFile;
 import org.hubspot.utils.HttpService;
 import org.hubspot.utils.exceptions.HubSpotException;
 
+import java.io.Serializable;
 import java.nio.file.Path;
 import java.util.List;
 
 /**
  * @author Nicholas Curl
  */
-public class CMS {
+public class CMS implements Serializable {
 
     /**
      * The instance of the logger
      */
-    private static final Logger      logger = LogManager.getLogger();
+    private static final Logger      logger           = LogManager.getLogger();
+    /**
+     * The serial version UID for this class
+     */
+    private static final long        serialVersionUID = -6357323675829216957L;
     private final        HttpService httpService;
     private final        RateLimiter rateLimiter;
 

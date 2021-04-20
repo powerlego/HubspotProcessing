@@ -14,10 +14,14 @@ public class Engagement extends HubSpotObject {
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger logger           = LogManager.getLogger();
+    /**
+     * The serial version UID for this class
+     */
+    private static final long   serialVersionUID = -2283094077997225535L;
 
     /**
-     * The constructor for this object
+     * A constructor for an Engagement object
      *
      * @param id The engagement id
      */

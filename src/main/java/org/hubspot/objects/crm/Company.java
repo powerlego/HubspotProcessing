@@ -14,14 +14,18 @@ public class Company extends CRMObject {
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger logger           = LogManager.getLogger();
+    /**
+     * The serial version UID for this class
+     */
+    private static final long   serialVersionUID = 7542831443281613025L;
     /**
      * The name of the company
      */
     private              String name;
 
     /**
-     * The constructor for this object
+     * A constructor for a Company object
      *
      * @param id The Hubspot company id
      */
