@@ -3,6 +3,7 @@ package org.hubspot.utils;
 import com.google.common.util.concurrent.AtomicDouble;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
+import org.hubspot.utils.concurrent.CustomThreadFactory;
 import oshi.SystemInfo;
 import oshi.hardware.CentralProcessor;
 import oshi.hardware.CentralProcessor.TickType;
@@ -22,8 +23,9 @@ public class CPUMonitor {
      */
     private static final Logger                   logger      = LogManager.getLogger();
     private static final ScheduledExecutorService scheduledExecutorService
-                                                              = Executors.newSingleThreadScheduledExecutor();
-    private static final long                     PERIOD      = 1000;
+                                                              = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory(
+            "CPUMonitor"));
+    private static final long                     PERIOD      = 100;
     private static final AtomicDouble             processLoad = new AtomicDouble();
     private static final AtomicDouble             systemLoad  = new AtomicDouble();
     private static final SystemInfo               si          = new SystemInfo();
@@ -57,6 +59,6 @@ public class CPUMonitor {
     }
 
     public static void stopMonitoring() {
-        scheduledExecutorService.shutdown();
+        scheduledExecutorService.shutdownNow();
     }
 }

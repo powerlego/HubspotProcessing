@@ -65,6 +65,8 @@ public class HttpService {
         }
         catch (HubSpotException e) {
             if (e.getCode() == ErrorCodes.HTTP_502.getErrorCode() ||
+                e.getCode() == ErrorCodes.HTTP_503.getErrorCode() ||
+                e.getCode() == ErrorCodes.HTTP_500.getErrorCode() ||
                 e.getCode() == ErrorCodes.HTTP_524.getErrorCode() ||
                 e.getCode() == ErrorCodes.HTTP_409.getErrorCode()) {
                 Utils.sleep(50L);

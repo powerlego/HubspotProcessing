@@ -140,12 +140,6 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
     }
 
     @Override
-    protected void beforeExecute(Thread t, Runnable r) {
-        logger.debug("Thread {}, Runnable {}", t.toString(), r.toString());
-        super.beforeExecute(t, r);
-    }
-
-    @Override
     protected void afterExecute(Runnable r, Throwable t) {
         super.afterExecute(r, t);
         if (t == null && r instanceof Future<?> && ((Future<?>) r).isDone()) {
@@ -180,6 +174,7 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
         }
     }
 
+
     @Override
     protected void terminated() {
         if (executionException != null) {
@@ -193,11 +188,11 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
         super.terminated();
     }
 
-    public boolean isInterrupted() {
-        return interrupted;
-    }
-
     public HubSpotException getExecutionException() {
         return executionException;
+    }
+
+    public boolean isInterrupted() {
+        return interrupted;
     }
 }

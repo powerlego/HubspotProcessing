@@ -24,6 +24,10 @@ public class HubSpot {
         this.rateLimiter = RateLimiter.create(15.0);
     }
 
+    public CMS cms() {
+        return new CMS(httpService, rateLimiter);
+    }
+
     public CRM crm() {
         return new CRM(httpService, rateLimiter);
     }

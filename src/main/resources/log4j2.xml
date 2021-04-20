@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Configuration status="WARN" name="HubspotProcessing">
     <Appenders>
-        <RollingFile name="RollingFile" filename="logs/processing.log"
-                     filePattern="logs/$${date:yyyy-MM}/processing-%d{MM-dd-yyyy}-%i.log.gz">
+        <RollingRandomAccessFile name="RollingFile" filename="logs/processing.log"
+                                 filePattern="logs/$${date:yyyy-MM}/processing-%d{MM-dd-yyyy}-%i.log.gz"
+                                 immediateFlush="false">
             <PatternLayout>
                 <Pattern>%d %p %c [%n%m%n%ex]%n</Pattern>
             </PatternLayout>
@@ -10,29 +11,23 @@
                 <TimeBasedTriggeringPolicy/>
                 <SizeBasedTriggeringPolicy size="20 MB"/>
             </Policies>
-            <ThresholdFilter level="INFO"/>
-        </RollingFile>
-        <File name="FileDebug" filename="logs/processing-debug.log" append="false">
+        </RollingRandomAccessFile>
+        <RandomAccessFile name="FileDebug" filename="logs/processing-debug.log" append="false" immediateFlush="false">
             <PatternLayout>
                 <Pattern>%d %p %c [%n%m%n%ex]%n</Pattern>
             </PatternLayout>
-        </File>
+        </RandomAccessFile>
         <Console name="STDOUT" target="SYSTEM_OUT">
             <PatternLayout pattern="%p %c{2} %m%n"/>
-            <ThresholdFilter level="INFO"/>
         </Console>
-        <Async name="RollingFileAsync">
-            <AppenderRef ref="RollingFile"/>
-        </Async>
     </Appenders>
     <Loggers>
-        <Logger name="org.hubspot" level="ALL" additivity="false">
-            <AppenderRef ref="RollingFileAsync"/>
-            <AppenderRef ref="FileDebug"/>
-            <AppenderRef ref="STDOUT"/>
-        </Logger>
+        <AsyncLogger name="org.hubspot" level="ALL" additivity="true">
+            <AppenderRef ref="FileDebug" level="debug"/>
+            <AppenderRef ref="RollingFile" level="info"/>
+        </AsyncLogger>
         <Root level="INFO">
-            <AppenderRef ref="STDOUT"/>
+            <AppenderRef ref="STDOUT" level="info"/>
         </Root>
     </Loggers>
 
