@@ -7,6 +7,7 @@ import org.hubspot.objects.crm.engagements.*;
 import org.hubspot.services.HubSpot;
 import org.hubspot.utils.CPUMonitor;
 import org.hubspot.utils.ErrorCodes;
+import org.hubspot.utils.FileUtils;
 import org.hubspot.utils.Utils;
 import org.hubspot.utils.concurrent.CacheThreadPoolExecutor;
 import org.hubspot.utils.concurrent.CustomThreadFactory;
@@ -26,6 +27,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
+ * Writes the processed Hubspot engagements to a file
+ *
  * @author Nicholas Curl
  */
 public class EngagementsWriter {
@@ -34,15 +37,45 @@ public class EngagementsWriter {
      * The instance of the logger
      */
     private static final Logger logger             = LogManager.getLogger();
+    /**
+     * The folder to store the written engagements
+     */
     private static final Path   engagementsFolder  = Paths.get("./contacts/engagements/");
+    /**
+     * The starting thread pool maximum size
+     */
     private static final int    STARTING_POOL_SIZE = Runtime.getRuntime().availableProcessors();
+    /**
+     * The interval in milliseconds to update the maximum number of threads allowed in a thread pool
+     */
     private static final long   UPDATE_INTERVAL    = 100;
+    /**
+     * The maximum limit for the maximum thread pool size
+     */
     private static final int    MAX_SIZE           = 50;
+    /**
+     * The partition size limit
+     */
     private static final int    LIMIT              = 1;
+    /**
+     * The format string used to help with debugging the load adjuster
+     */
     private static final String debugMessageFormat = "Method %-30s\tProcess Load: %f";
 
-    public static void write(HubSpot hubspot, long id, List<Engagement> engagements) {
+    /**
+     * Writes the engagements to file and downloads any attachments if needed
+     *
+     * @param hubspot     The instance of the Hubspot API
+     * @param id          The contact id
+     * @param engagements The list of engagements to write
+     */
+    public static void write(HubSpot hubspot,
+                             long id,
+                             List<Engagement> engagements
+    ) {
+        /*Checks to see if the engagements list is empty. If it is don't continue to write */
         if (!engagements.isEmpty()) {
+            /* Tries to create the overall directory that the engagements are written to*/
             try {
                 Files.createDirectories(engagementsFolder);
             }
@@ -51,6 +84,7 @@ public class EngagementsWriter {
                 System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
             }
             Path contact = engagementsFolder.resolve(id + "/");
+            /* Tries to create the directory based on the contact's id*/
             try {
                 Files.createDirectories(contact);
             }
@@ -63,6 +97,7 @@ public class EngagementsWriter {
             Path tasks = contact.resolve("tasks/");
             Path calls = contact.resolve("calls/");
             Path meetings = contact.resolve("meetings/");
+            /* Tries to create the sub-directories to store specific engagements in*/
             try {
                 Files.createDirectories(emails);
             }
@@ -105,6 +140,7 @@ public class EngagementsWriter {
             AtomicInteger taskNum = new AtomicInteger();
             int capacity = (int) Math.ceil(Math.ceil((double) engagements.size() / (double) LIMIT) *
                                            Math.pow(MAX_SIZE, -0.6));
+            /*Creates a thread pool to write the engagements on a separate thread to increase execution speed*/
             CacheThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,
                                                                                      STARTING_POOL_SIZE,
                                                                                      0L,
@@ -125,29 +161,22 @@ public class EngagementsWriter {
             scheduledExecutorService.scheduleAtFixedRate(() -> {
                 double load = CPUMonitor.getProcessLoad();
                 String debugMessage = String.format(debugMessageFormat, "EngageWriter_write", load);
-                logger.trace(debugMessage);
-                int comparison = Double.compare(load, 50.0);
-                if (comparison > 0 && threadPoolExecutor.getMaximumPoolSize() != threadPoolExecutor.getCorePoolSize()) {
-                    int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                    threadPoolExecutor.setMaximumPoolSize(numThreads);
-                }
-                else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != MAX_SIZE) {
-                    int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                    threadPoolExecutor.setMaximumPoolSize(numThreads);
-                }
+                Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
             }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
+            /* Writes the engagements to file on a separate threads to increase execution speed*/
             for (List<Engagement> partition : partitions) {
                 threadPoolExecutor.submit(() -> {
                     for (Engagement engagement : partition) {
                         if (engagement instanceof Email) {
                             Email email = (Email) engagement;
                             Path emailPath = emails.resolve("email_" + emailNum.get() + ".txt");
-                            Utils.writeFile(emailPath, email);
+                            FileUtils.writeFile(emailPath, email);
                             emailNum.getAndIncrement();
                         }
                         else if (engagement instanceof Note) {
                             Note note = (Note) engagement;
                             Path notePath;
+                            /* Checks to see if the note has attachments.  If it does download them.*/
                             if (note.hasAttachments()) {
                                 logger.trace("Contact ID {}, Note Num {}", id, noteNum.get());
                                 Path noteFolder = notes.resolve("note_" + noteNum.get());
@@ -166,25 +195,25 @@ public class EngagementsWriter {
                             else {
                                 notePath = notes.resolve("note_" + noteNum.get() + ".txt");
                             }
-                            Utils.writeFile(notePath, note);
+                            FileUtils.writeFile(notePath, note);
                             noteNum.getAndIncrement();
                         }
                         else if (engagement instanceof Meeting) {
                             Meeting meeting = (Meeting) engagement;
                             Path meetingPath = meetings.resolve("meeting_" + meetingNum.get() + ".txt");
-                            Utils.writeFile(meetingPath, meeting);
+                            FileUtils.writeFile(meetingPath, meeting);
                             meetingNum.getAndIncrement();
                         }
                         else if (engagement instanceof Call) {
                             Call call = (Call) engagement;
                             Path callPath = calls.resolve("call_" + callNum.get() + ".txt");
-                            Utils.writeFile(callPath, call);
+                            FileUtils.writeFile(callPath, call);
                             callNum.getAndIncrement();
                         }
                         else if (engagement instanceof Task) {
                             Task task = (Task) engagement;
                             Path taskPath = tasks.resolve("task_" + taskNum.get() + ".txt");
-                            Utils.writeFile(taskPath, task);
+                            FileUtils.writeFile(taskPath, task);
                             taskNum.getAndIncrement();
                         }
                         else {
@@ -203,20 +232,21 @@ public class EngagementsWriter {
             File[] noteFiles = notes.toFile().listFiles();
             File[] meetingFiles = meetings.toFile().listFiles();
             File[] taskFiles = tasks.toFile().listFiles();
+            /* Deletes any blank directories so that it the engagements storage is easier to understand*/
             if (callFiles == null || callFiles.length == 0) {
-                Utils.deleteDirectory(calls);
+                FileUtils.deleteDirectory(calls);
             }
             if (emailFiles == null || emailFiles.length == 0) {
-                Utils.deleteDirectory(emails);
+                FileUtils.deleteDirectory(emails);
             }
             if (noteFiles == null || noteFiles.length == 0) {
-                Utils.deleteDirectory(notes);
+                FileUtils.deleteDirectory(notes);
             }
             if (meetingFiles == null || meetingFiles.length == 0) {
-                Utils.deleteDirectory(meetings);
+                FileUtils.deleteDirectory(meetings);
             }
             if (taskFiles == null || taskFiles.length == 0) {
-                Utils.deleteDirectory(tasks);
+                FileUtils.deleteDirectory(tasks);
             }
         }
     }

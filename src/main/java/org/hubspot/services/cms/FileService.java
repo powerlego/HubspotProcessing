@@ -1,18 +1,14 @@
-package org.hubspot.services;
+package org.hubspot.services.cms;
 
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.RateLimiter;
-import org.apache.commons.io.FileUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.crm.engagements.Engagement;
 import org.hubspot.objects.crm.engagements.Note;
 import org.hubspot.objects.files.Document;
 import org.hubspot.objects.files.HSFile;
-import org.hubspot.utils.CPUMonitor;
-import org.hubspot.utils.ErrorCodes;
-import org.hubspot.utils.HttpService;
-import org.hubspot.utils.Utils;
+import org.hubspot.utils.*;
 import org.hubspot.utils.concurrent.CacheThreadPoolExecutor;
 import org.hubspot.utils.concurrent.CustomThreadFactory;
 import org.hubspot.utils.concurrent.CustomThreadPoolExecutor;
@@ -20,10 +16,7 @@ import org.hubspot.utils.concurrent.StoringRejectedExecutionHandler;
 import org.hubspot.utils.exceptions.HubSpotException;
 import org.json.JSONObject;
 
-import java.io.File;
 import java.io.IOException;
-import java.net.MalformedURLException;
-import java.net.URL;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
@@ -46,7 +39,6 @@ public class FileService {
     private static final Logger logger             = LogManager.getLogger();
     private static final Path   cacheFolder        = Paths.get("./cache/files/");
     private static final int    LIMIT              = 1;
-    private static final long   LOOP_DELAY         = 2;
     private static final long   UPDATE_INTERVAL    = 100;
     private static final int    STARTING_POOL_SIZE = Runtime.getRuntime().availableProcessors();
     private static final String debugMessageFormat = "Method %-30s\tProcess Load: %f";
@@ -67,22 +59,7 @@ public class FileService {
             rateLimiter.acquire(1);
             JSONObject resp = (JSONObject) httpService.getRequest(requestUrl);
             String downloadUrlString = resp.getString("url");
-            try {
-                URL downloadURL = new URL(downloadUrlString);
-                File dest = folder.resolve(file.getName() + "." + file.getExtension()).toFile();
-                try {
-                    FileUtils.copyURLToFile(downloadURL, dest);
-                }
-                catch (IOException e) {
-                    throw new HubSpotException("Unable to download file " + file + " Id " + file.getId(),
-                                               ErrorCodes.IO_DOWNLOAD.getErrorCode(),
-                                               e
-                    );
-                }
-            }
-            catch (MalformedURLException e) {
-                throw new HubSpotException("Malformed URL", ErrorCodes.MALFORMED_URL.getErrorCode(), e);
-            }
+            FileUtils.downloadFile(downloadUrlString, folder, file);
         }
     }
 
@@ -129,16 +106,7 @@ public class FileService {
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             double load = CPUMonitor.getProcessLoad();
             String debugMessage = String.format(debugMessageFormat, "getAllNoteAttachments", load);
-            logger.trace(debugMessage);
-            int comparison = Double.compare(load, 50.0);
-            if (comparison > 0 && threadPoolExecutor.getMaximumPoolSize() != threadPoolExecutor.getCorePoolSize()) {
-                int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                threadPoolExecutor.setMaximumPoolSize(numThreads);
-            }
-            else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != MAX_SIZE) {
-                int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                threadPoolExecutor.setMaximumPoolSize(numThreads);
-            }
+            Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
         for (List<Note> partition : partitions) {
             threadPoolExecutor.submit(() -> {
@@ -192,16 +160,7 @@ public class FileService {
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             double load = CPUMonitor.getProcessLoad();
             String debugMessage = String.format(debugMessageFormat, "getFileMetadatas", load);
-            logger.trace(debugMessage);
-            int comparison = Double.compare(load, 50.0);
-            if (comparison > 0 && threadPoolExecutor.getMaximumPoolSize() != threadPoolExecutor.getCorePoolSize()) {
-                int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                threadPoolExecutor.setMaximumPoolSize(numThreads);
-            }
-            else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != MAX_SIZE) {
-                int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                threadPoolExecutor.setMaximumPoolSize(numThreads);
-            }
+            Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
         List<HSFile> attachments = Collections.synchronizedList(new ArrayList<>());
         for (List<Long> partition : partitions) {
@@ -211,7 +170,7 @@ public class FileService {
                     String url = "/filemanager/api/v2/files/" + fileId;
                     rateLimiter.acquire(1);
                     JSONObject metadata = (JSONObject) httpService.getRequest(url);
-                    Utils.writeFile(cacheFile, metadata.toString(4));
+                    org.hubspot.utils.FileUtils.writeFile(cacheFile, metadata.toString(4));
                     HSFile file = process(note.getId(), fileId, metadata);
                     attachments.add(file);
                 }
@@ -277,16 +236,7 @@ public class FileService {
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             double load = CPUMonitor.getProcessLoad();
             String debugMessage = String.format(debugMessageFormat, "getFileMetadatas", load);
-            logger.trace(debugMessage);
-            int comparison = Double.compare(load, 50.0);
-            if (comparison > 0 && threadPoolExecutor.getMaximumPoolSize() != threadPoolExecutor.getCorePoolSize()) {
-                int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                threadPoolExecutor.setMaximumPoolSize(numThreads);
-            }
-            else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != MAX_SIZE) {
-                int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                threadPoolExecutor.setMaximumPoolSize(numThreads);
-            }
+            Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
         List<HSFile> attachments = Collections.synchronizedList(new ArrayList<>());
         for (List<Long> partition : partitions) {

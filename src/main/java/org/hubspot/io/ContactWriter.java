@@ -12,6 +12,8 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 
 /**
+ * Writes the processed Hubspot contacts to a file
+ *
  * @author Nicholas Curl
  */
 public class ContactWriter {
@@ -20,9 +22,18 @@ public class ContactWriter {
      * The instance of the logger
      */
     private static final Logger logger         = LogManager.getLogger();
+    /**
+     * The directory to write the processed contacts to
+     */
     private static final Path   contactsFolder = Paths.get("./contacts/contacts/");
 
+    /**
+     * Writes the specified contact
+     *
+     * @param contact The contact to write
+     */
     public static void write(Contact contact) {
+        //Tries to create the directory to store the written contacts
         try {
             Files.createDirectories(contactsFolder);
         }
@@ -37,6 +48,9 @@ public class ContactWriter {
         boolean bFirstName = (firstName == null || firstName.contains("null") || firstName.equalsIgnoreCase("N/A"));
         boolean bLastName = (lastName == null || lastName.contains("null") || lastName.equalsIgnoreCase("N/A"));
         boolean bEmail = email == null || email.contains("null");
+        /* Uses first and last name and the contact's id, uses the email address and the contact's id, or the contact's
+           id for the filename
+        */
         if (bFirstName) {
             if (bLastName) {
                 if (bEmail) {
@@ -47,20 +61,24 @@ public class ContactWriter {
                 }
             }
             else {
+                //Cleans up the last name
                 lastName = lastName.replaceAll("\\s", "_");
                 filePath = contactsFolder.resolve(lastName + "_" + contact.getId() + ".txt");
             }
         }
         else {
+            //Cleans up the first name
             firstName = firstName.replaceAll("\\s", "_");
             if (bLastName) {
                 filePath = contactsFolder.resolve(firstName + "_" + contact.getId() + ".txt");
             }
             else {
+                //Cleans up the last name
                 lastName = lastName.replaceAll("\\s", "_");
                 filePath = contactsFolder.resolve(firstName + "_" + lastName + "_" + contact.getId() + ".txt");
             }
         }
+        //Tries to write the file, but will exit if unable
         try {
             FileWriter writer = new FileWriter(filePath.toFile());
             writer.write(contact.toString());

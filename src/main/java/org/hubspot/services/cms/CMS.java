@@ -1,4 +1,4 @@
-package org.hubspot.services;
+package org.hubspot.services.cms;
 
 import com.google.common.util.concurrent.RateLimiter;
 import org.apache.logging.log4j.LogManager;

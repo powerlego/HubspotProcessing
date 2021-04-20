@@ -6,6 +6,8 @@ import org.apache.logging.log4j.Logger;
 import java.util.List;
 
 /**
+ * A class that represents an email engagement
+ *
  * @author Nicholas Curl
  */
 public class Email extends Engagement {
@@ -14,13 +16,42 @@ public class Email extends Engagement {
      * The instance of the logger
      */
     private static final Logger        logger = LogManager.getLogger();
+    /**
+     * The body of the email
+     */
     private final        String        body;
+    /**
+     * The list of email addresses that the email is being sent to
+     */
     private final        List<Details> to;
+    /**
+     * The list of email addresses that are being Cc'd
+     */
     private final        List<Details> cc;
+    /**
+     * The list of email addresses that are being BCc'd
+     */
     private final        List<Details> bcc;
+    /**
+     * The email address sending the email
+     */
     private final        Details       from;
+    /**
+     * The email's subject line
+     */
     private final        String        subject;
 
+    /**
+     * The constructor for this object
+     *
+     * @param id      The engagement id
+     * @param to      The list of email addresses that this email is being sent to
+     * @param cc      The list of email addresses that are being Cc'd
+     * @param bcc     The list of email addresses that are being BCc'd
+     * @param from    The email address sending the email
+     * @param subject The subject line of the email
+     * @param body    The body of the email
+     */
     public Email(long id,
                  List<Details> to,
                  List<Details> cc,
@@ -38,30 +69,65 @@ public class Email extends Engagement {
         this.body = body;
     }
 
+    /**
+     * Get the list of email address that are being BCc'd
+     *
+     * @return The list of email addresses that are being BCc'd
+     */
     public List<Details> getBcc() {
         return bcc;
     }
 
+    /**
+     * Gets the body of the email
+     *
+     * @return The body of the email
+     */
     public String getBody() {
         return body;
     }
 
+    /**
+     * Gets the list of email addresses that are being Cc'd
+     *
+     * @return The list of email addresses that are being Cc'd
+     */
     public List<Details> getCc() {
         return cc;
     }
 
+    /**
+     * Gets the email address sending this email
+     *
+     * @return The email address sending this email
+     */
     public Details getFrom() {
         return from;
     }
 
+    /**
+     * Gets the subject line of the email
+     *
+     * @return The subject line of the email
+     */
     public String getSubject() {
         return subject;
     }
 
+    /**
+     * Gets the list of email addresses that are being sent this email
+     *
+     * @return The list of email addresses that are being sent this email
+     */
     public List<Details> getTo() {
         return to;
     }
 
+    /**
+     * Returns the string representation of the email
+     *
+     * @return The string representation of the email
+     */
     @Override
     public String toString() {
         StringBuilder toBuilder = new StringBuilder();
@@ -105,33 +171,72 @@ public class Email extends Engagement {
                body;
     }
 
+    /**
+     * An inner-class that holds the information regarding email addresses
+     */
     public static class Details {
 
+        /**
+         * The first name associated to the email address
+         */
         private final String firstName;
+        /**
+         * The last name associated to the email address
+         */
         private final String lastName;
-        private final String email;
+        /**
+         * The email address
+         */
+        private final String emailAddress;
 
-        public Details(String firstName, String lastName, String email) {
+        /**
+         * The constructor of this object
+         *
+         * @param firstName    The first name associated to the email address
+         * @param lastName     The last name associated to the email address
+         * @param emailAddress The email address
+         */
+        public Details(String firstName, String lastName, String emailAddress) {
             this.firstName = firstName;
             this.lastName = lastName;
-            this.email = email;
+            this.emailAddress = emailAddress;
         }
 
-        public String getEmail() {
-            return email;
+        /**
+         * Gets the email address
+         *
+         * @return The email address
+         */
+        public String getEmailAddress() {
+            return emailAddress;
         }
 
+        /**
+         * Gets the first name associated to the email address
+         *
+         * @return The first name associated to the email address
+         */
         public String getFirstName() {
             return firstName;
         }
 
+        /**
+         * Gets the last name associated to the email address
+         *
+         * @return The last name associated to the email address
+         */
         public String getLastName() {
             return lastName;
         }
 
+        /**
+         * Returns the string representation of this object
+         *
+         * @return The string representation of this object
+         */
         @Override
         public String toString() {
-            return lastName + ", " + firstName + " <" + email + ">";
+            return lastName + ", " + firstName + " <" + emailAddress + ">";
         }
     }
 }

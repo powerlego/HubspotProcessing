@@ -8,13 +8,14 @@ import org.hubspot.io.ContactWriter;
 import org.hubspot.io.EngagementsWriter;
 import org.hubspot.objects.crm.Company;
 import org.hubspot.objects.crm.Contact;
-import org.hubspot.services.CompanyService;
-import org.hubspot.services.ContactService;
-import org.hubspot.services.EngagementsProcessor;
-import org.hubspot.services.EngagementsProcessor.EngagementData;
 import org.hubspot.services.HubSpot;
+import org.hubspot.services.crm.CompanyService;
+import org.hubspot.services.crm.ContactService;
+import org.hubspot.services.crm.EngagementsProcessor;
+import org.hubspot.services.crm.EngagementsProcessor.EngagementData;
 import org.hubspot.utils.CPUMonitor;
 import org.hubspot.utils.ErrorCodes;
+import org.hubspot.utils.FileUtils;
 import org.hubspot.utils.Utils;
 import org.hubspot.utils.concurrent.CustomThreadFactory;
 import org.hubspot.utils.concurrent.CustomThreadPoolExecutor;
@@ -40,7 +41,6 @@ public class Main {
     private static final int    STARTING_POOL_SIZE = Runtime.getRuntime().availableProcessors();
     private static final long   UPDATE_INTERVAL    = 100;
     private static final int    LIMIT              = 1;
-    private static final long   LOOP_DELAY         = 2;
     private static final long   WARMUP             = 10;
     private static final int    MAX_SIZE           = 75;
     private static final String debugMessageFormat = "Method %-30s\tProcess Load: %f";
@@ -54,16 +54,16 @@ public class Main {
             logger.fatal("Unable to create cache folder {}", Paths.get("./cache"), e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
-        long lastExecuted = Utils.readLastExecution();
+        long lastExecuted = FileUtils.readLastExecution();
         if (lastExecuted == -1) {
-            lastExecuted = Utils.writeLastExecution();
+            lastExecuted = FileUtils.writeLastExecution();
         }
         else {
             if (args != null && args.length > 0 && !args[0].equalsIgnoreCase("debug")) {
-                Utils.writeLastExecution();
+                FileUtils.writeLastExecution();
             }
         }
-        long lastFinished = Utils.readLastFinished();
+        long lastFinished = FileUtils.readLastFinished();
         HubSpot hubspot = new HubSpot("6ab73220-900f-462b-b753-b6757d94cd1d");
         HashMap<Long, Contact> contacts;
         HashMap<Long, Contact> updatedContacts;
@@ -122,16 +122,7 @@ public class Main {
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             double load = CPUMonitor.getProcessLoad();
             String debugMessage = String.format(debugMessageFormat, "Main", load);
-            logger.trace(debugMessage);
-            int comparison = Double.compare(load, 50.0);
-            if (comparison > 0 && threadPoolExecutor.getMaximumPoolSize() != threadPoolExecutor.getCorePoolSize()) {
-                int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                threadPoolExecutor.setMaximumPoolSize(numThreads);
-            }
-            else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != MAX_SIZE) {
-                int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                threadPoolExecutor.setMaximumPoolSize(numThreads);
-            }
+            Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
         ProgressBar progressBar = Utils.createProgressBar("Processing Filtered Contacts", filteredContacts.size());
         Utils.sleep(WARMUP);
@@ -175,7 +166,7 @@ public class Main {
         Utils.shutdownExecutors(logger, threadPoolExecutor);
         Utils.shutdownUpdaters(logger, scheduledExecutorService);
         progressBar.close();
-        Utils.writeLastFinished();
+        FileUtils.writeLastFinished();
         CPUMonitor.stopMonitoring();
     }
 

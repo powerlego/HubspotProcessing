@@ -1,4 +1,4 @@
-package org.hubspot.services;
+package org.hubspot.services.crm;
 
 import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.RateLimiter;
@@ -7,10 +7,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.crm.engagements.*;
 import org.hubspot.objects.crm.engagements.Email.Details;
-import org.hubspot.utils.CPUMonitor;
-import org.hubspot.utils.ErrorCodes;
-import org.hubspot.utils.HttpService;
-import org.hubspot.utils.Utils;
+import org.hubspot.utils.*;
 import org.hubspot.utils.concurrent.*;
 import org.hubspot.utils.exceptions.HubSpotException;
 import org.hubspot.utils.exceptions.NullException;
@@ -38,7 +35,6 @@ public class EngagementsProcessor {
     private static final Path        cacheFolder        = Paths.get("./cache/engagements");
     private static final RateLimiter rateLimiter        = RateLimiter.create(14.0);
     private static final int         LIMIT              = 10;
-    private static final long        LOOP_DELAY         = 2;
     private static final long        UPDATE_INTERVAL    = 100;
     private static final int         STARTING_POOL_SIZE = Runtime.getRuntime().availableProcessors();
     private static final String      debugMessageFormat = "Method %-30s\tProcess Load: %f";
@@ -107,16 +103,7 @@ public class EngagementsProcessor {
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             double load = CPUMonitor.getProcessLoad();
             String debugMessage = String.format(debugMessageFormat, "getAllEngagements", load);
-            logger.trace(debugMessage);
-            int comparison = Double.compare(load, 50.0);
-            if (comparison > 0 && threadPoolExecutor.getMaximumPoolSize() != threadPoolExecutor.getCorePoolSize()) {
-                int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                threadPoolExecutor.setMaximumPoolSize(numThreads);
-            }
-            else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != MAX_SIZE) {
-                int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                threadPoolExecutor.setMaximumPoolSize(numThreads);
-            }
+            Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
         for (List<Long> partition : partitions) {
             threadPoolExecutor.submit(() -> {
@@ -132,7 +119,6 @@ public class EngagementsProcessor {
                 }
                 return null;
             });
-            Utils.sleep(LOOP_DELAY);
         }
         Utils.shutdownExecutors(logger, threadPoolExecutor);
         Utils.shutdownUpdaters(logger, scheduledExecutorService);
@@ -161,19 +147,10 @@ public class EngagementsProcessor {
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             double load = CPUMonitor.getProcessLoad();
             String debugMessage = String.format(debugMessageFormat, "getAllEngagementIds", load);
-            logger.trace(debugMessage);
-            int comparison = Double.compare(load, 50.0);
-            if (comparison > 0 && threadPoolExecutor.getMaximumPoolSize() != threadPoolExecutor.getCorePoolSize()) {
-                int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                threadPoolExecutor.setMaximumPoolSize(numThreads);
-            }
-            else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != MAX_SIZE) {
-                int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                threadPoolExecutor.setMaximumPoolSize(numThreads);
-            }
+            Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
         while (true) {
-            rateLimiter.acquire();
+            rateLimiter.acquire(1);
             JSONObject jsonObject = (JSONObject) httpService.getRequest(url, queryParam);
             JSONArray jsonEngagementIds = jsonObject.getJSONArray("results");
             threadPoolExecutor.submit(() -> {
@@ -188,7 +165,6 @@ public class EngagementsProcessor {
             }
             offset = jsonObject.getLong("offset");
             queryParam.put("offset", offset);
-            Utils.sleep(LOOP_DELAY);
         }
         Utils.shutdownExecutors(logger, threadPoolExecutor);
         Utils.shutdownUpdaters(logger, scheduledExecutorService);
@@ -393,7 +369,7 @@ public class EngagementsProcessor {
         }
         else {
             try {
-                Utils.writeJsonCache(folder, engagementJson);
+                FileUtils.writeJsonCache(folder, engagementJson);
             }
             catch (IOException e) {
                 throw new HubSpotException("Unable to write json to cache", ErrorCodes.IO_WRITE.getErrorCode(), e);
@@ -437,16 +413,7 @@ public class EngagementsProcessor {
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             double load = CPUMonitor.getProcessLoad();
             String debugMessage = String.format(debugMessageFormat, "getUpdatedEngagements", load);
-            logger.trace(debugMessage);
-            int comparison = Double.compare(load, 50.0);
-            if (comparison > 0 && threadPoolExecutor.getMaximumPoolSize() != threadPoolExecutor.getCorePoolSize()) {
-                int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                threadPoolExecutor.setMaximumPoolSize(numThreads);
-            }
-            else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != MAX_SIZE) {
-                int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                threadPoolExecutor.setMaximumPoolSize(numThreads);
-            }
+            Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
         for (List<Long> partition : partitions) {
             threadPoolExecutor.submit(() -> {
@@ -468,7 +435,6 @@ public class EngagementsProcessor {
                 }
                 return null;
             });
-            Utils.sleep(LOOP_DELAY);
         }
         Utils.shutdownExecutors(logger, threadPoolExecutor);
         Utils.shutdownUpdaters(logger, scheduledExecutorService);
@@ -501,16 +467,7 @@ public class EngagementsProcessor {
             scheduledExecutorService.scheduleAtFixedRate(() -> {
                 double load = CPUMonitor.getProcessLoad();
                 String debugMessage = String.format(debugMessageFormat, "readEngagementJsons", load);
-                logger.debug(debugMessage);
-                int comparison = Double.compare(load, 50.0);
-                if (comparison > 0 && threadPoolExecutor.getMaximumPoolSize() != threadPoolExecutor.getCorePoolSize()) {
-                    int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                    threadPoolExecutor.setMaximumPoolSize(numThreads);
-                }
-                else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != MAX_SIZE) {
-                    int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                    threadPoolExecutor.setMaximumPoolSize(numThreads);
-                }
+                Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
             }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
             ProgressBar pb = Utils.createProgressBar("Reading Engagement Cache", fileList.size());
             for (List<File> partition : partitions) {
@@ -524,7 +481,6 @@ public class EngagementsProcessor {
                     }
                     return null;
                 });
-                Utils.sleep(LOOP_DELAY);
             }
             Utils.shutdownExecutors(logger, threadPoolExecutor);
             Utils.shutdownUpdaters(logger, scheduledExecutorService);
@@ -533,8 +489,7 @@ public class EngagementsProcessor {
         return new HashMap<>(contactsEngagementData);
     }
 
-    private static EngagementData readContactEngagementJsons(File contactFolder, long contactId)
-    throws HubSpotException {
+    private static EngagementData readContactEngagementJsons(File contactFolder, long contactId) {
         File[] files = contactFolder.listFiles();
         List<Long> engagementIds = Collections.synchronizedList(new ArrayList<>());
         List<Engagement> engagements = Collections.synchronizedList(new ArrayList<>());
@@ -563,21 +518,12 @@ public class EngagementsProcessor {
             scheduledExecutorService.scheduleAtFixedRate(() -> {
                 double load = CPUMonitor.getProcessLoad();
                 String debugMessage = String.format(debugMessageFormat, "readContactEngagementJsons", load);
-                logger.trace(debugMessage);
-                int comparison = Double.compare(load, 50.0);
-                if (comparison > 0 && threadPoolExecutor.getMaximumPoolSize() != threadPoolExecutor.getCorePoolSize()) {
-                    int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                    threadPoolExecutor.setMaximumPoolSize(numThreads);
-                }
-                else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != MAX_SIZE) {
-                    int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                    threadPoolExecutor.setMaximumPoolSize(numThreads);
-                }
+                Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
             }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
             for (List<File> partition : partitions) {
                 threadPoolExecutor.submit(() -> {
                     for (File file : partition) {
-                        String jsonString = Utils.readJsonString(logger, file);
+                        String jsonString = FileUtils.readJsonString(logger, file);
                         JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
                         long engagementId = jsonObject.getJSONObject("engagement").getLong("id");
                         Engagement engagement = process(jsonObject);
@@ -587,7 +533,6 @@ public class EngagementsProcessor {
                     }
                     return null;
                 });
-                Utils.sleep(LOOP_DELAY);
             }
             Utils.shutdownExecutors(logger, threadPoolExecutor);
             Utils.shutdownUpdaters(logger, scheduledExecutorService);
@@ -640,16 +585,7 @@ public class EngagementsProcessor {
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             double load = CPUMonitor.getProcessLoad();
             String debugMessage = String.format(debugMessageFormat, "writeContactEngagementJsons", load);
-            logger.trace(debugMessage);
-            int comparison = Double.compare(load, 50.0);
-            if (comparison > 0 && threadPoolExecutor.getMaximumPoolSize() != threadPoolExecutor.getCorePoolSize()) {
-                int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                threadPoolExecutor.setMaximumPoolSize(numThreads);
-            }
-            else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != MAX_SIZE) {
-                int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                threadPoolExecutor.setMaximumPoolSize(numThreads);
-            }
+            Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
         ProgressBar pb = Utils.createProgressBar("Writing Engagements for Contact ID " + contactId,
                                                  engagementJsons.size()
@@ -657,13 +593,12 @@ public class EngagementsProcessor {
         for (List<JSONObject> partition : partitions) {
             threadPoolExecutor.submit(() -> {
                 for (JSONObject jsonObject : partition) {
-                    Utils.writeJsonCache(folder, jsonObject);
+                    FileUtils.writeJsonCache(folder, jsonObject);
                     pb.step();
                     Utils.sleep(1);
                 }
                 return null;
             });
-            Utils.sleep(LOOP_DELAY);
         }
         Utils.shutdownExecutors(logger, threadPoolExecutor);
         Utils.shutdownUpdaters(logger, scheduledExecutorService);
@@ -697,16 +632,7 @@ public class EngagementsProcessor {
             scheduledExecutorService.scheduleAtFixedRate(() -> {
                 double load = CPUMonitor.getProcessLoad();
                 String debugMessage = String.format(debugMessageFormat, "getEngagementJson", load);
-                logger.trace(debugMessage);
-                int comparison = Double.compare(load, 50.0);
-                if (comparison > 0 && threadPoolExecutor.getMaximumPoolSize() != threadPoolExecutor.getCorePoolSize()) {
-                    int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
-                    threadPoolExecutor.setMaximumPoolSize(numThreads);
-                }
-                else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != MAX_SIZE) {
-                    int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
-                    threadPoolExecutor.setMaximumPoolSize(numThreads);
-                }
+                Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
             }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
             List<JSONObject> engagementJsons = Collections.synchronizedList(new ArrayList<>());
             ProgressBar pb = Utils.createProgressBar("Grabbing Engagement Jsons for Contact ID" + contactId,
@@ -729,7 +655,6 @@ public class EngagementsProcessor {
                     }
                     return null;
                 });
-                Utils.sleep(LOOP_DELAY);
             }
             Utils.shutdownExecutors(logger, threadPoolExecutor);
             Utils.shutdownUpdaters(logger, scheduledExecutorService);

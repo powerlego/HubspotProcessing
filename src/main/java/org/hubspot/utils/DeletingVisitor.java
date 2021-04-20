@@ -57,6 +57,7 @@ public class DeletingVisitor extends SimpleFileVisitor<Path> {
 
     /**
      * Returns {@code true} if files are not deleted even when all conditions accept a path, {@code false} otherwise.
+     *
      * @return {@code true} if files are not deleted even when all conditions accept a path, {@code false} otherwise
      */
     public boolean isTestMode() {

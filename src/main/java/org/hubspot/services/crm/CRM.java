@@ -1,4 +1,4 @@
-package org.hubspot.services;
+package org.hubspot.services.crm;
 
 import com.google.common.util.concurrent.RateLimiter;
 import org.apache.logging.log4j.LogManager;
@@ -7,9 +7,9 @@ import org.hubspot.objects.PropertyData;
 import org.hubspot.objects.crm.CRMObjectType;
 import org.hubspot.objects.crm.Company;
 import org.hubspot.objects.crm.Contact;
-import org.hubspot.services.EngagementsProcessor.EngagementData;
+import org.hubspot.services.crm.EngagementsProcessor.EngagementData;
+import org.hubspot.utils.FileUtils;
 import org.hubspot.utils.HttpService;
-import org.hubspot.utils.Utils;
 import org.hubspot.utils.exceptions.HubSpotException;
 import org.jetbrains.annotations.NotNull;
 
@@ -68,7 +68,7 @@ public class CRM {
         }
         catch (HubSpotException e) {
             logger.fatal("Unable to get all companies", e);
-            Utils.deleteDirectory(CompanyService.getCacheFolder());
+            FileUtils.deleteDirectory(CompanyService.getCacheFolder());
             System.exit(e.getCode());
             return new HashMap<>();
         }
@@ -96,13 +96,16 @@ public class CRM {
     }
 
     @NotNull
-    private HashMap<Long, Contact> getContacts(PropertyData propertyData) {
+    private HashMap<Long, Company> getCompanies(long lastExecuted, PropertyData propertyData, long lastFinished) {
+        if (lastFinished == -1) {
+            lastFinished = FileUtils.findMostRecentModification(CompanyService.getCacheFolder());
+        }
         try {
-            return ContactService.getAllContacts(httpService, propertyData, rateLimiter);
+            return CompanyService.getUpdatedCompanies(httpService, propertyData, lastExecuted, lastFinished);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to get all contacts", e);
-            Utils.deleteDirectory(ContactService.getCacheFolder());
+            logger.fatal("Unable to get updated companies", e);
+            FileUtils.deleteRecentlyUpdated(CompanyService.getCacheFolder(), lastFinished);
             System.exit(e.getCode());
             return new HashMap<>();
         }
@@ -195,16 +198,13 @@ public class CRM {
     }
 
     @NotNull
-    private HashMap<Long, Company> getCompanies(long lastExecuted, PropertyData propertyData, long lastFinished) {
-        if (lastFinished == -1) {
-            lastFinished = Utils.findMostRecentModification(CompanyService.getCacheFolder());
-        }
+    private HashMap<Long, Contact> getContacts(PropertyData propertyData) {
         try {
-            return CompanyService.getUpdatedCompanies(httpService, propertyData, lastExecuted, lastFinished);
+            return ContactService.getAllContacts(httpService, propertyData, rateLimiter);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to get updated companies", e);
-            Utils.deleteRecentlyUpdated(CompanyService.getCacheFolder(), lastFinished);
+            logger.fatal("Unable to get all contacts", e);
+            FileUtils.deleteDirectory(ContactService.getCacheFolder());
             System.exit(e.getCode());
             return new HashMap<>();
         }
@@ -230,14 +230,14 @@ public class CRM {
     @NotNull
     private HashMap<Long, Contact> getContacts(long lastExecuted, PropertyData propertyData, long lastFinished) {
         if (lastFinished == -1) {
-            lastFinished = Utils.findMostRecentModification(ContactService.getCacheFolder());
+            lastFinished = FileUtils.findMostRecentModification(ContactService.getCacheFolder());
         }
         try {
             return ContactService.getUpdatedContacts(httpService, propertyData, lastExecuted, lastFinished);
         }
         catch (HubSpotException e) {
             logger.fatal("Unable to get updated contacts", e);
-            Utils.deleteRecentlyUpdated(ContactService.getCacheFolder(), lastFinished);
+            FileUtils.deleteRecentlyUpdated(ContactService.getCacheFolder(), lastFinished);
             System.exit(e.getCode());
             return new HashMap<>();
         }
@@ -254,7 +254,7 @@ public class CRM {
     public EngagementData getUpdatedEngagements(Contact contact, long lastFinished) {
         long contactId = contact.getId();
         if (lastFinished == -1) {
-            lastFinished = Utils.findMostRecentModification(Paths.get("./cache/engagements/" + contactId));
+            lastFinished = FileUtils.findMostRecentModification(Paths.get("./cache/engagements/" + contactId));
         }
         try {
             return EngagementsProcessor.getUpdatedEngagements(httpService, contactId, lastFinished);
@@ -306,7 +306,7 @@ public class CRM {
         }
         catch (HubSpotException e) {
             logger.fatal("Unable to write companies");
-            Utils.deleteDirectory(CompanyService.getCacheFolder());
+            FileUtils.deleteDirectory(CompanyService.getCacheFolder());
             System.exit(e.getCode());
         }
     }
@@ -318,7 +318,7 @@ public class CRM {
         }
         catch (HubSpotException e) {
             logger.fatal("Unable to write companies");
-            Utils.deleteDirectory(CompanyService.getCacheFolder());
+            FileUtils.deleteDirectory(CompanyService.getCacheFolder());
             System.exit(e.getCode());
         }
     }
@@ -329,7 +329,7 @@ public class CRM {
         }
         catch (HubSpotException e) {
             logger.fatal("Unable to write engagement for contact id {}", contactId, e);
-            Utils.deleteDirectory(EngagementsProcessor.getCacheFolder());
+            FileUtils.deleteDirectory(EngagementsProcessor.getCacheFolder());
             System.exit(e.getCode());
         }
     }
@@ -341,7 +341,7 @@ public class CRM {
         }
         catch (HubSpotException e) {
             logger.fatal("Unable to write contacts");
-            Utils.deleteDirectory(ContactService.getCacheFolder());
+            FileUtils.deleteDirectory(ContactService.getCacheFolder());
             System.exit(e.getCode());
         }
     }
@@ -353,7 +353,7 @@ public class CRM {
         }
         catch (HubSpotException e) {
             logger.fatal("Unable to write contacts");
-            Utils.deleteDirectory(ContactService.getCacheFolder());
+            FileUtils.deleteDirectory(ContactService.getCacheFolder());
             System.exit(e.getCode());
         }
     }

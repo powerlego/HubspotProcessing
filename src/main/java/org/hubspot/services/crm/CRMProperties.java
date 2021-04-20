@@ -1,9 +1,8 @@
-package org.hubspot.services;
+package org.hubspot.services.crm;
 
 import com.google.common.util.concurrent.RateLimiter;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.hubspot.objects.HubSpotObject;
 import org.hubspot.objects.PropertyData;
 import org.hubspot.objects.crm.CRMObjectType;
 import org.hubspot.utils.HttpService;
@@ -19,7 +18,7 @@ import java.util.Map;
 /**
  * @author Nicholas Curl
  */
-public class CRMProperties extends HubSpotObject {
+public class CRMProperties {
 
     /**
      * The instance of the logger
@@ -27,14 +26,10 @@ public class CRMProperties extends HubSpotObject {
     private static final Logger logger  = LogManager.getLogger();
     private static final String urlBase = "/crm/v3/properties/";
 
-    public CRMProperties() {
-        super(0);
-    }
-
-    public static PropertyData getAllProperties(HttpService service,
-                                                CRMObjectType type,
-                                                boolean includeHidden,
-                                                RateLimiter rateLimiter
+    static PropertyData getAllProperties(HttpService service,
+                                         CRMObjectType type,
+                                         boolean includeHidden,
+                                         RateLimiter rateLimiter
     )
     throws HubSpotException {
         Map<String, Object> properties = new HashMap<>();
@@ -58,11 +53,11 @@ public class CRMProperties extends HubSpotObject {
         return new PropertyData(propertyNames, properties);
     }
 
-    public static PropertyData getPropertiesByGroupName(HttpService service,
-                                                        CRMObjectType type,
-                                                        String groupName,
-                                                        boolean includeHidden,
-                                                        RateLimiter rateLimiter
+    static PropertyData getPropertiesByGroupName(HttpService service,
+                                                 CRMObjectType type,
+                                                 String groupName,
+                                                 boolean includeHidden,
+                                                 RateLimiter rateLimiter
     ) throws HubSpotException {
         Map<String, Object> properties = new HashMap<>();
         ArrayList<String> propertyNames = new ArrayList<>();

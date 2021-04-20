@@ -3,7 +3,7 @@ package org.hubspot.utils.concurrent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.utils.ErrorCodes;
-import org.hubspot.utils.Utils;
+import org.hubspot.utils.FileUtils;
 import org.hubspot.utils.exceptions.HubSpotException;
 
 import java.nio.file.Path;
@@ -159,15 +159,21 @@ public class UpdateThreadPoolExecutor extends CacheThreadPoolExecutor {
 
     @Override
     protected void terminated() {
-        HubSpotException hubSpotException = super.getExecutionException();
-        if (hubSpotException != null) {
-            logger.fatal("Error occurred during execution", hubSpotException);
-            Utils.deleteRecentlyUpdated(folder, lastFinished);
-            System.exit(hubSpotException.getCode());
+        Exception exception = super.getExecutionException();
+        if (exception != null) {
+            logger.fatal("Error occurred during execution", exception);
+            FileUtils.deleteRecentlyUpdated(folder, lastFinished);
+            if (exception instanceof HubSpotException) {
+                HubSpotException hubSpotException = (HubSpotException) exception;
+                System.exit(hubSpotException.getCode());
+            }
+            else {
+                System.exit(ErrorCodes.GENERAL.getErrorCode());
+            }
         }
         else if (super.isInterrupted()) {
             logger.fatal("Threads have been interrupted");
-            Utils.deleteRecentlyUpdated(folder, lastFinished);
+            FileUtils.deleteRecentlyUpdated(folder, lastFinished);
             System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
         }
         super.terminated();

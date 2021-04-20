@@ -15,9 +15,9 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
     /**
      * The instance of the logger
      */
-    private static final Logger           logger             = LogManager.getLogger();
-    private              HubSpotException executionException = null;
-    private              boolean          interrupted        = false;
+    private static final Logger    logger             = LogManager.getLogger();
+    private              Exception executionException = null;
+    private              boolean   interrupted        = false;
 
     /**
      * Creates a new {@code ThreadPoolExecutor} with the given initial parameters, the default thread factory and the
@@ -144,7 +144,7 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
         super.afterExecute(r, t);
         if (t == null && r instanceof Future<?> && ((Future<?>) r).isDone()) {
             try {
-                Object result = ((Future<?>) r).get();
+                ((Future<?>) r).get();
             }
             catch (CancellationException e) {
                 t = e;
@@ -179,7 +179,13 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
     protected void terminated() {
         if (executionException != null) {
             logger.fatal("Error occurred during execution", executionException);
-            System.exit(executionException.getCode());
+            if (executionException instanceof HubSpotException) {
+                HubSpotException exception = (HubSpotException) executionException;
+                System.exit(exception.getCode());
+            }
+            else {
+                System.exit(ErrorCodes.GENERAL.getErrorCode());
+            }
         }
         else if (interrupted) {
             logger.fatal("Threads have been interrupted");
@@ -188,7 +194,7 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
         super.terminated();
     }
 
-    public HubSpotException getExecutionException() {
+    public Exception getExecutionException() {
         return executionException;
     }
 

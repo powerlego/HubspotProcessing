@@ -1,31 +1,21 @@
 package org.hubspot.utils;
 
-import com.google.common.util.concurrent.RateLimiter;
 import me.tongfei.progressbar.ProgressBar;
 import me.tongfei.progressbar.ProgressBarBuilder;
 import me.tongfei.progressbar.ProgressBarStyle;
-import org.apache.commons.io.comparator.LastModifiedFileComparator;
 import org.apache.commons.text.WordUtils;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
-import org.hubspot.objects.PropertyData;
-import org.hubspot.objects.crm.CRMObjectType;
-import org.hubspot.utils.exceptions.HubSpotException;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.*;
-import java.lang.reflect.Array;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.time.Instant;
-import java.util.*;
+import java.util.Objects;
+import java.util.Set;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -35,11 +25,10 @@ import java.util.regex.Pattern;
  */
 public class Utils {
 
-    public static final  Instant now    = Instant.now();
     /**
      * The instance of the logger
      */
-    private static final Logger  logger = LogManager.getLogger();
+    private static final Logger logger = LogManager.getLogger();
 
     public static <T> T convertInstanceObject(Object o, Class<T> clazz) {
         try {
@@ -48,14 +37,6 @@ public class Utils {
         catch (ClassCastException e) {
             return null;
         }
-    }
-
-    public static String createLineDivider(int length) {
-        return "\n" + "-".repeat(Math.max(0, length)) + "\n";
-    }
-
-    public static long findMostRecentModification(Path dir) {
-        return findMostRecentModification(dir.toFile());
     }
 
     public static Object convertType(kong.unirest.json.JSONObject jsonToConvert) {
@@ -68,78 +49,26 @@ public class Utils {
         return jsonObject;
     }
 
-    public static long findMostRecentModification(File dir) {
-        long lastModified = -1;
-        if (dir.isDirectory()) {
-            File[] files = dir.listFiles(File::isFile);
-            if (files != null && files.length > 0) {
-                Arrays.sort(files, LastModifiedFileComparator.LASTMODIFIED_REVERSE);
-                lastModified = files[0].lastModified();
-            }
+    public static void adjustLoad(ThreadPoolExecutor threadPoolExecutor,
+                                  double load,
+                                  String debugMessage,
+                                  Logger logger,
+                                  int maxSize
+    ) {
+        logger.trace(debugMessage);
+        int comparison = Double.compare(load, 50.0);
+        if (comparison > 0 && threadPoolExecutor.getMaximumPoolSize() != threadPoolExecutor.getCorePoolSize()) {
+            int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
+            threadPoolExecutor.setMaximumPoolSize(numThreads);
         }
-        return lastModified;
+        else if (comparison < 0 && threadPoolExecutor.getMaximumPoolSize() != maxSize) {
+            int numThreads = threadPoolExecutor.getMaximumPoolSize() + 1;
+            threadPoolExecutor.setMaximumPoolSize(numThreads);
+        }
     }
 
     public static ProgressBar createProgressBar(String taskName) {
         return getProgressBarBuilder(taskName).build();
-    }
-
-    public static long getObjectCount(HttpService service, CRMObjectType type, final RateLimiter rateLimiter) {
-        JSONObject body = new JSONObject();
-        JSONArray filterGroupsArray = new JSONArray();
-        JSONObject filters = new JSONObject();
-        JSONArray filtersArray = new JSONArray();
-        JSONObject filter = new JSONObject();
-        JSONArray propertyArray = new JSONArray(PropertyData.EMPTY.getPropertyNames());
-        filter.put("propertyName", "hs_object_id").put("operator", "HAS_PROPERTY");
-        filtersArray.put(filter);
-        filters.put("filters", filtersArray);
-        filterGroupsArray.put(filters);
-        body.put("filterGroups", filterGroupsArray).put("properties", propertyArray).put("limit", 1);
-        return getCount(service, type, rateLimiter, body);
-    }
-
-    public static ProgressBar createProgressBar(String taskName, long size) {
-        return getProgressBarBuilder(taskName, size).build();
-    }
-
-    private static long getCount(HttpService service,
-                                 CRMObjectType type,
-                                 final RateLimiter rateLimiter,
-                                 JSONObject body
-    ) {
-        try {
-            rateLimiter.acquire(1);
-            JSONObject resp = (JSONObject) service.postRequest("/crm/v3/objects/" + type.getValue() + "/search", body);
-            return resp.getLong("total");
-        }
-        catch (HubSpotException e) {
-            logger.fatal("Unable to get object count.", e);
-            return 0;
-        }
-    }
-
-    public static void deleteRecentlyUpdated(File folder, long lastFinished) {
-        File[] files = folder.listFiles(pathname -> pathname.lastModified() > lastFinished);
-        if (files != null && files.length > 0) {
-            for (File file : files) {
-                if (file.isDirectory()) {
-                    deleteRecentlyUpdated(file, lastFinished);
-                }
-                else {
-                    try {
-                        Files.delete(file.toPath());
-                    }
-                    catch (IOException e) {
-                        logger.fatal("Unable to delete file {}. Please delete manually.", file, e);
-                    }
-                }
-            }
-        }
-    }
-
-    public static void deleteRecentlyUpdated(Path folder, long lastFinished) {
-        deleteRecentlyUpdated(folder.toFile(), lastFinished);
     }
 
     public static ProgressBarBuilder getProgressBarBuilder(String taskName) {
@@ -147,6 +76,10 @@ public class Utils {
                                        .setStyle(ProgressBarStyle.ASCII)
                                        .setUpdateIntervalMillis(1)
                                        .setMaxRenderedLength(120);
+    }
+
+    public static String createLineDivider(int length) {
+        return "\n" + "-".repeat(Math.max(0, length)) + "\n";
     }
 
     public static ProgressBarBuilder getProgressBarBuilder(String taskName, long size) {
@@ -187,124 +120,6 @@ public class Utils {
 
     public static JSONObject formatJson(JSONObject jsonObjectToFormat) {
         return (JSONObject) recurseCheckingFormat(jsonObjectToFormat);
-    }
-
-    public static long getUpdateCount(HttpService service,
-                                      final RateLimiter rateLimiter,
-                                      CRMObjectType type,
-                                      long lastExecution
-    ) {
-        JSONObject body = getUpdateBody(type, PropertyData.EMPTY, lastExecution, 1);
-        return getCount(service, type, rateLimiter, body);
-    }
-
-    public static JSONObject getUpdateBody(CRMObjectType type,
-                                           PropertyData propertyData,
-                                           long lastExecution,
-                                           int limit
-    ) {
-        JSONObject body = new JSONObject();
-        JSONArray filterGroupsArray = new JSONArray();
-        JSONObject filters1 = new JSONObject();
-        JSONArray filtersArray1 = new JSONArray();
-        JSONObject filter1 = new JSONObject();
-        JSONObject filters2 = new JSONObject();
-        JSONArray filtersArray2 = new JSONArray();
-        JSONObject filter2 = new JSONObject();
-        filter1.put("propertyName", "createdate").put("operator", "GTE").put("value", lastExecution);
-        filtersArray1.put(filter1);
-        filters1.put("filters", filtersArray1);
-        switch (type) {
-            case CONTACTS:
-                filter2.put("propertyName", "lastmodifieddate").put("operator", "GTE").put("value", lastExecution);
-                break;
-            case COMPANIES:
-            case DEALS:
-            case TICKETS:
-                filter2.put("propertyName", "hs_lastmodifieddate").put("operator", "GTE").put("value", lastExecution);
-                break;
-        }
-        filtersArray2.put(filter2);
-        filters2.put("filters", filtersArray2);
-        filterGroupsArray.put(filters1).put(filters2);
-        JSONArray propertyArray = new JSONArray(propertyData.getPropertyNames());
-        body.put("filterGroups", filterGroupsArray).put("properties", propertyArray).put("limit", limit);
-        return body;
-    }
-
-    public static String propertyListToString(List<String> properties) {
-        return properties.toString().replace("[", "").replace("]", "").replace(" ", "");
-    }
-
-    public static float round(float value, int places) {
-        return (float) round((double) value, places);
-    }
-
-    public static double round(double value, int places) {
-        if (places < 0) {
-            throw new IllegalArgumentException();
-        }
-        BigDecimal bd = BigDecimal.valueOf(value).setScale(places, RoundingMode.HALF_UP);
-        return bd.doubleValue();
-    }
-
-    public static String readJsonString(Logger logger, Path path) {
-        return readJsonString(logger, path.toFile());
-    }
-
-    public static String readJsonString(Logger logger, File file) {
-        String jsonString = "";
-        try {
-            jsonString = Utils.readFile(file);
-        }
-        catch (IOException e) {
-            logger.fatal("Unable to read json string", e);
-            System.exit(ErrorCodes.IO_READ.getErrorCode());
-        }
-        return jsonString;
-    }
-
-    public static String readFile(File file) throws IOException {
-        String fileString;
-        FileInputStream inputStream = new FileInputStream(file);
-        InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
-        BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
-        String line;
-        StringBuilder fileStringBuilder = new StringBuilder();
-        while ((line = bufferedReader.readLine()) != null) {
-            line = line.strip();
-            fileStringBuilder.append(line).append("\n");
-        }
-        fileString = fileStringBuilder.toString().strip();
-        return fileString;
-    }
-
-    public static long readLastExecution() {
-        long lastExecuted = -1;
-        Path lastExecutedFile = Paths.get("./cache/last_executed.txt");
-        try {
-            String value = readFile(lastExecutedFile);
-            lastExecuted = Long.parseLong(value);
-        }
-        catch (NumberFormatException | IOException ignored) {
-        }
-        return lastExecuted;
-    }
-
-    public static String readFile(Path path) throws IOException {
-        return readFile(path.toFile());
-    }
-
-    public static long readLastFinished() {
-        long lastFinished = -1;
-        Path lastFinishedFile = Paths.get("./cache/last_finished.txt");
-        try {
-            String value = readFile(lastFinishedFile);
-            lastFinished = Long.parseLong(value);
-        }
-        catch (NumberFormatException | IOException ignored) {
-        }
-        return lastFinished;
     }
 
     private static Object recurseCheckingConversion(Object object) {
@@ -383,6 +198,14 @@ public class Utils {
         }
     }
 
+    public static ProgressBar createProgressBar(String taskName, long size) {
+        return getProgressBarBuilder(taskName, size).build();
+    }
+
+    public static float round(float value, int places) {
+        return (float) round((double) value, places);
+    }
+
     public static void shutdownExecutors(Logger logger, ExecutorService executorService) {
         executorService.shutdown();
         try {
@@ -407,87 +230,6 @@ public class Utils {
         }
     }
 
-    public static void writeFile(Path path, Object o) throws IOException {
-        writeFile(path.toFile(), o);
-    }
-
-    public static void writeFile(File file, Object o) throws IOException {
-        FileWriter writer = new FileWriter(file);
-        writer.write(o.toString());
-        writer.close();
-    }
-
-    public static <T> T[][] splitArray(T[] arrayToSplit, int chunkSize) {
-        if (chunkSize <= 0) {
-            return null;
-        }
-        int rest = arrayToSplit.length % chunkSize;
-        int chunks = arrayToSplit.length / chunkSize + (rest > 0 ? 1 : 0);
-        Class<?> arrayType = arrayToSplit.getClass().getComponentType();
-        @SuppressWarnings("unchecked") T[][] arrays = (T[][]) Array.newInstance(arrayType, chunks, 0);
-        for (int i = 0; i < (rest > 0 ? chunks - 1 : chunks); i++) {
-            arrays[i] = Arrays.copyOfRange(arrayToSplit, i * chunkSize, i * chunkSize + chunkSize);
-        }
-        if (rest > 0) {
-            arrays[chunks - 1] = Arrays.copyOfRange(arrayToSplit,
-                                                    (chunks - 1) * chunkSize,
-                                                    (chunks - 1) * chunkSize + rest
-            );
-        }
-        return arrays;
-    }
-
-    public static <T> ArrayList<List<T>> splitList(List<T> listToSplit, int chunkSize) {
-        if (chunkSize <= 0) {
-            return null;
-        }
-        int rest = listToSplit.size() % chunkSize;
-        int chunks = listToSplit.size() / chunkSize + (rest > 0 ? 1 : 0);
-        ArrayList<List<T>> lists = new ArrayList<>(chunks);
-        for (int i = 0; i < (rest > 0 ? chunks - 1 : chunks); i++) {
-            ArrayList<T> sublist = new ArrayList<>(listToSplit.subList(i * chunkSize, i * chunkSize + chunkSize));
-            lists.add(i, sublist);
-        }
-        if (rest > 0) {
-            ArrayList<T> sublist = new ArrayList<>(listToSplit.subList((chunks - 1) * chunkSize,
-                                                                       (chunks - 1) * chunkSize + rest
-            ));
-            lists.add(chunks - 1, sublist);
-        }
-        return lists;
-    }
-
-    public static void writeJsonCache(ForkJoinPool forkJoinPool, Path folder, JSONObject jsonObject) {
-        Path cacheRoot = Paths.get("./cache/");
-        Path filePath = getFilePath(folder, jsonObject);
-        try {
-            FileWriter fileWriter = new FileWriter(filePath.toFile());
-            fileWriter.write(jsonObject.toString(4));
-            fileWriter.close();
-        }
-        catch (IOException e) {
-            logger.fatal("Unable to write file {}", cacheRoot.relativize(filePath), e);
-            forkJoinPool.shutdownNow();
-            sleep(5000);
-            Utils.deleteDirectory(cacheRoot.resolve(cacheRoot.relativize(filePath).getName(0)));
-            System.exit(ErrorCodes.IO_WRITE.getErrorCode());
-        }
-    }
-
-    private static Path getFilePath(Path folder, JSONObject jsonObject) {
-        long id;
-        if (jsonObject.has("id")) {
-            id = jsonObject.getLong("id");
-        }
-        else if (jsonObject.has("engagement")) {
-            id = jsonObject.getJSONObject("engagement").getLong("id");
-        }
-        else {
-            id = 0;
-        }
-        return folder.resolve(id + ".json");
-    }
-
     public static void sleep(long milliseconds) {
         try {
             Thread.sleep(milliseconds);
@@ -497,51 +239,11 @@ public class Utils {
         }
     }
 
-    /**
-     * Deletes the specified directory @param directoryToBeDeleted The directory to be deleted
-     */
-    public static void deleteDirectory(Path directoryToBeDeleted) {
-        try {
-            Files.walkFileTree(directoryToBeDeleted, new DeletingVisitor(false));
+    public static double round(double value, int places) {
+        if (places < 0) {
+            throw new IllegalArgumentException();
         }
-        catch (IOException e) {
-            logger.fatal("Unable to delete directory {}", directoryToBeDeleted, e);
-        }
-    }
-
-    public static void writeJsonCache(Path folder, JSONObject jsonObject) throws IOException {
-        Path filePath = getFilePath(folder, jsonObject);
-        FileWriter fileWriter = new FileWriter(filePath.toFile());
-        fileWriter.write(jsonObject.toString(4));
-        fileWriter.close();
-    }
-
-    public static long writeLastExecution() {
-        long lastExecuted = Instant.now().toEpochMilli();
-        Path lastExecutedFile = Paths.get("./cache/last_executed.txt");
-        try {
-            FileWriter fileWriter = new FileWriter(lastExecutedFile.toFile());
-            fileWriter.write(String.valueOf(lastExecuted));
-            fileWriter.close();
-        }
-        catch (IOException e) {
-            logger.fatal("Unable to write file {}", lastExecutedFile, e);
-            System.exit(ErrorCodes.IO_WRITE.getErrorCode());
-        }
-        return lastExecuted;
-    }
-
-    public static void writeLastFinished() {
-        long lastFinished = Instant.now().toEpochMilli();
-        Path lastFinishedFile = Paths.get("./cache/last_finished.txt");
-        try {
-            FileWriter fileWriter = new FileWriter(lastFinishedFile.toFile());
-            fileWriter.write(String.valueOf(lastFinished));
-            fileWriter.close();
-        }
-        catch (IOException e) {
-            logger.fatal("Unable to write file {}", lastFinishedFile, e);
-            System.exit(ErrorCodes.IO_WRITE.getErrorCode());
-        }
+        BigDecimal bd = BigDecimal.valueOf(value).setScale(places, RoundingMode.HALF_UP);
+        return bd.doubleValue();
     }
 }
