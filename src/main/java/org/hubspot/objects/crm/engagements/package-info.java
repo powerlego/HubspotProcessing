@@ -1,5 +1,5 @@
 /**
- * Contains all the types of Hubspot engagements
+ * Package containing classes that represent Hubspot Engagements
  *
  * @author Nicholas Curl
  */
