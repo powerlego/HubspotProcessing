@@ -34,42 +34,42 @@ public class CMS implements Serializable {
         this.httpService = httpService;
     }
 
-    public void downloadFile(Path folder, HSFile file) {
+    public void downloadFile(final Path folder, final HSFile file) {
         try {
             FileService.downloadFile(folder, file, httpService, rateLimiter);
         }
-        catch (HubSpotException e) {
+        catch (final HubSpotException e) {
             logger.fatal("Unable to download file {}", file.toString(), e);
             System.exit(e.getCode());
         }
     }
 
-    public void downloadFiles(Path folder, List<HSFile> files) {
+    public void downloadFiles(final Path folder, final List<HSFile> files) {
         try {
             FileService.downloadFiles(folder, files, httpService, rateLimiter);
         }
-        catch (HubSpotException e) {
+        catch (final HubSpotException e) {
             logger.fatal("Unable to Download Files", e);
             System.exit(e.getCode());
         }
     }
 
-    public void getAllNoteAttachments(long contactId, List<Engagement> engagements) {
+    public void getAllNoteAttachments(final long contactId, final List<Engagement> engagements) {
         FileService.getAllNoteAttachments(httpService, rateLimiter, contactId, engagements);
     }
 
-    public HSFile getFile(long engagementId, long fileId) {
+    public HSFile getFile(final long engagementId, final long fileId) {
         try {
             return FileService.getFileMetadata(httpService, rateLimiter, engagementId, fileId);
         }
-        catch (HubSpotException e) {
+        catch (final HubSpotException e) {
             logger.fatal("Unable to get File id {}", fileId, e);
             System.exit(e.getCode());
             return null;
         }
     }
 
-    public List<HSFile> getFileMetadatas(Note note) {
+    public List<HSFile> getFileMetadatas(final Note note) {
         return FileService.getFileMetadatas(httpService, rateLimiter, note);
     }
 

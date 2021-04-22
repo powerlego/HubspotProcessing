@@ -32,22 +32,25 @@ public class ContactWriter {
      *
      * @param contact The contact to write
      */
-    public static void write(Contact contact) {
+    public static void write(final Contact contact) {
         //Tries to create the directory to store the written contacts
         try {
             Files.createDirectories(contactsFolder);
         }
-        catch (IOException e) {
+        catch (final IOException e) {
             logger.fatal("Unable to create engagements folder {}", contactsFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
-        Path filePath;
+        final Path filePath;
         String firstName = contact.getFirstName();
         String lastName = contact.getLastName();
-        String email = contact.getEmail();
-        boolean bFirstName = (firstName == null || firstName.contains("null") || firstName.equalsIgnoreCase("N/A"));
-        boolean bLastName = (lastName == null || lastName.contains("null") || lastName.equalsIgnoreCase("N/A"));
-        boolean bEmail = email == null || email.contains("null");
+        final String email = contact.getEmail();
+        final boolean bFirstName = (firstName == null ||
+                                    firstName.contains("null") ||
+                                    firstName.equalsIgnoreCase("N/A")
+        );
+        final boolean bLastName = (lastName == null || lastName.contains("null") || lastName.equalsIgnoreCase("N/A"));
+        final boolean bEmail = email == null || email.contains("null");
         /* Uses first and last name and the contact's id, uses the email address and the contact's id, or the contact's
            id for the filename
         */
@@ -80,13 +83,18 @@ public class ContactWriter {
         }
         //Tries to write the file, but will exit if unable
         try {
-            FileWriter writer = new FileWriter(filePath.toFile());
+            final FileWriter writer = new FileWriter(filePath.toFile());
             writer.write(contact.toString());
             writer.close();
         }
-        catch (IOException e) {
-            logger.fatal("Unable to write to file {}", filePath, e);
-            System.exit(ErrorCodes.IO_WRITE.getErrorCode());
+        catch (final IOException e) {
+            if (e.getMessage().contains("(The filename, directory name, or volume label syntax is incorrect)")) {
+                logger.debug("Needs to be corrected: {}", contact);
+            }
+            else {
+                logger.fatal("Unable to write to file {}", filePath, e);
+                System.exit(ErrorCodes.IO_WRITE.getErrorCode());
+            }
         }
     }
 }

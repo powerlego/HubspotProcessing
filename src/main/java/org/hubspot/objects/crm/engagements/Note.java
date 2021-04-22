@@ -42,7 +42,7 @@ public class Note extends Engagement {
      * @param note          The body of the note
      * @param attachmentIds The list of attachment ids associated with this note
      */
-    public Note(long id, String note, List<Long> attachmentIds) {
+    public Note(final long id, final String note, final List<Long> attachmentIds) {
         super(id);
         this.note = note;
         this.attachmentIds = attachmentIds;
@@ -54,7 +54,7 @@ public class Note extends Engagement {
      *
      * @param attachment The attachment to associate
      */
-    public void addAttachment(HSFile attachment) {
+    public void addAttachment(final HSFile attachment) {
         this.attachments.add(attachment);
     }
 
@@ -81,7 +81,7 @@ public class Note extends Engagement {
      *
      * @param attachments The list of attachments to associate with this note
      */
-    public void setAttachments(List<HSFile> attachments) {
+    public void setAttachments(final List<HSFile> attachments) {
         this.attachments = attachments;
     }
 

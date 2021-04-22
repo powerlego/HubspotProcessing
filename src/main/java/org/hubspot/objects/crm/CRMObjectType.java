@@ -32,7 +32,7 @@ public enum CRMObjectType {
      *
      * @param value The string value of the Enum constant
      */
-    CRMObjectType(String value) {
+    CRMObjectType(final String value) {
         this.value = value;
     }
 

@@ -1,10 +1,41 @@
 <component name="InspectionProjectProfileManager">
   <profile version="1.0">
     <option name="myName" value="Project Default" />
+    <inspection_tool class="CallToStringConcatCanBeReplacedByOperator" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="Duplicates" enabled="false" level="WARNING" enabled_by_default="false" />
+    <inspection_tool class="ExtendsUtilityClass" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoreUtilityClasses" value="true" />
+    </inspection_tool>
+    <inspection_tool class="FieldMayBeStatic" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="HtmlTagCanBeJavadocTag" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="KeySetIterationMayUseEntrySet" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="LengthOneStringInIndexOf" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="LocalCanBeFinal" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="REPORT_VARIABLES" value="true" />
+      <option name="REPORT_PARAMETERS" value="true" />
+    </inspection_tool>
+    <inspection_tool class="MapReplaceableByEnumMap" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="MissingDeprecatedAnnotation" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="MissingPackageInfo" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="NonProtectedConstructorInAbstractClass" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="m_ignoreNonPublicClasses" value="false" />
+    </inspection_tool>
+    <inspection_tool class="PackageDotHtmlMayBePackageInfo" enabled="true" level="WARNING" enabled_by_default="true" />
     <inspection_tool class="SerializableHasSerialVersionUIDField" enabled="true" level="WARNING" enabled_by_default="true">
       <option name="ignoreAnonymousInnerClasses" value="false" />
       <option name="superClassString" value="java.awt.Component" />
+    </inspection_tool>
+    <inspection_tool class="SetReplaceableByEnumSet" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="SizeReplaceableByIsEmpty" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="SleepWhileHoldingLock" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="StringBufferToStringInConcatenation" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="StringEqualsEmptyString" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="StringReplaceableByStringBuffer" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="onlyWarnOnLoop" value="true" />
+    </inspection_tool>
+    <inspection_tool class="UnnecessaryInheritDoc" enabled="true" level="WARNING" enabled_by_default="true" />
+    <inspection_tool class="UnnecessaryJavaDocLink" enabled="true" level="WARNING" enabled_by_default="true">
+      <option name="ignoreInlineLinkToSuper" value="true" />
     </inspection_tool>
   </profile>
 </component>

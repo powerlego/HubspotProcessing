@@ -25,7 +25,7 @@ public class Engagement extends HubSpotObject {
      *
      * @param id The engagement id
      */
-    public Engagement(long id) {
+    public Engagement(final long id) {
         super(id);
     }
 }

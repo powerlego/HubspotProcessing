@@ -12,26 +12,27 @@ public class HubSpotException extends Exception {
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger logger           = LogManager.getLogger();
+    private static final long   serialVersionUID = -5998427833607746958L;
     private final        int    code;
     private              String policyName;
     private              String rawMessage;
 
-    public HubSpotException(String message) {
+    public HubSpotException(final String message) {
         this(message, null, -1, null);
     }
 
-    public HubSpotException(String message, String policyName, int code, Throwable cause) {
+    public HubSpotException(final String message, final String policyName, final int code, final Throwable cause) {
         super(message, cause);
         this.policyName = policyName;
         this.code = code;
     }
 
-    public HubSpotException(String message, int code) {
+    public HubSpotException(final String message, final int code) {
         this(message, null, code, null);
     }
 
-    public HubSpotException(String message, int code, Throwable cause) {
+    public HubSpotException(final String message, final int code, final Throwable cause) {
         this(message, null, code, cause);
     }
 
@@ -40,15 +41,15 @@ public class HubSpotException extends Exception {
         this.code = ErrorCodes.HUBSPOT_EXCEPTION.getErrorCode();
     }
 
-    public HubSpotException(String message, String policyName, int code) {
+    public HubSpotException(final String message, final String policyName, final int code) {
         this(message, policyName, code, null);
     }
 
-    public HubSpotException(String message, String policyName) {
+    public HubSpotException(final String message, final String policyName) {
         this(message, policyName, ErrorCodes.HUBSPOT_EXCEPTION.getErrorCode(), null);
     }
 
-    public HubSpotException(Throwable cause, int code) {
+    public HubSpotException(final Throwable cause, final int code) {
         super(cause);
         this.code = code;
     }
@@ -65,7 +66,7 @@ public class HubSpotException extends Exception {
         return rawMessage;
     }
 
-    public void setRawMessage(String rawMessage) {
+    public void setRawMessage(final String rawMessage) {
         this.rawMessage = rawMessage;
     }
 }

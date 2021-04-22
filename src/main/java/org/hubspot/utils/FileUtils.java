@@ -29,19 +29,19 @@ public class FileUtils {
     /**
      * Deletes the specified directory @param directoryToBeDeleted The directory to be deleted
      */
-    public static void deleteDirectory(Path directoryToBeDeleted) {
+    public static void deleteDirectory(final Path directoryToBeDeleted) {
         try {
             Files.walkFileTree(directoryToBeDeleted, new DeletingVisitor(false));
         }
-        catch (IOException e) {
+        catch (final IOException e) {
             logger.fatal("Unable to delete directory {}", directoryToBeDeleted, e);
         }
     }
 
-    public static void deleteRecentlyUpdated(File folder, long lastFinished) {
-        File[] files = folder.listFiles(pathname -> pathname.lastModified() > lastFinished);
+    public static void deleteRecentlyUpdated(final File folder, final long lastFinished) {
+        final File[] files = folder.listFiles(pathname -> pathname.lastModified() > lastFinished);
         if (files != null && files.length > 0) {
-            for (File file : files) {
+            for (final File file : files) {
                 if (file.isDirectory()) {
                     deleteRecentlyUpdated(file, lastFinished);
                 }
@@ -49,7 +49,7 @@ public class FileUtils {
                     try {
                         Files.delete(file.toPath());
                     }
-                    catch (IOException e) {
+                    catch (final IOException e) {
                         logger.fatal("Unable to delete file {}. Please delete manually.", file, e);
                     }
                 }
@@ -57,37 +57,38 @@ public class FileUtils {
         }
     }
 
-    public static void deleteRecentlyUpdated(Path folder, long lastFinished) {
+    public static void deleteRecentlyUpdated(final Path folder, final long lastFinished) {
         deleteRecentlyUpdated(folder.toFile(), lastFinished);
     }
 
-    public static void downloadFile(String downloadUrlString, Path folder, HSFile file) throws HubSpotException {
+    public static void downloadFile(final String downloadUrlString, final Path folder, final HSFile file)
+    throws HubSpotException {
         try {
-            URL downloadURL = new URL(downloadUrlString);
-            File dest = folder.resolve(file.getName() + "." + file.getExtension()).toFile();
+            final URL downloadURL = new URL(downloadUrlString);
+            final File dest = folder.resolve(file.getName() + "." + file.getExtension()).toFile();
             try {
                 org.apache.commons.io.FileUtils.copyURLToFile(downloadURL, dest);
             }
-            catch (IOException e) {
+            catch (final IOException e) {
                 throw new HubSpotException("Unable to download file " + file + " Id " + file.getId(),
                                            ErrorCodes.IO_DOWNLOAD.getErrorCode(),
                                            e
                 );
             }
         }
-        catch (MalformedURLException e) {
+        catch (final MalformedURLException e) {
             throw new HubSpotException("Malformed URL", ErrorCodes.MALFORMED_URL.getErrorCode(), e);
         }
     }
 
-    public static long findMostRecentModification(Path dir) {
+    public static long findMostRecentModification(final Path dir) {
         return findMostRecentModification(dir.toFile());
     }
 
-    public static long findMostRecentModification(File dir) {
+    public static long findMostRecentModification(final File dir) {
         long lastModified = -1;
         if (dir.isDirectory()) {
-            File[] files = dir.listFiles(File::isFile);
+            final File[] files = dir.listFiles(File::isFile);
             if (files != null && files.length > 0) {
                 Arrays.sort(files, LastModifiedFileComparator.LASTMODIFIED_REVERSE);
                 lastModified = files[0].lastModified();
@@ -96,29 +97,29 @@ public class FileUtils {
         return lastModified;
     }
 
-    public static String readJsonString(Logger logger, Path path) {
+    public static String readJsonString(final Logger logger, final Path path) {
         return readJsonString(logger, path.toFile());
     }
 
-    public static String readJsonString(Logger logger, File file) {
+    public static String readJsonString(final Logger logger, final File file) {
         String jsonString = "";
         try {
             jsonString = readFile(file);
         }
-        catch (IOException e) {
+        catch (final IOException e) {
             logger.fatal("Unable to read json string", e);
             System.exit(ErrorCodes.IO_READ.getErrorCode());
         }
         return jsonString;
     }
 
-    public static String readFile(File file) throws IOException {
-        String fileString;
-        FileInputStream inputStream = new FileInputStream(file);
-        InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
-        BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
+    public static String readFile(final File file) throws IOException {
+        final String fileString;
+        final FileInputStream inputStream = new FileInputStream(file);
+        final InputStreamReader inputStreamReader = new InputStreamReader(inputStream);
+        final BufferedReader bufferedReader = new BufferedReader(inputStreamReader);
         String line;
-        StringBuilder fileStringBuilder = new StringBuilder();
+        final StringBuilder fileStringBuilder = new StringBuilder();
         while ((line = bufferedReader.readLine()) != null) {
             line = line.strip();
             fileStringBuilder.append(line).append("\n");
@@ -129,51 +130,51 @@ public class FileUtils {
 
     public static long readLastExecution() {
         long lastExecuted = -1;
-        Path lastExecutedFile = Paths.get("./cache/last_executed.txt");
+        final Path lastExecutedFile = Paths.get("./cache/last_executed.txt");
         try {
-            String value = readFile(lastExecutedFile);
+            final String value = readFile(lastExecutedFile);
             lastExecuted = Long.parseLong(value);
         }
-        catch (NumberFormatException | IOException ignored) {
+        catch (final NumberFormatException | IOException ignored) {
         }
         return lastExecuted;
     }
 
-    public static String readFile(Path path) throws IOException {
+    public static String readFile(final Path path) throws IOException {
         return readFile(path.toFile());
     }
 
     public static long readLastFinished() {
         long lastFinished = -1;
-        Path lastFinishedFile = Paths.get("./cache/last_finished.txt");
+        final Path lastFinishedFile = Paths.get("./cache/last_finished.txt");
         try {
-            String value = readFile(lastFinishedFile);
+            final String value = readFile(lastFinishedFile);
             lastFinished = Long.parseLong(value);
         }
-        catch (NumberFormatException | IOException ignored) {
+        catch (final NumberFormatException | IOException ignored) {
         }
         return lastFinished;
     }
 
-    public static void writeFile(Path path, Object o) throws IOException {
+    public static void writeFile(final Path path, final Object o) throws IOException {
         writeFile(path.toFile(), o);
     }
 
-    public static void writeFile(File file, Object o) throws IOException {
-        FileWriter writer = new FileWriter(file);
+    public static void writeFile(final File file, final Object o) throws IOException {
+        final FileWriter writer = new FileWriter(file);
         writer.write(o.toString());
         writer.close();
     }
 
-    public static void writeJsonCache(Path folder, JSONObject jsonObject) throws IOException {
-        Path filePath = getFilePath(folder, jsonObject);
-        FileWriter fileWriter = new FileWriter(filePath.toFile());
+    public static void writeJsonCache(final Path folder, final JSONObject jsonObject) throws IOException {
+        final Path filePath = getFilePath(folder, jsonObject);
+        final FileWriter fileWriter = new FileWriter(filePath.toFile());
         fileWriter.write(jsonObject.toString(4));
         fileWriter.close();
     }
 
-    private static Path getFilePath(Path folder, JSONObject jsonObject) {
-        long id;
+    private static Path getFilePath(final Path folder, final JSONObject jsonObject) {
+        final long id;
         if (jsonObject.has("id")) {
             id = jsonObject.getLong("id");
         }
@@ -187,14 +188,14 @@ public class FileUtils {
     }
 
     public static long writeLastExecution() {
-        long lastExecuted = Instant.now().toEpochMilli();
-        Path lastExecutedFile = Paths.get("./cache/last_executed.txt");
+        final long lastExecuted = Instant.now().toEpochMilli();
+        final Path lastExecutedFile = Paths.get("./cache/last_executed.txt");
         try {
-            FileWriter fileWriter = new FileWriter(lastExecutedFile.toFile());
+            final FileWriter fileWriter = new FileWriter(lastExecutedFile.toFile());
             fileWriter.write(String.valueOf(lastExecuted));
             fileWriter.close();
         }
-        catch (IOException e) {
+        catch (final IOException e) {
             logger.fatal("Unable to write file {}", lastExecutedFile, e);
             System.exit(ErrorCodes.IO_WRITE.getErrorCode());
         }
@@ -202,14 +203,14 @@ public class FileUtils {
     }
 
     public static void writeLastFinished() {
-        long lastFinished = Instant.now().toEpochMilli();
-        Path lastFinishedFile = Paths.get("./cache/last_finished.txt");
+        final long lastFinished = Instant.now().toEpochMilli();
+        final Path lastFinishedFile = Paths.get("./cache/last_finished.txt");
         try {
-            FileWriter fileWriter = new FileWriter(lastFinishedFile.toFile());
+            final FileWriter fileWriter = new FileWriter(lastFinishedFile.toFile());
             fileWriter.write(String.valueOf(lastFinished));
             fileWriter.close();
         }
-        catch (IOException e) {
+        catch (final IOException e) {
             logger.fatal("Unable to write file {}", lastFinishedFile, e);
             System.exit(ErrorCodes.IO_WRITE.getErrorCode());
         }

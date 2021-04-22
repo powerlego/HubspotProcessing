@@ -41,12 +41,12 @@ public class CacheThreadPoolExecutor extends CustomThreadPoolExecutor {
      *                                  corePoolSize}
      * @throws NullPointerException     if {@code workQueue} is null
      */
-    public CacheThreadPoolExecutor(int corePoolSize,
-                                   int maximumPoolSize,
-                                   long keepAliveTime,
-                                   TimeUnit unit,
-                                   BlockingQueue<Runnable> workQueue,
-                                   Path folder
+    public CacheThreadPoolExecutor(final int corePoolSize,
+                                   final int maximumPoolSize,
+                                   final long keepAliveTime,
+                                   final TimeUnit unit,
+                                   final BlockingQueue<Runnable> workQueue,
+                                   final Path folder
     ) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue);
         this.folder = folder;
@@ -71,13 +71,13 @@ public class CacheThreadPoolExecutor extends CustomThreadPoolExecutor {
      *                                  corePoolSize}
      * @throws NullPointerException     if {@code workQueue} or {@code threadFactory} is null
      */
-    public CacheThreadPoolExecutor(int corePoolSize,
-                                   int maximumPoolSize,
-                                   long keepAliveTime,
-                                   TimeUnit unit,
-                                   BlockingQueue<Runnable> workQueue,
-                                   ThreadFactory threadFactory,
-                                   Path folder
+    public CacheThreadPoolExecutor(final int corePoolSize,
+                                   final int maximumPoolSize,
+                                   final long keepAliveTime,
+                                   final TimeUnit unit,
+                                   final BlockingQueue<Runnable> workQueue,
+                                   final ThreadFactory threadFactory,
+                                   final Path folder
     ) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory);
         this.folder = folder;
@@ -103,13 +103,13 @@ public class CacheThreadPoolExecutor extends CustomThreadPoolExecutor {
      *                                  corePoolSize}
      * @throws NullPointerException     if {@code workQueue} or {@code handler} is null
      */
-    public CacheThreadPoolExecutor(int corePoolSize,
-                                   int maximumPoolSize,
-                                   long keepAliveTime,
-                                   TimeUnit unit,
-                                   BlockingQueue<Runnable> workQueue,
-                                   RejectedExecutionHandler handler,
-                                   Path folder
+    public CacheThreadPoolExecutor(final int corePoolSize,
+                                   final int maximumPoolSize,
+                                   final long keepAliveTime,
+                                   final TimeUnit unit,
+                                   final BlockingQueue<Runnable> workQueue,
+                                   final RejectedExecutionHandler handler,
+                                   final Path folder
     ) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, handler);
         this.folder = folder;
@@ -135,14 +135,14 @@ public class CacheThreadPoolExecutor extends CustomThreadPoolExecutor {
      *                                  corePoolSize}
      * @throws NullPointerException     if {@code workQueue} or {@code threadFactory} or {@code handler} is null
      */
-    public CacheThreadPoolExecutor(int corePoolSize,
-                                   int maximumPoolSize,
-                                   long keepAliveTime,
-                                   TimeUnit unit,
-                                   BlockingQueue<Runnable> workQueue,
-                                   ThreadFactory threadFactory,
-                                   RejectedExecutionHandler handler,
-                                   Path folder
+    public CacheThreadPoolExecutor(final int corePoolSize,
+                                   final int maximumPoolSize,
+                                   final long keepAliveTime,
+                                   final TimeUnit unit,
+                                   final BlockingQueue<Runnable> workQueue,
+                                   final ThreadFactory threadFactory,
+                                   final RejectedExecutionHandler handler,
+                                   final Path folder
     ) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
         this.folder = folder;
@@ -150,12 +150,12 @@ public class CacheThreadPoolExecutor extends CustomThreadPoolExecutor {
 
     @Override
     protected void terminated() {
-        Exception exception = super.getExecutionException();
+        final Exception exception = super.getExecutionException();
         if (exception != null) {
             logger.fatal("Error occurred during execution", exception);
             FileUtils.deleteDirectory(folder);
             if (exception instanceof HubSpotException) {
-                HubSpotException hubSpotException = (HubSpotException) exception;
+                final HubSpotException hubSpotException = (HubSpotException) exception;
                 System.exit(hubSpotException.getCode());
             }
             else {

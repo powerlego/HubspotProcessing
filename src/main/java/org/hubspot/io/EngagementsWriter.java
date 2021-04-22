@@ -69,9 +69,9 @@ public class EngagementsWriter {
      * @param id          The contact id
      * @param engagements The list of engagements to write
      */
-    public static void write(HubSpot hubspot,
-                             long id,
-                             List<Engagement> engagements
+    public static void write(final HubSpot hubspot,
+                             final long id,
+                             final List<Engagement> engagements
     ) {
         /*Checks to see if the engagements list is empty. If it is don't continue to write */
         if (!engagements.isEmpty()) {
@@ -79,111 +79,112 @@ public class EngagementsWriter {
             try {
                 Files.createDirectories(engagementsFolder);
             }
-            catch (IOException e) {
+            catch (final IOException e) {
                 logger.fatal("Unable to create engagements folder {}", engagementsFolder, e);
                 System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
             }
-            Path contact = engagementsFolder.resolve(id + "/");
+            final Path contact = engagementsFolder.resolve(id + "/");
             /* Tries to create the directory based on the contact's id*/
             try {
                 Files.createDirectories(contact);
             }
-            catch (IOException e) {
+            catch (final IOException e) {
                 logger.fatal("Unable to create contact directory for id {}", id, e);
                 System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
             }
-            Path emails = contact.resolve("emails/");
-            Path notes = contact.resolve("notes/");
-            Path tasks = contact.resolve("tasks/");
-            Path calls = contact.resolve("calls/");
-            Path meetings = contact.resolve("meetings/");
+            final Path emails = contact.resolve("emails/");
+            final Path notes = contact.resolve("notes/");
+            final Path tasks = contact.resolve("tasks/");
+            final Path calls = contact.resolve("calls/");
+            final Path meetings = contact.resolve("meetings/");
             /* Tries to create the sub-directories to store specific engagements in*/
             try {
                 Files.createDirectories(emails);
             }
-            catch (IOException e) {
+            catch (final IOException e) {
                 logger.fatal("Unable to make emails directory for contact id {}", id, e);
                 System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
             }
             try {
                 Files.createDirectories(notes);
             }
-            catch (IOException e) {
+            catch (final IOException e) {
                 logger.fatal("Unable to make notes directory for contact id {}", id, e);
                 System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
             }
             try {
                 Files.createDirectories(tasks);
             }
-            catch (IOException e) {
+            catch (final IOException e) {
                 logger.fatal("Unable to make tasks directory for contact id {}", id, e);
                 System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
             }
             try {
                 Files.createDirectories(calls);
             }
-            catch (IOException e) {
+            catch (final IOException e) {
                 logger.fatal("Unable to make calls directory for contact id {}", id, e);
                 System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
             }
             try {
                 Files.createDirectories(meetings);
             }
-            catch (IOException e) {
+            catch (final IOException e) {
                 logger.fatal("Unable to make meetings directory for contact id {}", id, e);
                 System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
             }
-            AtomicInteger emailNum = new AtomicInteger();
-            AtomicInteger noteNum = new AtomicInteger();
-            AtomicInteger meetingNum = new AtomicInteger();
-            AtomicInteger callNum = new AtomicInteger();
-            AtomicInteger taskNum = new AtomicInteger();
-            int capacity = (int) Math.ceil(Math.ceil((double) engagements.size() / (double) LIMIT) *
-                                           Math.pow(MAX_SIZE, -0.6));
+            final AtomicInteger emailNum = new AtomicInteger();
+            final AtomicInteger noteNum = new AtomicInteger();
+            final AtomicInteger meetingNum = new AtomicInteger();
+            final AtomicInteger callNum = new AtomicInteger();
+            final AtomicInteger taskNum = new AtomicInteger();
+            final int capacity = (int) Math.ceil(Math.ceil((double) engagements.size() / (double) LIMIT) *
+                                                 Math.pow(MAX_SIZE, -0.6));
             /*Creates a thread pool to write the engagements on a separate thread to increase execution speed*/
-            CacheThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,
-                                                                                     STARTING_POOL_SIZE,
-                                                                                     0L,
-                                                                                     TimeUnit.MILLISECONDS,
-                                                                                     new LinkedBlockingQueue<>(Math.max(
-                                                                                             capacity,
-                                                                                             Runtime.getRuntime()
-                                                                                                    .availableProcessors()
-                                                                                     )),
-                                                                                     new CustomThreadFactory(
-                                                                                             "EngagementWriter"),
-                                                                                     new StoringRejectedExecutionHandler(),
-                                                                                     contact
+            final CacheThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,
+                                                                                           STARTING_POOL_SIZE,
+                                                                                           0L,
+                                                                                           TimeUnit.MILLISECONDS,
+                                                                                           new LinkedBlockingQueue<>(
+                                                                                                   Math.max(
+                                                                                                           capacity,
+                                                                                                           Runtime.getRuntime()
+                                                                                                                  .availableProcessors()
+                                                                                                   )),
+                                                                                           new CustomThreadFactory(
+                                                                                                   "EngagementWriter"),
+                                                                                           new StoringRejectedExecutionHandler(),
+                                                                                           contact
             );
-            Iterable<List<Engagement>> partitions = Iterables.partition(engagements, LIMIT);
-            ScheduledExecutorService scheduledExecutorService
+            final Iterable<List<Engagement>> partitions = Iterables.partition(engagements, LIMIT);
+            final ScheduledExecutorService scheduledExecutorService
                     = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("EngagementWriterUpdater"));
             scheduledExecutorService.scheduleAtFixedRate(() -> {
-                double load = CPUMonitor.getProcessLoad();
-                String debugMessage = String.format(debugMessageFormat, "EngageWriter_write", load);
+                final double load = CPUMonitor.getProcessLoad();
+                final String debugMessage = String.format(debugMessageFormat, "EngageWriter_write", load);
                 Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
             }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
             /* Writes the engagements to file on a separate threads to increase execution speed*/
-            for (List<Engagement> partition : partitions) {
+            for (final List<Engagement> partition : partitions) {
                 threadPoolExecutor.submit(() -> {
-                    for (Engagement engagement : partition) {
+                    for (final Engagement engagement : partition) {
                         if (engagement instanceof Email) {
-                            Email email = (Email) engagement;
-                            Path emailPath = emails.resolve("email_" + emailNum.get() + ".txt");
+                            final Email email = (Email) engagement;
+                            final Path emailPath = emails.resolve("email_" + emailNum.get() + ".txt");
                             FileUtils.writeFile(emailPath, email);
                             emailNum.getAndIncrement();
                         }
                         else if (engagement instanceof Note) {
-                            Note note = (Note) engagement;
-                            Path notePath;
+                            final Note note = (Note) engagement;
+                            final Path notePath;
                             /* Checks to see if the note has attachments.  If it does download them.*/
                             if (note.hasAttachments()) {
                                 logger.trace("Contact ID {}, Note Num {}", id, noteNum.get());
-                                Path noteFolder = notes.resolve("note_" + noteNum.get());
+                                final Path noteFolder = notes.resolve("note_" + noteNum.get());
                                 try {
                                     Files.createDirectories(noteFolder);
                                 }
-                                catch (IOException e) {
+                                catch (final IOException e) {
                                     throw new HubSpotException("Unable to create directory " + noteFolder,
                                                                ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode(),
                                                                e
@@ -199,20 +200,20 @@ public class EngagementsWriter {
                             noteNum.getAndIncrement();
                         }
                         else if (engagement instanceof Meeting) {
-                            Meeting meeting = (Meeting) engagement;
-                            Path meetingPath = meetings.resolve("meeting_" + meetingNum.get() + ".txt");
+                            final Meeting meeting = (Meeting) engagement;
+                            final Path meetingPath = meetings.resolve("meeting_" + meetingNum.get() + ".txt");
                             FileUtils.writeFile(meetingPath, meeting);
                             meetingNum.getAndIncrement();
                         }
                         else if (engagement instanceof Call) {
-                            Call call = (Call) engagement;
-                            Path callPath = calls.resolve("call_" + callNum.get() + ".txt");
+                            final Call call = (Call) engagement;
+                            final Path callPath = calls.resolve("call_" + callNum.get() + ".txt");
                             FileUtils.writeFile(callPath, call);
                             callNum.getAndIncrement();
                         }
                         else if (engagement instanceof Task) {
-                            Task task = (Task) engagement;
-                            Path taskPath = tasks.resolve("task_" + taskNum.get() + ".txt");
+                            final Task task = (Task) engagement;
+                            final Path taskPath = tasks.resolve("task_" + taskNum.get() + ".txt");
                             FileUtils.writeFile(taskPath, task);
                             taskNum.getAndIncrement();
                         }
@@ -227,11 +228,11 @@ public class EngagementsWriter {
             }
             Utils.shutdownExecutors(logger, threadPoolExecutor);
             Utils.shutdownUpdaters(logger, scheduledExecutorService);
-            File[] callFiles = calls.toFile().listFiles();
-            File[] emailFiles = emails.toFile().listFiles();
-            File[] noteFiles = notes.toFile().listFiles();
-            File[] meetingFiles = meetings.toFile().listFiles();
-            File[] taskFiles = tasks.toFile().listFiles();
+            final File[] callFiles = calls.toFile().listFiles();
+            final File[] emailFiles = emails.toFile().listFiles();
+            final File[] noteFiles = notes.toFile().listFiles();
+            final File[] meetingFiles = meetings.toFile().listFiles();
+            final File[] taskFiles = tasks.toFile().listFiles();
             /* Deletes any blank directories so that it the engagements storage is easier to understand*/
             if (callFiles == null || callFiles.length == 0) {
                 FileUtils.deleteDirectory(calls);

@@ -29,7 +29,7 @@ public class Company extends CRMObject {
      *
      * @param id The Hubspot company id
      */
-    public Company(long id) {
+    public Company(final long id) {
         super(id);
     }
 
@@ -48,7 +48,7 @@ public class Company extends CRMObject {
      * @param data The json object containing the data
      */
     @Override
-    public void setData(JSONObject data) {
+    public void setData(final JSONObject data) {
         super.setData(data);
     }
 
@@ -75,7 +75,7 @@ public class Company extends CRMObject {
      * @param value    The value of the property
      */
     @Override
-    public void setProperty(String property, Object value) {
+    public void setProperty(final String property, final Object value) {
         if (property.equalsIgnoreCase("name")) {
             this.name = value.toString();
         }

@@ -54,13 +54,13 @@ public class Call extends Engagement {
      * @param durationMilliseconds The call duration in milliseconds
      * @param recordingURL         The url of the call recording
      */
-    public Call(long id,
-                String title,
-                String body,
-                String toNumber,
-                String fromNumber,
-                long durationMilliseconds,
-                String recordingURL
+    public Call(final long id,
+                final String title,
+                final String body,
+                final String toNumber,
+                final String fromNumber,
+                final long durationMilliseconds,
+                final String recordingURL
     ) {
         super(id);
         this.title = title;
@@ -68,10 +68,10 @@ public class Call extends Engagement {
         this.recordingURL = recordingURL;
         this.toNumber = toNumber;
         this.fromNumber = fromNumber;
-        long millis = durationMilliseconds % 1000;
-        long second = (durationMilliseconds / 1000) % 60;
-        long minute = (durationMilliseconds / (1000 * 60)) % 60;
-        long hour = (durationMilliseconds / (1000 * 60 * 60)) % 24;
+        final long millis = durationMilliseconds % 1000;
+        final long second = (durationMilliseconds / 1000) % 60;
+        final long minute = (durationMilliseconds / (1000 * 60)) % 60;
+        final long hour = (durationMilliseconds / (1000 * 60 * 60)) % 24;
         duration = String.format("%02d:%02d:%02d.%d", hour, minute, second, millis);
     }
 

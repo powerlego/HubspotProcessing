@@ -33,7 +33,7 @@ public class CRMObject extends HubSpotObject {
      *
      * @param id The object's Hubspot id
      */
-    public CRMObject(long id) {
+    public CRMObject(final long id) {
         super(id);
     }
 
@@ -42,7 +42,7 @@ public class CRMObject extends HubSpotObject {
      *
      * @param properties The map of properties to add
      */
-    public void addAllProperties(HashMap<String, Object> properties) {
+    public void addAllProperties(final HashMap<String, Object> properties) {
         this.properties.putAll(properties);
     }
 
@@ -56,23 +56,23 @@ public class CRMObject extends HubSpotObject {
     }
 
     /**
-     * Sets the properties of the CRM object
-     *
-     * @param properties The properties to set
-     */
-    public void setProperties(HashMap<String, Object> properties) {
-        this.properties = properties;
-    }
-
-    /**
      * Gets the value of the specified property name
      *
      * @param propertyName The property name to grab the value
      *
      * @return The value of the property
      */
-    public Object getProperty(String propertyName) {
+    public Object getProperty(final String propertyName) {
         return properties.get(propertyName);
+    }
+
+    /**
+     * Sets the properties of the CRM object
+     *
+     * @param properties The properties to set
+     */
+    public void setProperties(final HashMap<String, Object> properties) {
+        this.properties = properties;
     }
 
     /**
@@ -81,7 +81,7 @@ public class CRMObject extends HubSpotObject {
      * @param property The property to set/add
      * @param value    The value of the property
      */
-    public void setProperty(String property, Object value) {
+    public void setProperty(final String property, final Object value) {
         this.properties.put(property, value);
     }
 
@@ -92,13 +92,13 @@ public class CRMObject extends HubSpotObject {
      */
     @Override
     public String toString() {
-        StringBuilder builder = new StringBuilder().append("ID: ")
-                                                   .append(getId())
-                                                   .append("\n")
-                                                   .append("Properties {\n");
-        for (Iterator<String> iterator = properties.keySet().iterator(); iterator.hasNext(); ) {
-            String key = iterator.next();
-            Object property = properties.get(key);
+        final StringBuilder builder = new StringBuilder().append("ID: ")
+                                                         .append(getId())
+                                                         .append("\n")
+                                                         .append("Properties {\n");
+        for (final Iterator<String> iterator = properties.keySet().iterator(); iterator.hasNext(); ) {
+            final String key = iterator.next();
+            final Object property = properties.get(key);
             if (!iterator.hasNext()) {
                 builder.append("\t")
                        .append(key)

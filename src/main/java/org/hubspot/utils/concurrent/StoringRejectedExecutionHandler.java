@@ -31,12 +31,12 @@ public class StoringRejectedExecutionHandler implements RejectedExecutionHandler
      * @throws RejectedExecutionException if there is no remedy
      */
     @Override
-    public void rejectedExecution(Runnable r, ThreadPoolExecutor executor) {
+    public void rejectedExecution(final Runnable r, final ThreadPoolExecutor executor) {
         if (!executor.isShutdown()) {
             try {
                 executor.getQueue().put(r);
             }
-            catch (InterruptedException e) {
+            catch (final InterruptedException e) {
                 Thread.currentThread().interrupt();
             }
         }

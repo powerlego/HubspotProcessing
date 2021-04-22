@@ -40,11 +40,11 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
      *                                  corePoolSize}
      * @throws NullPointerException     if {@code workQueue} is null
      */
-    public CustomThreadPoolExecutor(int corePoolSize,
-                                    int maximumPoolSize,
-                                    long keepAliveTime,
-                                    TimeUnit unit,
-                                    BlockingQueue<Runnable> workQueue
+    public CustomThreadPoolExecutor(final int corePoolSize,
+                                    final int maximumPoolSize,
+                                    final long keepAliveTime,
+                                    final TimeUnit unit,
+                                    final BlockingQueue<Runnable> workQueue
     ) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue);
     }
@@ -68,12 +68,12 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
      *                                  corePoolSize}
      * @throws NullPointerException     if {@code workQueue} or {@code threadFactory} is null
      */
-    public CustomThreadPoolExecutor(int corePoolSize,
-                                    int maximumPoolSize,
-                                    long keepAliveTime,
-                                    TimeUnit unit,
-                                    BlockingQueue<Runnable> workQueue,
-                                    ThreadFactory threadFactory
+    public CustomThreadPoolExecutor(final int corePoolSize,
+                                    final int maximumPoolSize,
+                                    final long keepAliveTime,
+                                    final TimeUnit unit,
+                                    final BlockingQueue<Runnable> workQueue,
+                                    final ThreadFactory threadFactory
     ) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory);
     }
@@ -98,12 +98,12 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
      *                                  corePoolSize}
      * @throws NullPointerException     if {@code workQueue} or {@code handler} is null
      */
-    public CustomThreadPoolExecutor(int corePoolSize,
-                                    int maximumPoolSize,
-                                    long keepAliveTime,
-                                    TimeUnit unit,
-                                    BlockingQueue<Runnable> workQueue,
-                                    RejectedExecutionHandler handler
+    public CustomThreadPoolExecutor(final int corePoolSize,
+                                    final int maximumPoolSize,
+                                    final long keepAliveTime,
+                                    final TimeUnit unit,
+                                    final BlockingQueue<Runnable> workQueue,
+                                    final RejectedExecutionHandler handler
     ) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, handler);
     }
@@ -128,31 +128,31 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
      *                                  corePoolSize}
      * @throws NullPointerException     if {@code workQueue} or {@code threadFactory} or {@code handler} is null
      */
-    public CustomThreadPoolExecutor(int corePoolSize,
-                                    int maximumPoolSize,
-                                    long keepAliveTime,
-                                    TimeUnit unit,
-                                    BlockingQueue<Runnable> workQueue,
-                                    ThreadFactory threadFactory,
-                                    RejectedExecutionHandler handler
+    public CustomThreadPoolExecutor(final int corePoolSize,
+                                    final int maximumPoolSize,
+                                    final long keepAliveTime,
+                                    final TimeUnit unit,
+                                    final BlockingQueue<Runnable> workQueue,
+                                    final ThreadFactory threadFactory,
+                                    final RejectedExecutionHandler handler
     ) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
     }
 
     @Override
-    protected void afterExecute(Runnable r, Throwable t) {
+    protected void afterExecute(final Runnable r, Throwable t) {
         super.afterExecute(r, t);
         if (t == null && r instanceof Future<?> && ((Future<?>) r).isDone()) {
             try {
                 ((Future<?>) r).get();
             }
-            catch (CancellationException e) {
+            catch (final CancellationException e) {
                 t = e;
             }
-            catch (ExecutionException e) {
+            catch (final ExecutionException e) {
                 t = e.getCause();
             }
-            catch (InterruptedException e) {
+            catch (final InterruptedException e) {
                 interrupted = true;
                 Thread.currentThread().interrupt();
             }
@@ -180,7 +180,7 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
         if (executionException != null) {
             logger.fatal("Error occurred during execution", executionException);
             if (executionException instanceof HubSpotException) {
-                HubSpotException exception = (HubSpotException) executionException;
+                final HubSpotException exception = (HubSpotException) executionException;
                 System.exit(exception.getCode());
             }
             else {

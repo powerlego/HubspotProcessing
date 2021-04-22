@@ -44,51 +44,51 @@ public class CompanyService {
         return cacheFolder.toFile().exists();
     }
 
-    static HashMap<Long, Company> getAllCompanies(HttpService httpService,
-                                                  PropertyData propertyData,
+    static HashMap<Long, Company> getAllCompanies(final HttpService httpService,
+                                                  final PropertyData propertyData,
                                                   final RateLimiter rateLimiter
     ) throws HubSpotException {
-        Map<String, Object> map = new HashMap<>();
-        ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
+        final Map<String, Object> map = new HashMap<>();
+        final ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
         map.put("limit", LIMIT);
         map.put("properties", propertyData.getPropertyNamesString());
         map.put("archived", false);
         long after;
-        long count = HubSpotUtils.getObjectCount(httpService, CRMObjectType.COMPANIES, rateLimiter);
-        int capacity = (int) Math.ceil(Math.ceil((double) count / (double) LIMIT) * Math.pow(MAX_SIZE, -0.6));
-        CacheThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,
-                                                                                 STARTING_POOL_SIZE,
-                                                                                 0L,
-                                                                                 TimeUnit.MILLISECONDS,
-                                                                                 new LinkedBlockingQueue<>(Math.max(
-                                                                                         capacity,
-                                                                                         Runtime.getRuntime()
-                                                                                                .availableProcessors()
-                                                                                 )),
-                                                                                 new CustomThreadFactory(
-                                                                                         "CompanyGrabber"),
-                                                                                 new StoringRejectedExecutionHandler(),
-                                                                                 cacheFolder
+        final long count = HubSpotUtils.getObjectCount(httpService, CRMObjectType.COMPANIES, rateLimiter);
+        final int capacity = (int) Math.ceil(Math.ceil((double) count / (double) LIMIT) * Math.pow(MAX_SIZE, -0.6));
+        final CacheThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,
+                                                                                       STARTING_POOL_SIZE,
+                                                                                       0L,
+                                                                                       TimeUnit.MILLISECONDS,
+                                                                                       new LinkedBlockingQueue<>(Math.max(
+                                                                                               capacity,
+                                                                                               Runtime.getRuntime()
+                                                                                                      .availableProcessors()
+                                                                                       )),
+                                                                                       new CustomThreadFactory(
+                                                                                               "CompanyGrabber"),
+                                                                                       new StoringRejectedExecutionHandler(),
+                                                                                       cacheFolder
         );
-        ScheduledExecutorService scheduledExecutorService
+        final ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("CompanyGrabberUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
-            double load = CPUMonitor.getProcessLoad();
-            String debugMessage = String.format(debugMessageFormat, "getAllCompanies", load);
+            final double load = CPUMonitor.getProcessLoad();
+            final String debugMessage = String.format(debugMessageFormat, "getAllCompanies", load);
             Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
         try {
             Files.createDirectories(cacheFolder);
         }
-        catch (IOException e) {
+        catch (final IOException e) {
             logger.fatal("Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
-        ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Companies", count);
+        final ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Companies", count);
         Utils.sleep(WARMUP);
         while (true) {
             rateLimiter.acquire(1);
-            JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
+            final JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
             threadPoolExecutor.submit(process(companies, pb, jsonObject));
             if (!jsonObject.has("paging")) {
                 break;
@@ -103,15 +103,15 @@ public class CompanyService {
     }
 
     @NotNull
-    private static Callable<Void> process(ConcurrentHashMap<Long, Company> companies,
-                                          ProgressBar pb,
-                                          JSONObject jsonObject
+    private static Callable<Void> process(final ConcurrentHashMap<Long, Company> companies,
+                                          final ProgressBar pb,
+                                          final JSONObject jsonObject
     ) {
         return () -> {
-            for (Object o : jsonObject.getJSONArray("results")) {
+            for (final Object o : jsonObject.getJSONArray("results")) {
                 JSONObject companyJson = (JSONObject) o;
                 companyJson = Utils.formatJson(companyJson);
-                Company company = parseCompanyData(companyJson);
+                final Company company = parseCompanyData(companyJson);
                 FileUtils.writeJsonCache(cacheFolder, companyJson);
                 companies.put(company.getId(), company);
                 pb.step();
@@ -121,19 +121,21 @@ public class CompanyService {
         };
     }
 
-    static Company parseCompanyData(JSONObject jsonObject) {
-        long id = jsonObject.has("id") ? jsonObject.getLong("id") : 0;
-        Company company = new Company(id);
-        JSONObject jsonProperties = jsonObject.getJSONObject("properties");
-        Set<String> keys = jsonProperties.keySet();
-        for (String key : keys) {
-            Object jsonPropertyObject = jsonProperties.get(key);
+    static Company parseCompanyData(final JSONObject jsonObject) {
+        final long id = jsonObject.has("id") ? jsonObject.getLong("id") : 0;
+        final Company company = new Company(id);
+        final JSONObject jsonProperties = jsonObject.getJSONObject("properties");
+        final Set<String> keys = jsonProperties.keySet();
+        for (final String key : keys) {
+            final Object jsonPropertyObject = jsonProperties.get(key);
             if (jsonPropertyObject instanceof JSONObject) {
-                JSONObject jsonProperty = (JSONObject) jsonPropertyObject;
-                Object propertyValue = jsonProperty.get("value");
+                final JSONObject jsonProperty = (JSONObject) jsonPropertyObject;
+                final Object propertyValue = jsonProperty.get("value");
                 if (propertyValue instanceof String) {
-                    String string = ((String) propertyValue).strip()
-                                                            .replaceAll("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\]", "");
+                    final String string = ((String) propertyValue).strip()
+                                                                  .replaceAll("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\]",
+                                                                              ""
+                                                                  );
                     company.setProperty(key, string);
                 }
                 else {
@@ -161,18 +163,23 @@ public class CompanyService {
         return company;
     }
 
-    static Company getByID(HttpService service, String propertyString, long id, final RateLimiter rateLimiter)
+    static Company getByID(final HttpService service,
+                           final String propertyString,
+                           final long id,
+                           final RateLimiter rateLimiter
+    )
     throws HubSpotException {
-        String urlString = url + id;
+        final String urlString = url + id;
         rateLimiter.acquire(1);
         return getCompany(service, propertyString, urlString);
     }
 
-    static Company getCompany(HttpService httpService, String propertyString, String url) throws HubSpotException {
+    static Company getCompany(final HttpService httpService, final String propertyString, final String url)
+    throws HubSpotException {
         try {
             return parseCompanyData((JSONObject) httpService.getRequest(url, propertyString));
         }
-        catch (HubSpotException e) {
+        catch (final HubSpotException e) {
             if (e.getMessage().equalsIgnoreCase("Not Found")) {
                 return null;
             }
@@ -186,45 +193,49 @@ public class CompanyService {
         return cacheFolder;
     }
 
-    static HashMap<Long, Company> getUpdatedCompanies(HttpService httpService,
-                                                      PropertyData propertyData,
-                                                      long lastExecution,
-                                                      long lastFinished
+    static HashMap<Long, Company> getUpdatedCompanies(final HttpService httpService,
+                                                      final PropertyData propertyData,
+                                                      final long lastExecution,
+                                                      final long lastFinished
     ) throws HubSpotException {
-        String url = "/crm/v3/objects/companies/search";
+        final String url = "/crm/v3/objects/companies/search";
         final RateLimiter rateLimiter = RateLimiter.create(3.0);
-        ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
-        JSONObject body = HubSpotUtils.getUpdateBody(CRMObjectType.COMPANIES, propertyData, lastExecution, LIMIT);
+        final ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
+        final JSONObject body = HubSpotUtils.getUpdateBody(CRMObjectType.COMPANIES, propertyData, lastExecution, LIMIT);
         long after;
-        long count = HubSpotUtils.getUpdateCount(httpService, rateLimiter, CRMObjectType.COMPANIES, lastExecution);
-        int capacity = (int) Math.ceil(Math.ceil((double) count / (double) LIMIT) * Math.pow(MAX_SIZE, -0.6));
-        UpdateThreadPoolExecutor threadPoolExecutor = new UpdateThreadPoolExecutor(1,
-                                                                                   STARTING_POOL_SIZE,
-                                                                                   0L,
-                                                                                   TimeUnit.MILLISECONDS,
-                                                                                   new LinkedBlockingQueue<>(Math.max(
-                                                                                           capacity,
-                                                                                           Runtime.getRuntime()
-                                                                                                  .availableProcessors()
-                                                                                   )),
-                                                                                   new CustomThreadFactory(
-                                                                                           "CompanyUpdater"),
-                                                                                   new StoringRejectedExecutionHandler(),
-                                                                                   cacheFolder,
-                                                                                   lastFinished
+        final long count = HubSpotUtils.getUpdateCount(httpService,
+                                                       rateLimiter,
+                                                       CRMObjectType.COMPANIES,
+                                                       lastExecution
         );
-        ScheduledExecutorService scheduledExecutorService
+        final int capacity = (int) Math.ceil(Math.ceil((double) count / (double) LIMIT) * Math.pow(MAX_SIZE, -0.6));
+        final UpdateThreadPoolExecutor threadPoolExecutor = new UpdateThreadPoolExecutor(1,
+                                                                                         STARTING_POOL_SIZE,
+                                                                                         0L,
+                                                                                         TimeUnit.MILLISECONDS,
+                                                                                         new LinkedBlockingQueue<>(Math.max(
+                                                                                                 capacity,
+                                                                                                 Runtime.getRuntime()
+                                                                                                        .availableProcessors()
+                                                                                         )),
+                                                                                         new CustomThreadFactory(
+                                                                                                 "CompanyUpdater"),
+                                                                                         new StoringRejectedExecutionHandler(),
+                                                                                         cacheFolder,
+                                                                                         lastFinished
+        );
+        final ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("CompanyUpdaterUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
-            double load = CPUMonitor.getProcessLoad();
-            String debugMessage = String.format(debugMessageFormat, "getUpdatedCompanies", load);
+            final double load = CPUMonitor.getProcessLoad();
+            final String debugMessage = String.format(debugMessageFormat, "getUpdatedCompanies", load);
             Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
-        ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Updated Companies", count);
+        final ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Updated Companies", count);
         Utils.sleep(WARMUP);
         while (true) {
             rateLimiter.acquire(1);
-            JSONObject jsonObject = (JSONObject) httpService.postRequest(url, body);
+            final JSONObject jsonObject = (JSONObject) httpService.postRequest(url, body);
             threadPoolExecutor.submit(process(companies, pb, jsonObject));
             if (!jsonObject.has("paging")) {
                 break;
@@ -239,41 +250,42 @@ public class CompanyService {
     }
 
     static HashMap<Long, Company> readCompanyJsons() throws HubSpotException {
-        ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
-        File[] files = cacheFolder.toFile().listFiles();
+        final ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
+        final File[] files = cacheFolder.toFile().listFiles();
         if (files != null) {
-            List<File> fileList = Arrays.asList(files);
-            Iterable<List<File>> partitions = Iterables.partition(fileList, LIMIT);
-            int capacity = (int) Math.ceil(Math.ceil((double) fileList.size() / (double) LIMIT) *
-                                           Math.pow(MAX_SIZE, -0.6));
-            CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
-                                                                                       STARTING_POOL_SIZE,
-                                                                                       0L,
-                                                                                       TimeUnit.MILLISECONDS,
-                                                                                       new LinkedBlockingQueue<>(Math.max(
-                                                                                               capacity,
-                                                                                               Runtime.getRuntime()
-                                                                                                      .availableProcessors()
-                                                                                       )),
-                                                                                       new CustomThreadFactory(
-                                                                                               "CompanyReader"),
-                                                                                       new StoringRejectedExecutionHandler()
+            final List<File> fileList = Arrays.asList(files);
+            final Iterable<List<File>> partitions = Iterables.partition(fileList, LIMIT);
+            final int capacity = (int) Math.ceil(Math.ceil((double) fileList.size() / (double) LIMIT) *
+                                                 Math.pow(MAX_SIZE, -0.6));
+            final CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
+                                                                                             STARTING_POOL_SIZE,
+                                                                                             0L,
+                                                                                             TimeUnit.MILLISECONDS,
+                                                                                             new LinkedBlockingQueue<>(
+                                                                                                     Math.max(
+                                                                                                             capacity,
+                                                                                                             Runtime.getRuntime()
+                                                                                                                    .availableProcessors()
+                                                                                                     )),
+                                                                                             new CustomThreadFactory(
+                                                                                                     "CompanyReader"),
+                                                                                             new StoringRejectedExecutionHandler()
             );
-            ScheduledExecutorService scheduledExecutorService
+            final ScheduledExecutorService scheduledExecutorService
                     = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("CompanyReaderUpdater"));
             scheduledExecutorService.scheduleAtFixedRate(() -> {
-                double load = CPUMonitor.getProcessLoad();
-                String debugMessage = String.format(debugMessageFormat, "readCompanyJsons", load);
+                final double load = CPUMonitor.getProcessLoad();
+                final String debugMessage = String.format(debugMessageFormat, "readCompanyJsons", load);
                 Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
             }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
-            ProgressBar pb = Utils.createProgressBar("Reading Companies", fileList.size());
+            final ProgressBar pb = Utils.createProgressBar("Reading Companies", fileList.size());
             Utils.sleep(WARMUP);
-            for (List<File> partition : partitions) {
+            for (final List<File> partition : partitions) {
                 threadPoolExecutor.submit(() -> {
-                    for (File file : partition) {
-                        String jsonString = FileUtils.readJsonString(logger, file);
-                        JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
-                        Company company = parseCompanyData(jsonObject);
+                    for (final File file : partition) {
+                        final String jsonString = FileUtils.readJsonString(logger, file);
+                        final JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
+                        final Company company = parseCompanyData(jsonObject);
                         companies.put(company.getId(), company);
                         pb.step();
                         Utils.sleep(1);
@@ -288,49 +300,53 @@ public class CompanyService {
         return new HashMap<>(companies);
     }
 
-    static void writeCompanyJsons(HttpService httpService, PropertyData propertyData, final RateLimiter rateLimiter)
+    static void writeCompanyJsons(final HttpService httpService,
+                                  final PropertyData propertyData,
+                                  final RateLimiter rateLimiter
+    )
     throws HubSpotException {
-        Map<String, Object> map = new HashMap<>();
+        final Map<String, Object> map = new HashMap<>();
         map.put("limit", LIMIT);
         map.put("properties", propertyData.getPropertyNamesString());
         map.put("archived", false);
         long after;
-        long count = HubSpotUtils.getObjectCount(httpService, CRMObjectType.COMPANIES, rateLimiter);
-        int capacity = (int) Math.ceil(Math.ceil((double) count / (double) LIMIT) * Math.pow(MAX_SIZE, -0.6));
-        CacheThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,
-                                                                                 STARTING_POOL_SIZE,
-                                                                                 0L,
-                                                                                 TimeUnit.MILLISECONDS,
-                                                                                 new LinkedBlockingQueue<>(Math.max(
-                                                                                         capacity,
-                                                                                         Runtime.getRuntime()
-                                                                                                .availableProcessors()
-                                                                                 )),
-                                                                                 new CustomThreadFactory("CompanyWriter"),
-                                                                                 new StoringRejectedExecutionHandler(),
-                                                                                 cacheFolder
+        final long count = HubSpotUtils.getObjectCount(httpService, CRMObjectType.COMPANIES, rateLimiter);
+        final int capacity = (int) Math.ceil(Math.ceil((double) count / (double) LIMIT) * Math.pow(MAX_SIZE, -0.6));
+        final CacheThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,
+                                                                                       STARTING_POOL_SIZE,
+                                                                                       0L,
+                                                                                       TimeUnit.MILLISECONDS,
+                                                                                       new LinkedBlockingQueue<>(Math.max(
+                                                                                               capacity,
+                                                                                               Runtime.getRuntime()
+                                                                                                      .availableProcessors()
+                                                                                       )),
+                                                                                       new CustomThreadFactory(
+                                                                                               "CompanyWriter"),
+                                                                                       new StoringRejectedExecutionHandler(),
+                                                                                       cacheFolder
         );
-        ScheduledExecutorService scheduledExecutorService
+        final ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("CompanyWriterUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
-            double load = CPUMonitor.getProcessLoad();
-            String debugMessage = String.format(debugMessageFormat, "writeCompanyJsons", load);
+            final double load = CPUMonitor.getProcessLoad();
+            final String debugMessage = String.format(debugMessageFormat, "writeCompanyJsons", load);
             Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
         try {
             Files.createDirectories(cacheFolder);
         }
-        catch (IOException e) {
+        catch (final IOException e) {
             logger.fatal("Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
-        ProgressBar pb = Utils.createProgressBar("Writing Companies", count);
+        final ProgressBar pb = Utils.createProgressBar("Writing Companies", count);
         Utils.sleep(WARMUP);
         while (true) {
             rateLimiter.acquire(1);
-            JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
+            final JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
             threadPoolExecutor.submit(() -> {
-                for (Object o : jsonObject.getJSONArray("results")) {
+                for (final Object o : jsonObject.getJSONArray("results")) {
                     JSONObject companyJson = (JSONObject) o;
                     companyJson = Utils.formatJson(companyJson);
                     FileUtils.writeJsonCache(cacheFolder, companyJson);

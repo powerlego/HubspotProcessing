@@ -40,15 +40,15 @@ public class Image extends HSFile {
      * @param width        The width of the image in pixels
      * @param height       The height of the image in pixels
      */
-    public Image(long id,
-                 long engagementId,
-                 String name,
-                 String extension,
-                 long size,
-                 boolean hidden,
-                 String url,
-                 long width,
-                 long height
+    public Image(final long id,
+                 final long engagementId,
+                 final String name,
+                 final String extension,
+                 final long size,
+                 final boolean hidden,
+                 final String url,
+                 final long width,
+                 final long height
     ) {
         super(id, engagementId, name, extension, size, hidden, url);
         this.width = width;

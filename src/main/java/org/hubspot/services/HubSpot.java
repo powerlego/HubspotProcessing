@@ -26,8 +26,8 @@ public class HubSpot implements Serializable {
     private final        RateLimiter rateLimiter;
 
 
-    public HubSpot(String apiKey) {
-        String apiBase = "https://api.hubapi.com";
+    public HubSpot(final String apiKey) {
+        final String apiBase = "https://api.hubapi.com";
         httpService = new HttpService(apiKey, apiBase);
         this.rateLimiter = RateLimiter.create(15.0);
     }

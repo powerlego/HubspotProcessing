@@ -35,7 +35,7 @@ public class HubSpotObject implements Serializable {
      *
      * @param id The Hubspot object Id
      */
-    public HubSpotObject(long id) {
+    public HubSpotObject(final long id) {
         this.id = id;
     }
 
@@ -53,7 +53,7 @@ public class HubSpotObject implements Serializable {
      *
      * @param data The Json data to set
      */
-    public void setData(JSONObject data) {
+    public void setData(final JSONObject data) {
         this.data = data;
     }
 

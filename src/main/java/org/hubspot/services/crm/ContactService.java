@@ -44,49 +44,50 @@ public class ContactService {
         return cacheFolder.toFile().exists();
     }
 
-    static HashMap<Long, Contact> filterContacts(HashMap<Long, Contact> contacts) throws HubSpotException {
-        ConcurrentHashMap<Long, Contact> concurrentContacts = new ConcurrentHashMap<>(contacts);
-        ConcurrentHashMap<Long, Contact> filteredContacts = new ConcurrentHashMap<>();
-        Iterable<List<Long>> partitions = Iterables.partition(contacts.keySet(), LIMIT);
-        int capacity = (int) Math.ceil(Math.ceil((double) contacts.size() / (double) LIMIT) * Math.pow(MAX_SIZE, -0.6));
-        CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
-                                                                                   STARTING_POOL_SIZE,
-                                                                                   0L,
-                                                                                   TimeUnit.MILLISECONDS,
-                                                                                   new LinkedBlockingQueue<>(Math.max(
-                                                                                           capacity,
-                                                                                           Runtime.getRuntime()
-                                                                                                  .availableProcessors()
-                                                                                   )),
-                                                                                   new CustomThreadFactory(
-                                                                                           "ContactFilter"),
-                                                                                   new StoringRejectedExecutionHandler()
+    static HashMap<Long, Contact> filterContacts(final HashMap<Long, Contact> contacts) throws HubSpotException {
+        final ConcurrentHashMap<Long, Contact> concurrentContacts = new ConcurrentHashMap<>(contacts);
+        final ConcurrentHashMap<Long, Contact> filteredContacts = new ConcurrentHashMap<>();
+        final Iterable<List<Long>> partitions = Iterables.partition(contacts.keySet(), LIMIT);
+        final int capacity = (int) Math.ceil(Math.ceil((double) contacts.size() / (double) LIMIT) *
+                                             Math.pow(MAX_SIZE, -0.6));
+        final CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
+                                                                                         STARTING_POOL_SIZE,
+                                                                                         0L,
+                                                                                         TimeUnit.MILLISECONDS,
+                                                                                         new LinkedBlockingQueue<>(Math.max(
+                                                                                                 capacity,
+                                                                                                 Runtime.getRuntime()
+                                                                                                        .availableProcessors()
+                                                                                         )),
+                                                                                         new CustomThreadFactory(
+                                                                                                 "ContactFilter"),
+                                                                                         new StoringRejectedExecutionHandler()
         );
-        ScheduledExecutorService scheduledExecutorService
+        final ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("ContactFilterUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
-            double load = CPUMonitor.getProcessLoad();
-            String debugMessage = String.format(debugMessageFormat, "filterContacts", load);
+            final double load = CPUMonitor.getProcessLoad();
+            final String debugMessage = String.format(debugMessageFormat, "filterContacts", load);
             Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
-        ProgressBar pb = Utils.createProgressBar("Filtering", contacts.size());
+        final ProgressBar pb = Utils.createProgressBar("Filtering", contacts.size());
         Utils.sleep(WARMUP);
-        for (List<Long> partition : partitions) {
+        for (final List<Long> partition : partitions) {
             threadPoolExecutor.submit(() -> {
-                for (long contactId : partition) {
-                    Contact contact = concurrentContacts.get(contactId);
-                    String lifeCycleStage = contact.getLifeCycleStage();
-                    String leadStatus = contact.getLeadStatus();
-                    String lifecycleOR = contact.getProperty("hr_hiring_applicant").toString();
-                    boolean b = ((leadStatus == null || leadStatus.equalsIgnoreCase("null")) ||
-                                 (!leadStatus.toLowerCase().contains("closed") &&
-                                  !leadStatus.equalsIgnoreCase("Recruit") &&
-                                  !leadStatus.toLowerCase().contains("no contact") &&
-                                  !leadStatus.toLowerCase().contains("unqualified")
-                                 )
+                for (final long contactId : partition) {
+                    final Contact contact = concurrentContacts.get(contactId);
+                    final String lifeCycleStage = contact.getLifeCycleStage();
+                    final String leadStatus = contact.getLeadStatus();
+                    final String lifecycleOR = contact.getProperty("hr_hiring_applicant").toString();
+                    final boolean b = ((leadStatus == null || leadStatus.equalsIgnoreCase("null")) ||
+                                       (!leadStatus.toLowerCase().contains("closed") &&
+                                        !leadStatus.equalsIgnoreCase("Recruit") &&
+                                        !leadStatus.toLowerCase().contains("no contact") &&
+                                        !leadStatus.toLowerCase().contains("unqualified")
+                                       )
                     );
-                    boolean c = ((lifecycleOR == null || lifecycleOR.equalsIgnoreCase("null")) ||
-                                 !lifecycleOR.toLowerCase().contains("closed")
+                    final boolean c = ((lifecycleOR == null || lifecycleOR.equalsIgnoreCase("null")) ||
+                                       !lifecycleOR.toLowerCase().contains("closed")
                     );
                     if ((lifeCycleStage == null || !lifeCycleStage.equalsIgnoreCase("subscriber")) && b && c) {
                         filteredContacts.put(contactId, contact);
@@ -102,49 +103,51 @@ public class ContactService {
         return new HashMap<>(filteredContacts);
     }
 
-    static HashMap<Long, Contact> getAllContacts(HttpService httpService,
-                                                 PropertyData propertyData,
+    static HashMap<Long, Contact> getAllContacts(final HttpService httpService,
+                                                 final PropertyData propertyData,
                                                  final RateLimiter rateLimiter
     ) throws HubSpotException {
-        Map<String, Object> map = new HashMap<>();
-        ConcurrentHashMap<Long, Contact> contacts = new ConcurrentHashMap<>();
+        final Map<String, Object> map = new HashMap<>();
+        final ConcurrentHashMap<Long, Contact> contacts = new ConcurrentHashMap<>();
         map.put("limit", LIMIT);
         map.put("properties", propertyData.getPropertyNamesString());
         map.put("archived", false);
         long after;
-        long count = HubSpotUtils.getObjectCount(httpService, CRMObjectType.CONTACTS, rateLimiter);
+        final long count = HubSpotUtils.getObjectCount(httpService, CRMObjectType.CONTACTS, rateLimiter);
         try {
             Files.createDirectories(cacheFolder);
         }
-        catch (IOException e) {
+        catch (final IOException e) {
             logger.fatal("Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
-        int capacity = (int) Math.ceil(Math.ceil((double) count / (double) LIMIT) * Math.pow(MAX_SIZE, -0.6));
-        ThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,
-                                                                            STARTING_POOL_SIZE,
-                                                                            0L,
-                                                                            TimeUnit.MILLISECONDS,
-                                                                            new LinkedBlockingQueue<>(Math.max(capacity,
-                                                                                                               Runtime.getRuntime()
-                                                                                                                      .availableProcessors()
-                                                                            )),
-                                                                            new CustomThreadFactory("ContactGrabber"),
-                                                                            new StoringRejectedExecutionHandler(),
-                                                                            cacheFolder
+        final int capacity = (int) Math.ceil(Math.ceil((double) count / (double) LIMIT) * Math.pow(MAX_SIZE, -0.6));
+        final ThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,
+                                                                                  STARTING_POOL_SIZE,
+                                                                                  0L,
+                                                                                  TimeUnit.MILLISECONDS,
+                                                                                  new LinkedBlockingQueue<>(Math.max(
+                                                                                          capacity,
+                                                                                          Runtime.getRuntime()
+                                                                                                 .availableProcessors()
+                                                                                  )),
+                                                                                  new CustomThreadFactory(
+                                                                                          "ContactGrabber"),
+                                                                                  new StoringRejectedExecutionHandler(),
+                                                                                  cacheFolder
         );
-        ScheduledExecutorService scheduledExecutorService
+        final ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("ContactGrabberUpdater"));
-        ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Contacts", count);
+        final ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Contacts", count);
         Utils.sleep(WARMUP);
         scheduledExecutorService.scheduleAtFixedRate(() -> {
-            double load = CPUMonitor.getProcessLoad();
-            String debugMessage = String.format(debugMessageFormat, "getAllContacts", load);
+            final double load = CPUMonitor.getProcessLoad();
+            final String debugMessage = String.format(debugMessageFormat, "getAllContacts", load);
             Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
         }, 0, 1, TimeUnit.SECONDS);
         while (true) {
             rateLimiter.acquire(1);
-            JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
+            final JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
             threadPoolExecutor.submit(process(contacts, pb, jsonObject));
             if (!jsonObject.has("paging")) {
                 break;
@@ -159,15 +162,15 @@ public class ContactService {
     }
 
     @NotNull
-    private static Callable<Void> process(ConcurrentHashMap<Long, Contact> contacts,
-                                          ProgressBar pb,
-                                          JSONObject jsonObject
+    private static Callable<Void> process(final ConcurrentHashMap<Long, Contact> contacts,
+                                          final ProgressBar pb,
+                                          final JSONObject jsonObject
     ) {
         return () -> {
-            for (Object o : jsonObject.getJSONArray("results")) {
+            for (final Object o : jsonObject.getJSONArray("results")) {
                 JSONObject contactJson = (JSONObject) o;
                 contactJson = Utils.formatJson(contactJson);
-                Contact contact = parseContactData(contactJson);
+                final Contact contact = parseContactData(contactJson);
                 FileUtils.writeJsonCache(cacheFolder, contactJson);
                 contacts.put(contact.getId(), contact);
                 pb.step();
@@ -177,19 +180,21 @@ public class ContactService {
         };
     }
 
-    static Contact parseContactData(JSONObject jsonObject) {
-        long id = jsonObject.has("id") ? jsonObject.getLong("id") : 0;
-        Contact contact = new Contact(id);
-        JSONObject jsonProperties = jsonObject.getJSONObject("properties");
-        Set<String> keys = jsonProperties.keySet();
-        for (String key : keys) {
-            Object jsonPropertyObject = jsonProperties.get(key);
+    static Contact parseContactData(final JSONObject jsonObject) {
+        final long id = jsonObject.has("id") ? jsonObject.getLong("id") : 0;
+        final Contact contact = new Contact(id);
+        final JSONObject jsonProperties = jsonObject.getJSONObject("properties");
+        final Set<String> keys = jsonProperties.keySet();
+        for (final String key : keys) {
+            final Object jsonPropertyObject = jsonProperties.get(key);
             if (jsonPropertyObject instanceof JSONObject) {
-                JSONObject jsonProperty = (JSONObject) jsonPropertyObject;
-                Object propertyValue = jsonProperty.get("value");
+                final JSONObject jsonProperty = (JSONObject) jsonPropertyObject;
+                final Object propertyValue = jsonProperty.get("value");
                 if (propertyValue instanceof String) {
-                    String string = ((String) propertyValue).strip()
-                                                            .replaceAll("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\]", "");
+                    final String string = ((String) propertyValue).strip()
+                                                                  .replaceAll("[~`!#$%^&*()+={}\\[\\]|<>?/'\"\\\\]",
+                                                                              ""
+                                                                  );
                     contact.setProperty(key, string);
                 }
                 else {
@@ -217,18 +222,23 @@ public class ContactService {
         return contact;
     }
 
-    static Contact getByID(HttpService service, String propertyString, long id, final RateLimiter rateLimiter)
+    static Contact getByID(final HttpService service,
+                           final String propertyString,
+                           final long id,
+                           final RateLimiter rateLimiter
+    )
     throws HubSpotException {
-        String urlString = url + id;
+        final String urlString = url + id;
         rateLimiter.acquire(1);
         return getContact(service, propertyString, urlString);
     }
 
-    static Contact getContact(HttpService httpService, String propertyString, String url) throws HubSpotException {
+    static Contact getContact(final HttpService httpService, final String propertyString, final String url)
+    throws HubSpotException {
         try {
             return parseContactData((JSONObject) httpService.getRequest(url, propertyString));
         }
-        catch (HubSpotException e) {
+        catch (final HubSpotException e) {
             if (e.getMessage().equalsIgnoreCase("Not Found")) {
                 return null;
             }
@@ -242,45 +252,45 @@ public class ContactService {
         return cacheFolder;
     }
 
-    static HashMap<Long, Contact> getUpdatedContacts(HttpService httpService,
-                                                     PropertyData propertyData,
-                                                     long lastExecution,
-                                                     long lastFinished
+    static HashMap<Long, Contact> getUpdatedContacts(final HttpService httpService,
+                                                     final PropertyData propertyData,
+                                                     final long lastExecution,
+                                                     final long lastFinished
     ) throws HubSpotException {
-        String url = "/crm/v3/objects/contacts/search";
+        final String url = "/crm/v3/objects/contacts/search";
         final RateLimiter rateLimiter = RateLimiter.create(3.0);
-        ConcurrentHashMap<Long, Contact> contacts = new ConcurrentHashMap<>();
-        JSONObject body = HubSpotUtils.getUpdateBody(CRMObjectType.CONTACTS, propertyData, lastExecution, LIMIT);
+        final ConcurrentHashMap<Long, Contact> contacts = new ConcurrentHashMap<>();
+        final JSONObject body = HubSpotUtils.getUpdateBody(CRMObjectType.CONTACTS, propertyData, lastExecution, LIMIT);
         long after;
-        long count = HubSpotUtils.getUpdateCount(httpService, rateLimiter, CRMObjectType.CONTACTS, lastExecution);
-        int capacity = (int) Math.ceil(Math.ceil((double) count / (double) LIMIT) * Math.pow(MAX_SIZE, -0.6));
-        UpdateThreadPoolExecutor threadPoolExecutor = new UpdateThreadPoolExecutor(1,
-                                                                                   STARTING_POOL_SIZE,
-                                                                                   0L,
-                                                                                   TimeUnit.MILLISECONDS,
-                                                                                   new LinkedBlockingQueue<>(Math.max(
-                                                                                           capacity,
-                                                                                           Runtime.getRuntime()
-                                                                                                  .availableProcessors()
-                                                                                   )),
-                                                                                   new CustomThreadFactory(
-                                                                                           "ContactUpdater"),
-                                                                                   new StoringRejectedExecutionHandler(),
-                                                                                   cacheFolder,
-                                                                                   lastFinished
+        final long count = HubSpotUtils.getUpdateCount(httpService, rateLimiter, CRMObjectType.CONTACTS, lastExecution);
+        final int capacity = (int) Math.ceil(Math.ceil((double) count / (double) LIMIT) * Math.pow(MAX_SIZE, -0.6));
+        final UpdateThreadPoolExecutor threadPoolExecutor = new UpdateThreadPoolExecutor(1,
+                                                                                         STARTING_POOL_SIZE,
+                                                                                         0L,
+                                                                                         TimeUnit.MILLISECONDS,
+                                                                                         new LinkedBlockingQueue<>(Math.max(
+                                                                                                 capacity,
+                                                                                                 Runtime.getRuntime()
+                                                                                                        .availableProcessors()
+                                                                                         )),
+                                                                                         new CustomThreadFactory(
+                                                                                                 "ContactUpdater"),
+                                                                                         new StoringRejectedExecutionHandler(),
+                                                                                         cacheFolder,
+                                                                                         lastFinished
         );
-        ScheduledExecutorService scheduledExecutorService
+        final ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("ContactUpdaterUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
-            double load = CPUMonitor.getProcessLoad();
-            String debugMessage = String.format(debugMessageFormat, "getUpdatedContacts", load);
+            final double load = CPUMonitor.getProcessLoad();
+            final String debugMessage = String.format(debugMessageFormat, "getUpdatedContacts", load);
             Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
-        ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Updated Contacts", count);
+        final ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Updated Contacts", count);
         Utils.sleep(WARMUP);
         while (true) {
             rateLimiter.acquire(1);
-            JSONObject jsonObject = (JSONObject) httpService.postRequest(url, body);
+            final JSONObject jsonObject = (JSONObject) httpService.postRequest(url, body);
             threadPoolExecutor.submit(process(contacts, pb, jsonObject));
             if (!jsonObject.has("paging")) {
                 break;
@@ -295,41 +305,42 @@ public class ContactService {
     }
 
     static HashMap<Long, Contact> readContactJsons() throws HubSpotException {
-        ConcurrentHashMap<Long, Contact> contacts = new ConcurrentHashMap<>();
-        File[] files = cacheFolder.toFile().listFiles();
+        final ConcurrentHashMap<Long, Contact> contacts = new ConcurrentHashMap<>();
+        final File[] files = cacheFolder.toFile().listFiles();
         if (files != null) {
-            List<File> fileList = Arrays.asList(files);
-            Iterable<List<File>> partitions = Iterables.partition(fileList, LIMIT);
-            int capacity = (int) Math.ceil(Math.ceil((double) fileList.size() / (double) LIMIT) *
-                                           Math.pow(MAX_SIZE, -0.6));
-            CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
-                                                                                       STARTING_POOL_SIZE,
-                                                                                       0L,
-                                                                                       TimeUnit.MILLISECONDS,
-                                                                                       new LinkedBlockingQueue<>(Math.max(
-                                                                                               capacity,
-                                                                                               Runtime.getRuntime()
-                                                                                                      .availableProcessors()
-                                                                                       )),
-                                                                                       new CustomThreadFactory(
-                                                                                               "ContactReader"),
-                                                                                       new StoringRejectedExecutionHandler()
+            final List<File> fileList = Arrays.asList(files);
+            final Iterable<List<File>> partitions = Iterables.partition(fileList, LIMIT);
+            final int capacity = (int) Math.ceil(Math.ceil((double) fileList.size() / (double) LIMIT) *
+                                                 Math.pow(MAX_SIZE, -0.6));
+            final CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
+                                                                                             STARTING_POOL_SIZE,
+                                                                                             0L,
+                                                                                             TimeUnit.MILLISECONDS,
+                                                                                             new LinkedBlockingQueue<>(
+                                                                                                     Math.max(
+                                                                                                             capacity,
+                                                                                                             Runtime.getRuntime()
+                                                                                                                    .availableProcessors()
+                                                                                                     )),
+                                                                                             new CustomThreadFactory(
+                                                                                                     "ContactReader"),
+                                                                                             new StoringRejectedExecutionHandler()
             );
-            ScheduledExecutorService scheduledExecutorService
+            final ScheduledExecutorService scheduledExecutorService
                     = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("ContactReaderUpdater"));
             scheduledExecutorService.scheduleAtFixedRate(() -> {
-                double load = CPUMonitor.getProcessLoad();
-                String debugMessage = String.format(debugMessageFormat, "readContactJsons", load);
+                final double load = CPUMonitor.getProcessLoad();
+                final String debugMessage = String.format(debugMessageFormat, "readContactJsons", load);
                 Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
             }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
-            ProgressBar pb = Utils.createProgressBar("Reading Contacts", fileList.size());
+            final ProgressBar pb = Utils.createProgressBar("Reading Contacts", fileList.size());
             Utils.sleep(WARMUP);
-            for (List<File> partition : partitions) {
+            for (final List<File> partition : partitions) {
                 threadPoolExecutor.submit(() -> {
-                    for (File file : partition) {
-                        String jsonString = FileUtils.readJsonString(logger, file);
-                        JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
-                        Contact contact = parseContactData(jsonObject);
+                    for (final File file : partition) {
+                        final String jsonString = FileUtils.readJsonString(logger, file);
+                        final JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
+                        final Contact contact = parseContactData(jsonObject);
                         contacts.put(contact.getId(), contact);
                         pb.step();
                         Utils.sleep(1);
@@ -344,49 +355,53 @@ public class ContactService {
         return new HashMap<>(contacts);
     }
 
-    static void writeContactJson(HttpService httpService, PropertyData propertyData, final RateLimiter rateLimiter)
+    static void writeContactJson(final HttpService httpService,
+                                 final PropertyData propertyData,
+                                 final RateLimiter rateLimiter
+    )
     throws HubSpotException {
-        Map<String, Object> map = new HashMap<>();
+        final Map<String, Object> map = new HashMap<>();
         map.put("limit", LIMIT);
         map.put("properties", propertyData.getPropertyNamesString());
         map.put("archived", false);
         long after;
-        long count = HubSpotUtils.getObjectCount(httpService, CRMObjectType.CONTACTS, rateLimiter);
-        int capacity = (int) Math.ceil(Math.ceil((double) count / (double) LIMIT) * Math.pow(MAX_SIZE, -0.6));
-        CacheThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,
-                                                                                 STARTING_POOL_SIZE,
-                                                                                 0L,
-                                                                                 TimeUnit.MILLISECONDS,
-                                                                                 new LinkedBlockingQueue<>(Math.max(
-                                                                                         capacity,
-                                                                                         Runtime.getRuntime()
-                                                                                                .availableProcessors()
-                                                                                 )),
-                                                                                 new CustomThreadFactory("ContactWriter"),
-                                                                                 new StoringRejectedExecutionHandler(),
-                                                                                 cacheFolder
+        final long count = HubSpotUtils.getObjectCount(httpService, CRMObjectType.CONTACTS, rateLimiter);
+        final int capacity = (int) Math.ceil(Math.ceil((double) count / (double) LIMIT) * Math.pow(MAX_SIZE, -0.6));
+        final CacheThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,
+                                                                                       STARTING_POOL_SIZE,
+                                                                                       0L,
+                                                                                       TimeUnit.MILLISECONDS,
+                                                                                       new LinkedBlockingQueue<>(Math.max(
+                                                                                               capacity,
+                                                                                               Runtime.getRuntime()
+                                                                                                      .availableProcessors()
+                                                                                       )),
+                                                                                       new CustomThreadFactory(
+                                                                                               "ContactWriter"),
+                                                                                       new StoringRejectedExecutionHandler(),
+                                                                                       cacheFolder
         );
-        ScheduledExecutorService scheduledExecutorService
+        final ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("ContactWriterUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
-            double load = CPUMonitor.getProcessLoad();
-            String debugMessage = String.format(debugMessageFormat, "writeContactJson", load);
+            final double load = CPUMonitor.getProcessLoad();
+            final String debugMessage = String.format(debugMessageFormat, "writeContactJson", load);
             Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
         try {
             Files.createDirectories(cacheFolder);
         }
-        catch (IOException e) {
+        catch (final IOException e) {
             logger.fatal("Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
-        ProgressBar pb = Utils.createProgressBar("Writing Contacts", count);
+        final ProgressBar pb = Utils.createProgressBar("Writing Contacts", count);
         Utils.sleep(WARMUP);
         while (true) {
             rateLimiter.acquire(1);
-            JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
+            final JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
             threadPoolExecutor.submit(() -> {
-                for (Object o : jsonObject.getJSONArray("results")) {
+                for (final Object o : jsonObject.getJSONArray("results")) {
                     JSONObject contactJson = (JSONObject) o;
                     contactJson = Utils.formatJson(contactJson);
                     FileUtils.writeJsonCache(cacheFolder, contactJson);

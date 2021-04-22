@@ -45,7 +45,7 @@ public class PropertyData implements Serializable {
      * @param propertyNames The property names
      * @param properties    The map of properties
      */
-    public PropertyData(ArrayList<String> propertyNames, Map<String, Object> properties) {
+    public PropertyData(final ArrayList<String> propertyNames, final Map<String, Object> properties) {
         this.properties = properties;
         this.propertyNames = propertyNames;
     }
@@ -66,7 +66,7 @@ public class PropertyData implements Serializable {
      *
      * @return The value of the property
      */
-    public Object getProperty(String propertyName) {
+    public Object getProperty(final String propertyName) {
         return properties.get(propertyName);
     }
 

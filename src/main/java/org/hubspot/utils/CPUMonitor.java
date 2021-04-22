@@ -44,12 +44,12 @@ public class CPUMonitor {
 
     public static void startMonitoring() {
         scheduledExecutorService.scheduleAtFixedRate(() -> {
-            OSProcess currentProcess = si.getOperatingSystem().getProcess((int) pid);
-            double cpuLoad = Utils.round(100d * cpu.getSystemCpuLoadBetweenTicks(oldTicks), 1);
-            double procLoad = Utils.round(100d *
-                                          currentProcess.getProcessCpuLoadBetweenTicks(priorProcSnap) /
-                                          cpu.getLogicalProcessorCount(),
-                                          1
+            final OSProcess currentProcess = si.getOperatingSystem().getProcess((int) pid);
+            final double cpuLoad = Utils.round(100d * cpu.getSystemCpuLoadBetweenTicks(oldTicks), 1);
+            final double procLoad = Utils.round(100d *
+                                                currentProcess.getProcessCpuLoadBetweenTicks(priorProcSnap) /
+                                                cpu.getLogicalProcessorCount(),
+                                                1
             );
             processLoad.set(procLoad);
             priorProcSnap = currentProcess;

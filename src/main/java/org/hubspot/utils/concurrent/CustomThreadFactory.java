@@ -18,14 +18,14 @@ public class CustomThreadFactory implements ThreadFactory {
     private final        String name;
     private              int    counter;
 
-    public CustomThreadFactory(String name) {
+    public CustomThreadFactory(final String name) {
         counter = 1;
         this.name = name;
     }
 
     @Override
-    public Thread newThread(@NotNull Runnable r) {
-        Thread t = new Thread(r, name + "-thread_" + counter);
+    public Thread newThread(@NotNull final Runnable r) {
+        final Thread t = new Thread(r, name + "-thread_" + counter);
         counter++;
         return t;
     }

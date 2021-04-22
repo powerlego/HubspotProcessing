@@ -24,7 +24,7 @@ public class HttpService {
     private static final Logger logger = LogManager.getLogger();
     private final        String apiKey;
 
-    public HttpService(String apiKey, String apiBase) {
+    public HttpService(final String apiKey, final String apiBase) {
         this.apiKey = apiKey;
         Unirest.config()
                .automaticRetries(true)
@@ -33,19 +33,19 @@ public class HttpService {
                .connectTimeout(0);
     }
 
-    public Object getRequest(String url, Map<String, Object> queryParams) throws HubSpotException {
+    public Object getRequest(final String url, final Map<String, Object> queryParams) throws HubSpotException {
         while (true) {
             try {
-                HttpResponse<JsonNode> resp = Unirest.get(url)
-                                                     .queryString(queryParams)
-                                                     .queryString("hapikey", apiKey)
-                                                     .asJson();
-                Object response = getObject(resp);
+                final HttpResponse<JsonNode> resp = Unirest.get(url)
+                                                           .queryString(queryParams)
+                                                           .queryString("hapikey", apiKey)
+                                                           .asJson();
+                final Object response = getObject(resp);
                 if (response != null) {
                     return response;
                 }
             }
-            catch (UnirestException e) {
+            catch (final UnirestException e) {
                 if (!(e.getCause() instanceof RequestAbortedException)) {
                     throw new HubSpotException("Can not get data\n URL:" + url,
                                                ErrorCodes.UNIREST_EXCEPTION.getErrorCode(),
@@ -56,16 +56,17 @@ public class HttpService {
         }
     }
 
-    private Object getObject(HttpResponse<JsonNode> resp) throws HubSpotException {
+    private Object getObject(final HttpResponse<JsonNode> resp) throws HubSpotException {
         try {
-            JSONObject response = (JSONObject) checkResponse(resp);
+            final JSONObject response = (JSONObject) checkResponse(resp);
             if (response != null) {
                 return Utils.convertType(response);
             }
         }
-        catch (HubSpotException e) {
+        catch (final HubSpotException e) {
             if (e.getCode() == ErrorCodes.HTTP_502.getErrorCode() ||
                 e.getCode() == ErrorCodes.HTTP_503.getErrorCode() ||
+                e.getCode() == ErrorCodes.HTTP_504.getErrorCode() ||
                 e.getCode() == ErrorCodes.HTTP_500.getErrorCode() ||
                 e.getCode() == ErrorCodes.HTTP_524.getErrorCode() ||
                 e.getCode() == ErrorCodes.HTTP_409.getErrorCode()) {
@@ -86,7 +87,7 @@ public class HttpService {
         return null;
     }
 
-    private Object checkResponse(HttpResponse<JsonNode> resp) throws HubSpotException {
+    private Object checkResponse(final HttpResponse<JsonNode> resp) throws HubSpotException {
         if (204 != resp.getStatus() && 200 != resp.getStatus() && 202 != resp.getStatus()) {
             String message = null;
             try {
@@ -94,15 +95,15 @@ public class HttpService {
                           ? resp.getBody().getObject().getString("message")
                           : resp.getStatusText();
             }
-            catch (Exception ignored) {
+            catch (final Exception ignored) {
             }
             if (!Strings.isNullOrEmpty(message)) {
                 if (resp.getStatus() == 429) {
-                    String policyName = resp.getBody().getObject().has("policyName")
-                                        ? resp.getBody()
-                                              .getObject()
-                                              .getString("policyName")
-                                        : "";
+                    final String policyName = resp.getBody().getObject().has("policyName")
+                                              ? resp.getBody()
+                                                    .getObject()
+                                                    .getString("policyName")
+                                              : "";
                     throw new HubSpotException(resp.getStatus() + " " + message,
                                                policyName,
                                                ErrorCodes.HTTP_429.getErrorCode()
@@ -124,19 +125,19 @@ public class HttpService {
         }
     }
 
-    public Object getRequest(String url, String properties) throws HubSpotException {
+    public Object getRequest(final String url, final String properties) throws HubSpotException {
         while (true) {
             try {
-                HttpResponse<JsonNode> resp = Unirest.get(url)
-                                                     .queryString("properties", properties)
-                                                     .queryString("hapikey", apiKey)
-                                                     .asJson();
-                Object response = getObject(resp);
+                final HttpResponse<JsonNode> resp = Unirest.get(url)
+                                                           .queryString("properties", properties)
+                                                           .queryString("hapikey", apiKey)
+                                                           .asJson();
+                final Object response = getObject(resp);
                 if (response != null) {
                     return response;
                 }
             }
-            catch (UnirestException e) {
+            catch (final UnirestException e) {
                 if (!(e.getCause() instanceof RequestAbortedException)) {
                     throw new HubSpotException("Can not get data\n URL:" + url,
                                                ErrorCodes.UNIREST_EXCEPTION.getErrorCode(),
@@ -147,16 +148,16 @@ public class HttpService {
         }
     }
 
-    public Object getRequest(String url) throws HubSpotException {
+    public Object getRequest(final String url) throws HubSpotException {
         while (true) {
             try {
-                HttpResponse<JsonNode> resp = Unirest.get(url).queryString("hapikey", apiKey).asJson();
-                Object response = getObject(resp);
+                final HttpResponse<JsonNode> resp = Unirest.get(url).queryString("hapikey", apiKey).asJson();
+                final Object response = getObject(resp);
                 if (response != null) {
                     return response;
                 }
             }
-            catch (UnirestException e) {
+            catch (final UnirestException e) {
                 if (!(e.getCause() instanceof RequestAbortedException)) {
                     throw new HubSpotException("Can not get data\n URL:" + url,
                                                ErrorCodes.UNIREST_EXCEPTION.getErrorCode(),
@@ -167,28 +168,28 @@ public class HttpService {
         }
     }
 
-    public Object postRequest(String url, String properties) throws HubSpotException {
+    public Object postRequest(final String url, final String properties) throws HubSpotException {
         return postRequest(url, properties, "application/json");
     }
 
-    public Object postRequest(String url, String properties, String contentType) throws HubSpotException {
+    public Object postRequest(final String url, final String properties, String contentType) throws HubSpotException {
         if (Strings.isNullOrEmpty(contentType)) {
             contentType = "application/json";
         }
         while (true) {
             try {
-                HttpResponse<JsonNode> resp = Unirest.post(url)
-                                                     .queryString("hapikey", apiKey)
-                                                     .header("accept", "application/json")
-                                                     .header("Content-Type", contentType)
-                                                     .body(properties)
-                                                     .asJson();
-                Object response = getObject(resp);
+                final HttpResponse<JsonNode> resp = Unirest.post(url)
+                                                           .queryString("hapikey", apiKey)
+                                                           .header("accept", "application/json")
+                                                           .header("Content-Type", contentType)
+                                                           .body(properties)
+                                                           .asJson();
+                final Object response = getObject(resp);
                 if (response != null) {
                     return response;
                 }
             }
-            catch (UnirestException e) {
+            catch (final UnirestException e) {
                 if (!(e.getCause() instanceof RequestAbortedException)) {
                     throw new HubSpotException("Cannot make a request: \n" + properties,
                                                ErrorCodes.UNIREST_EXCEPTION.getErrorCode(),
@@ -199,11 +200,12 @@ public class HttpService {
         }
     }
 
-    public Object postRequest(String url, org.json.JSONObject properties) throws HubSpotException {
+    public Object postRequest(final String url, final org.json.JSONObject properties) throws HubSpotException {
         return postRequest(url, properties.toString(), "application/json");
     }
 
-    public Object postRequest(String url, org.json.JSONObject properties, String contentType) throws HubSpotException {
+    public Object postRequest(final String url, final org.json.JSONObject properties, final String contentType)
+    throws HubSpotException {
         return postRequest(url, properties.toString(), contentType);
     }
 }
