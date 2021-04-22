@@ -9,7 +9,8 @@ import org.hubspot.objects.PropertyData;
 import org.hubspot.objects.crm.CRMObjectType;
 import org.hubspot.objects.crm.Contact;
 import org.hubspot.utils.*;
-import org.hubspot.utils.concurrent.*;
+import org.hubspot.utils.concurrent.CustomThreadFactory;
+import org.hubspot.utils.concurrent.StoringRejectedExecutionHandler;
 import org.hubspot.utils.exceptions.HubSpotException;
 import org.jetbrains.annotations.NotNull;
 import org.json.JSONObject;
@@ -117,7 +118,7 @@ public class ContactService {
             Files.createDirectories(cacheFolder);
         }
         catch (IOException e) {
-            logger.fatal("Unable to create folder {}", cacheFolder, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         int capacity = (int) Math.ceil(Math.ceil((double) count / (double) LIMIT) * Math.pow(MAX_SIZE, -0.6));
@@ -377,7 +378,7 @@ public class ContactService {
             Files.createDirectories(cacheFolder);
         }
         catch (IOException e) {
-            logger.fatal("Unable to create folder {}", cacheFolder, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         ProgressBar pb = Utils.createProgressBar("Writing Contacts", count);

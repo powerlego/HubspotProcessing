@@ -4,6 +4,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.crm.Contact;
 import org.hubspot.utils.ErrorCodes;
+import org.hubspot.utils.LogMarkers;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -33,12 +34,13 @@ public class ContactWriter {
      * @param contact The contact to write
      */
     public static void write(Contact contact) {
+        logger.traceEntry("contact={}", contact);
         //Tries to create the directory to store the written contacts
         try {
             Files.createDirectories(contactsFolder);
         }
         catch (IOException e) {
-            logger.fatal("Unable to create engagements folder {}", contactsFolder, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to create engagements folder {}", contactsFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         Path filePath;
@@ -89,10 +91,10 @@ public class ContactWriter {
         }
         catch (IOException e) {
             if (e.getMessage().contains("(The filename, directory name, or volume label syntax is incorrect)")) {
-                logger.debug("Needs to be corrected: {}", contact);
+                logger.debug(LogMarkers.CORRECTION.getMarker(), "Needs to be corrected: {}", contact);
             }
             else {
-                logger.fatal("Unable to write to file {}", filePath, e);
+                logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to write to file {}", filePath, e);
                 System.exit(ErrorCodes.IO_WRITE.getErrorCode());
             }
         }

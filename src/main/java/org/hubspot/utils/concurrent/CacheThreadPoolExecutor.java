@@ -4,10 +4,12 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.utils.ErrorCodes;
 import org.hubspot.utils.FileUtils;
+import org.hubspot.utils.LogMarkers;
 import org.hubspot.utils.exceptions.HubSpotException;
 
 import java.nio.file.Path;
 import java.util.concurrent.*;
+import java.util.concurrent.ThreadPoolExecutor.AbortPolicy;
 
 /**
  * @author Nicholas Curl
@@ -152,7 +154,7 @@ public class CacheThreadPoolExecutor extends CustomThreadPoolExecutor {
     protected void terminated() {
         Exception exception = super.getExecutionException();
         if (exception != null) {
-            logger.fatal("Error occurred during execution", exception);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Error occurred during execution", exception);
             FileUtils.deleteDirectory(folder);
             if (exception instanceof HubSpotException) {
                 HubSpotException hubSpotException = (HubSpotException) exception;
@@ -163,7 +165,7 @@ public class CacheThreadPoolExecutor extends CustomThreadPoolExecutor {
             }
         }
         else if (super.isInterrupted()) {
-            logger.fatal("Threads have been interrupted");
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Threads have been interrupted");
             FileUtils.deleteDirectory(folder);
             System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
         }

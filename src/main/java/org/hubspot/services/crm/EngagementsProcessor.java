@@ -8,7 +8,8 @@ import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.crm.engagements.*;
 import org.hubspot.objects.crm.engagements.Email.Details;
 import org.hubspot.utils.*;
-import org.hubspot.utils.concurrent.*;
+import org.hubspot.utils.concurrent.CustomThreadFactory;
+import org.hubspot.utils.concurrent.StoringRejectedExecutionHandler;
 import org.hubspot.utils.exceptions.HubSpotException;
 import org.hubspot.utils.exceptions.NullException;
 import org.json.JSONArray;
@@ -55,7 +56,7 @@ public class EngagementsProcessor {
             Files.createDirectories(cacheFolder);
         }
         catch (IOException e) {
-            logger.fatal("Unable to create folder {}", cacheFolder, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         Path folder = cacheFolder.resolve(contactId + "/");
@@ -63,7 +64,11 @@ public class EngagementsProcessor {
             Files.createDirectories(folder);
         }
         catch (IOException e) {
-            logger.fatal("Unable to write engagement jsons for contact id {}", contactId, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(),
+                         "Unable to write engagement jsons for contact id {}",
+                         contactId,
+                         e
+            );
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         CacheThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,

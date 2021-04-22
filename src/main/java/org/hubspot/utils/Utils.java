@@ -36,7 +36,7 @@ public class Utils {
                                   Logger logger,
                                   int maxSize
     ) {
-        logger.trace(debugMessage);
+        logger.trace(LogMarkers.CPU_LOAD.getMarker(), debugMessage);
         int comparison = Double.compare(load, 50.0);
         if (comparison > 0 && threadPoolExecutor.getMaximumPoolSize() != threadPoolExecutor.getCorePoolSize()) {
             int numThreads = threadPoolExecutor.getMaximumPoolSize() - 1;
@@ -218,7 +218,7 @@ public class Utils {
         executorService.shutdown();
         try {
             if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
-                logger.warn("Termination Timeout");
+                logger.warn(LogMarkers.ERROR.getMarker(), "Termination Timeout");
             }
         }
         catch (InterruptedException e) {
@@ -230,7 +230,7 @@ public class Utils {
         scheduledExecutorService.shutdown();
         try {
             if (!scheduledExecutorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
-                logger.warn("Termination Timeout");
+                logger.warn(LogMarkers.ERROR.getMarker(), "Termination Timeout");
             }
         }
         catch (InterruptedException e) {

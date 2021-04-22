@@ -10,6 +10,7 @@ import org.hubspot.objects.crm.Contact;
 import org.hubspot.services.crm.EngagementsProcessor.EngagementData;
 import org.hubspot.utils.FileUtils;
 import org.hubspot.utils.HttpService;
+import org.hubspot.utils.LogMarkers;
 import org.hubspot.utils.exceptions.HubSpotException;
 import org.jetbrains.annotations.NotNull;
 
@@ -44,7 +45,7 @@ public class CRM implements Serializable {
             return ContactService.filterContacts(contacts);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to filter contacts", e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to filter contacts", e);
             System.exit(e.getCode());
             return new HashMap<>();
         }
@@ -55,25 +56,30 @@ public class CRM implements Serializable {
         return getCompanies(propertyData);
     }
 
-    public PropertyData propsByGroupName(CRMObjectType type, String propertyGroup, boolean includeHidden) {
-        try {
-            return CRMProperties.getPropertiesByGroupName(httpService, type, propertyGroup, includeHidden, rateLimiter);
-        }
-        catch (HubSpotException e) {
-            logger.fatal("Unable to get properties", e);
-            System.exit(e.getCode());
-            return null;
-        }
-    }
-
     @NotNull
     private HashMap<Long, Company> getCompanies(PropertyData propertyData) {
         try {
             return CompanyService.getAllCompanies(httpService, propertyData, rateLimiter);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to get all companies", e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get all companies", e);
             FileUtils.deleteDirectory(CompanyService.getCacheFolder());
+            System.exit(e.getCode());
+            return new HashMap<>();
+        }
+    }
+
+    @NotNull
+    private HashMap<Long, Company> getCompanies(long lastExecuted, PropertyData propertyData, long lastFinished) {
+        if (lastFinished == -1) {
+            lastFinished = FileUtils.findMostRecentModification(CompanyService.getCacheFolder());
+        }
+        try {
+            return CompanyService.getUpdatedCompanies(httpService, propertyData, lastExecuted, lastFinished);
+        }
+        catch (HubSpotException e) {
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get updated companies", e);
+            FileUtils.deleteRecentlyUpdated(CompanyService.getCacheFolder(), lastFinished);
             System.exit(e.getCode());
             return new HashMap<>();
         }
@@ -84,12 +90,13 @@ public class CRM implements Serializable {
         return getCompanies(propertyData);
     }
 
-    public PropertyData allProperties(CRMObjectType type, boolean includeHidden) {
+    public Company getCompanyById(String propertyGroup, long companyId, boolean includeHiddenProperties) {
+        PropertyData propertyData = propsByGroupName(CRMObjectType.COMPANIES, propertyGroup, includeHiddenProperties);
         try {
-            return CRMProperties.getAllProperties(httpService, type, includeHidden, rateLimiter);
+            return CompanyService.getByID(httpService, propertyData.getPropertyNamesString(), companyId, rateLimiter);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to get properties", e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get company of id {}", companyId, e);
             System.exit(e.getCode());
             return null;
         }
@@ -100,16 +107,14 @@ public class CRM implements Serializable {
         return getContacts(propertyData);
     }
 
-    @NotNull
-    private HashMap<Long, Contact> getContacts(PropertyData propertyData) {
+    public PropertyData propsByGroupName(CRMObjectType type, String propertyGroup, boolean includeHidden) {
         try {
-            return ContactService.getAllContacts(httpService, propertyData, rateLimiter);
+            return CRMProperties.getPropertiesByGroupName(httpService, type, propertyGroup, includeHidden, rateLimiter);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to get all contacts", e);
-            FileUtils.deleteDirectory(ContactService.getCacheFolder());
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get properties", e);
             System.exit(e.getCode());
-            return new HashMap<>();
+            return null;
         }
     }
 
@@ -118,25 +123,24 @@ public class CRM implements Serializable {
         return getContacts(propertyData);
     }
 
-    public Company getCompanyById(String propertyGroup, long companyId, boolean includeHiddenProperties) {
-        PropertyData propertyData = propsByGroupName(CRMObjectType.COMPANIES, propertyGroup, includeHiddenProperties);
-        try {
-            return CompanyService.getByID(httpService, propertyData.getPropertyNamesString(), companyId, rateLimiter);
-        }
-        catch (HubSpotException e) {
-            logger.fatal("Unable to get company of id {}", companyId, e);
-            System.exit(e.getCode());
-            return null;
-        }
-    }
-
     public Company getCompanyById(long companyId, boolean includeHiddenProperties) {
         PropertyData propertyData = allProperties(CRMObjectType.COMPANIES, includeHiddenProperties);
         try {
             return CompanyService.getByID(httpService, propertyData.getPropertyNamesString(), companyId, rateLimiter);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to get company of id {}", companyId, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get company of id {}", companyId, e);
+            System.exit(e.getCode());
+            return null;
+        }
+    }
+
+    public PropertyData allProperties(CRMObjectType type, boolean includeHidden) {
+        try {
+            return CRMProperties.getAllProperties(httpService, type, includeHidden, rateLimiter);
+        }
+        catch (HubSpotException e) {
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get properties", e);
             System.exit(e.getCode());
             return null;
         }
@@ -148,7 +152,7 @@ public class CRM implements Serializable {
             return ContactService.getByID(httpService, propertyData.getPropertyNamesString(), contactId, rateLimiter);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to get contact of id {}", contactId, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get contact of id {}", contactId, e);
             System.exit(e.getCode());
             return null;
         }
@@ -160,7 +164,7 @@ public class CRM implements Serializable {
             return ContactService.getByID(httpService, propertyData.getPropertyNamesString(), contactId, rateLimiter);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to get contact of id {}", contactId, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get contact of id {}", contactId, e);
             System.exit(e.getCode());
             return null;
         }
@@ -172,7 +176,7 @@ public class CRM implements Serializable {
             return EngagementsProcessor.getAllEngagementIds(httpService, contactId);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to get engagement ids for contact id {}", contactId, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get engagement ids for contact id {}", contactId, e);
             System.exit(e.getCode());
             return new ArrayList<>();
         }
@@ -184,7 +188,7 @@ public class CRM implements Serializable {
             return EngagementsProcessor.getAllEngagements(httpService, contactId);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to get engagements for contact id {}", contactId, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get engagements for contact id {}", contactId, e);
             System.exit(e.getCode());
             return null;
         }
@@ -200,16 +204,13 @@ public class CRM implements Serializable {
     }
 
     @NotNull
-    private HashMap<Long, Company> getCompanies(long lastExecuted, PropertyData propertyData, long lastFinished) {
-        if (lastFinished == -1) {
-            lastFinished = FileUtils.findMostRecentModification(CompanyService.getCacheFolder());
-        }
+    private HashMap<Long, Contact> getContacts(PropertyData propertyData) {
         try {
-            return CompanyService.getUpdatedCompanies(httpService, propertyData, lastExecuted, lastFinished);
+            return ContactService.getAllContacts(httpService, propertyData, rateLimiter);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to get updated companies", e);
-            FileUtils.deleteRecentlyUpdated(CompanyService.getCacheFolder(), lastFinished);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get all contacts", e);
+            FileUtils.deleteDirectory(ContactService.getCacheFolder());
             System.exit(e.getCode());
             return new HashMap<>();
         }
@@ -241,7 +242,7 @@ public class CRM implements Serializable {
             return ContactService.getUpdatedContacts(httpService, propertyData, lastExecuted, lastFinished);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to get updated contacts", e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get updated contacts", e);
             FileUtils.deleteRecentlyUpdated(ContactService.getCacheFolder(), lastFinished);
             System.exit(e.getCode());
             return new HashMap<>();
@@ -265,7 +266,11 @@ public class CRM implements Serializable {
             return EngagementsProcessor.getUpdatedEngagements(httpService, contactId, lastFinished);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to get updated engagements for contact id {}", contactId, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(),
+                         "Unable to get updated engagements for contact id {}",
+                         contactId,
+                         e
+            );
             System.exit(e.getCode());
             return null;
         }
@@ -276,7 +281,7 @@ public class CRM implements Serializable {
             return CompanyService.readCompanyJsons();
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to read company jsons", e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to read company jsons", e);
             System.exit(e.getCode());
             return new HashMap<>();
         }
@@ -287,7 +292,7 @@ public class CRM implements Serializable {
             return ContactService.readContactJsons();
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to read contact jsons", e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to read contact jsons", e);
             System.exit(e.getCode());
             return new HashMap<>();
         }
@@ -298,7 +303,7 @@ public class CRM implements Serializable {
             return EngagementsProcessor.readEngagementJsons();
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to read engagement jsons", e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to read engagement jsons", e);
             System.exit(e.getCode());
             return new HashMap<>();
         }
@@ -310,7 +315,7 @@ public class CRM implements Serializable {
             CompanyService.writeCompanyJsons(httpService, propertyData, rateLimiter);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to write companies");
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to write companies");
             FileUtils.deleteDirectory(CompanyService.getCacheFolder());
             System.exit(e.getCode());
         }
@@ -322,7 +327,7 @@ public class CRM implements Serializable {
             CompanyService.writeCompanyJsons(httpService, propertyData, rateLimiter);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to write companies");
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to write companies");
             FileUtils.deleteDirectory(CompanyService.getCacheFolder());
             System.exit(e.getCode());
         }
@@ -333,7 +338,7 @@ public class CRM implements Serializable {
             EngagementsProcessor.writeContactEngagementJsons(httpService, contactId);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to write engagement for contact id {}", contactId, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to write engagement for contact id {}", contactId, e);
             FileUtils.deleteDirectory(EngagementsProcessor.getCacheFolder());
             System.exit(e.getCode());
         }
@@ -345,7 +350,7 @@ public class CRM implements Serializable {
             ContactService.writeContactJson(httpService, propertyData, rateLimiter);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to write contacts");
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to write contacts");
             FileUtils.deleteDirectory(ContactService.getCacheFolder());
             System.exit(e.getCode());
         }
@@ -357,7 +362,7 @@ public class CRM implements Serializable {
             ContactService.writeContactJson(httpService, propertyData, rateLimiter);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to write contacts");
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to write contacts");
             FileUtils.deleteDirectory(ContactService.getCacheFolder());
             System.exit(e.getCode());
         }

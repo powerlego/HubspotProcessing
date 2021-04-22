@@ -73,6 +73,7 @@ public class EngagementsWriter {
                              long id,
                              List<Engagement> engagements
     ) {
+        logger.traceEntry("hubspot={}, id={},engagements={}", hubspot, id, engagements);
         /*Checks to see if the engagements list is empty. If it is don't continue to write */
         if (!engagements.isEmpty()) {
             /* Tries to create the overall directory that the engagements are written to*/
@@ -80,7 +81,11 @@ public class EngagementsWriter {
                 Files.createDirectories(engagementsFolder);
             }
             catch (IOException e) {
-                logger.fatal("Unable to create engagements folder {}", engagementsFolder, e);
+                logger.fatal(LogMarkers.ERROR.getMarker(),
+                             "Unable to create engagements folder {}",
+                             engagementsFolder,
+                             e
+                );
                 System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
             }
             Path contact = engagementsFolder.resolve(id + "/");
@@ -89,7 +94,7 @@ public class EngagementsWriter {
                 Files.createDirectories(contact);
             }
             catch (IOException e) {
-                logger.fatal("Unable to create contact directory for id {}", id, e);
+                logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to create contact directory for id {}", id, e);
                 System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
             }
             Path emails = contact.resolve("emails/");
@@ -109,28 +114,32 @@ public class EngagementsWriter {
                 Files.createDirectories(notes);
             }
             catch (IOException e) {
-                logger.fatal("Unable to make notes directory for contact id {}", id, e);
+                logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to make notes directory for contact id {}", id, e);
                 System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
             }
             try {
                 Files.createDirectories(tasks);
             }
             catch (IOException e) {
-                logger.fatal("Unable to make tasks directory for contact id {}", id, e);
+                logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to make tasks directory for contact id {}", id, e);
                 System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
             }
             try {
                 Files.createDirectories(calls);
             }
             catch (IOException e) {
-                logger.fatal("Unable to make calls directory for contact id {}", id, e);
+                logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to make calls directory for contact id {}", id, e);
                 System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
             }
             try {
                 Files.createDirectories(meetings);
             }
             catch (IOException e) {
-                logger.fatal("Unable to make meetings directory for contact id {}", id, e);
+                logger.fatal(LogMarkers.ERROR.getMarker(),
+                             "Unable to make meetings directory for contact id {}",
+                             id,
+                             e
+                );
                 System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
             }
             AtomicInteger emailNum = new AtomicInteger();
@@ -179,7 +188,6 @@ public class EngagementsWriter {
                             Path notePath;
                             /* Checks to see if the note has attachments.  If it does download them.*/
                             if (note.hasAttachments()) {
-                                logger.trace("Contact ID {}, Note Num {}", id, noteNum.get());
                                 Path noteFolder = notes.resolve("note_" + noteNum.get());
                                 try {
                                     Files.createDirectories(noteFolder);
@@ -250,5 +258,6 @@ public class EngagementsWriter {
                 FileUtils.deleteDirectory(tasks);
             }
         }
+        logger.traceExit();
     }
 }

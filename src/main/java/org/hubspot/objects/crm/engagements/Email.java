@@ -65,12 +65,14 @@ public class Email extends Engagement {
                  String body
     ) {
         super(id);
+        logger.traceEntry(() -> id, () -> to, () -> cc, () -> bcc, () -> from, () -> bcc);
         this.to = to;
         this.cc = cc;
         this.bcc = bcc;
         this.from = from;
         this.subject = subject;
         this.body = body;
+        logger.traceExit();
     }
 
     /**

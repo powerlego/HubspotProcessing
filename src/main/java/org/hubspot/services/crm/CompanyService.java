@@ -9,7 +9,8 @@ import org.hubspot.objects.PropertyData;
 import org.hubspot.objects.crm.CRMObjectType;
 import org.hubspot.objects.crm.Company;
 import org.hubspot.utils.*;
-import org.hubspot.utils.concurrent.*;
+import org.hubspot.utils.concurrent.CustomThreadFactory;
+import org.hubspot.utils.concurrent.StoringRejectedExecutionHandler;
 import org.hubspot.utils.exceptions.HubSpotException;
 import org.jetbrains.annotations.NotNull;
 import org.json.JSONObject;
@@ -81,7 +82,7 @@ public class CompanyService {
             Files.createDirectories(cacheFolder);
         }
         catch (IOException e) {
-            logger.fatal("Unable to create folder {}", cacheFolder, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Companies", count);
@@ -321,7 +322,7 @@ public class CompanyService {
             Files.createDirectories(cacheFolder);
         }
         catch (IOException e) {
-            logger.fatal("Unable to create folder {}", cacheFolder, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to create folder {}", cacheFolder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         ProgressBar pb = Utils.createProgressBar("Writing Companies", count);

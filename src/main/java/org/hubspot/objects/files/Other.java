@@ -8,10 +8,22 @@ import org.apache.logging.log4j.Logger;
  *
  * @author Nicholas Curl
  */
-public class Other {
+public class Other extends HSFile {
 
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger logger           = LogManager.getLogger();
+    private static final long   serialVersionUID = -4885872607922692974L;
+
+    public Other(long id,
+                 long engagementId,
+                 String name,
+                 String extension,
+                 long size,
+                 boolean hidden,
+                 String url
+    ) {
+        super(id, engagementId, name, extension, size, hidden, url);
+    }
 }

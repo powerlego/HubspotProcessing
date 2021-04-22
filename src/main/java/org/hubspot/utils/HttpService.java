@@ -29,61 +29,8 @@ public class HttpService {
         Unirest.config().automaticRetries(true).socketTimeout(0).defaultBaseUrl(apiBase).connectTimeout(0);
     }
 
-    public Object getRequest(String url, Map<String, Object> queryParams) throws HubSpotException {
-        while (true) {
-            try {
-                HttpResponse<JsonNode> resp = Unirest.get(url)
-                                                     .queryString(queryParams)
-                                                     .queryString("hapikey", apiKey)
-                                                     .asJson();
-                Object response = getObject(resp);
-                if (response != null) {
-                    return response;
-                }
-            }
-            catch (UnirestException e) {
-                if (!(e.getCause() instanceof RequestAbortedException)) {
-                    throw new HubSpotException("Can not get data\n URL:" + url,
-                                               ErrorCodes.UNIREST_EXCEPTION.getErrorCode(),
-                                               e
-                    );
-                }
-            }
-        }
-    }
-
-    private Object getObject(HttpResponse<JsonNode> resp) throws HubSpotException {
-        try {
-            JSONObject response = (JSONObject) checkResponse(resp);
-            if (response != null) {
-                return Utils.convertType(response);
-            }
-        }
-        catch (HubSpotException e) {
-            if (e.getCode() == ErrorCodes.HTTP_502.getErrorCode() ||
-                e.getCode() == ErrorCodes.HTTP_503.getErrorCode() ||
-                e.getCode() == ErrorCodes.HTTP_504.getErrorCode() ||
-                e.getCode() == ErrorCodes.HTTP_500.getErrorCode() ||
-                e.getCode() == ErrorCodes.HTTP_524.getErrorCode() ||
-                e.getCode() == ErrorCodes.HTTP_409.getErrorCode()) {
-                Utils.sleep(50L);
-            }
-            else if (e.getCode() == ErrorCodes.HTTP_429.getErrorCode()) {
-                if (e.getPolicyName().equalsIgnoreCase("DAILY")) {
-                    throw new HubSpotException("Daily limit reached", ErrorCodes.DAILY_LIMIT_REACHED.getErrorCode());
-                }
-                else {
-                    Utils.sleep(50L);
-                }
-            }
-            else {
-                throw e;
-            }
-        }
-        return null;
-    }
-
     private Object checkResponse(HttpResponse<JsonNode> resp) throws HubSpotException {
+        logger.debug(LogMarkers.HTTP.getMarker(), new Response(resp));
         if (204 != resp.getStatus() && 200 != resp.getStatus() && 202 != resp.getStatus()) {
             String message = null;
             try {
@@ -118,6 +65,61 @@ public class HttpService {
         }
         else {
             return null;
+        }
+    }
+
+    private Object getObject(HttpResponse<JsonNode> resp) throws HubSpotException {
+        try {
+            JSONObject response = (JSONObject) checkResponse(resp);
+            if (response != null) {
+                return Utils.convertType(response);
+            }
+        }
+        catch (HubSpotException e) {
+            if (e.getCode() == ErrorCodes.HTTP_502.getErrorCode() ||
+                e.getCode() == ErrorCodes.HTTP_503.getErrorCode() ||
+                e.getCode() == ErrorCodes.HTTP_504.getErrorCode() ||
+                e.getCode() == ErrorCodes.HTTP_500.getErrorCode() ||
+                e.getCode() == ErrorCodes.HTTP_524.getErrorCode() ||
+                e.getCode() == ErrorCodes.HTTP_409.getErrorCode()) {
+                Utils.sleep(50L);
+            }
+            else if (e.getCode() == ErrorCodes.HTTP_429.getErrorCode()) {
+                if (e.getPolicyName().equalsIgnoreCase("DAILY")) {
+                    throw new HubSpotException("Daily limit reached", ErrorCodes.DAILY_LIMIT_REACHED.getErrorCode());
+                }
+                else {
+                    Utils.sleep(50L);
+                }
+            }
+            else {
+                throw e;
+            }
+        }
+        return null;
+    }
+
+    public Object getRequest(String url, Map<String, Object> queryParams) throws HubSpotException {
+        while (true) {
+            try {
+                HttpResponse<JsonNode> resp = Unirest.get(url)
+                                                     .queryString(queryParams)
+                                                     .queryString("hapikey", apiKey)
+                                                     .asJson();
+
+                Object response = getObject(resp);
+                if (response != null) {
+                    return response;
+                }
+            }
+            catch (UnirestException e) {
+                if (!(e.getCause() instanceof RequestAbortedException)) {
+                    throw new HubSpotException("Can not get data\n URL:" + url,
+                                               ErrorCodes.UNIREST_EXCEPTION.getErrorCode(),
+                                               e
+                    );
+                }
+            }
         }
     }
 

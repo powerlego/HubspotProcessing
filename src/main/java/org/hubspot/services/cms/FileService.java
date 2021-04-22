@@ -6,8 +6,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.crm.engagements.Engagement;
 import org.hubspot.objects.crm.engagements.Note;
-import org.hubspot.objects.files.Document;
-import org.hubspot.objects.files.HSFile;
+import org.hubspot.objects.files.*;
 import org.hubspot.utils.*;
 import org.hubspot.utils.concurrent.CacheThreadPoolExecutor;
 import org.hubspot.utils.concurrent.CustomThreadFactory;
@@ -72,7 +71,7 @@ public class FileService {
             Files.createDirectories(folder);
         }
         catch (IOException e) {
-            logger.fatal("Unable to create cache directory {}", folder, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to create cache directory {}", folder, e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         ArrayList<Note> notes = new ArrayList<>();
@@ -192,14 +191,20 @@ public class FileService {
                 case "DOCUMENT":
                     return new Document(fileId, engagementId, name, extension, size, hidden, url);
                 case "IMG":
+                    long height = metadata.getLong("height");
+                    long width = metadata.getLong("width");
+                    return new Image(fileId, engagementId, name, extension, size, hidden, url, width, height);
                 case "TEXT":
+                    return new Text(fileId, engagementId, name, extension, size, hidden, url);
                 case "OTHER":
-                    logger.debug(metadata.toString(4));
+                    return new Other(fileId, engagementId, name, extension, size, hidden, url);
                 default:
+                    logger.debug(LogMarkers.MISSING.getMarker(), metadata.toString(4));
                     return null;
             }
         }
         else {
+            logger.debug(LogMarkers.MISSING.getMarker(), metadata.toString(4));
             return null;
         }
     }

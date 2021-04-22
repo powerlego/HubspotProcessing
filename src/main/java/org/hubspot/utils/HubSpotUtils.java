@@ -47,7 +47,7 @@ public class HubSpotUtils {
             return resp.getLong("total");
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to get object count.", e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get object count.", e);
             return 0;
         }
     }

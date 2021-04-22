@@ -3,6 +3,7 @@ package org.hubspot.utils.concurrent;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.utils.ErrorCodes;
+import org.hubspot.utils.LogMarkers;
 import org.hubspot.utils.exceptions.HubSpotException;
 
 import java.util.concurrent.*;
@@ -178,7 +179,7 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
     @Override
     protected void terminated() {
         if (executionException != null) {
-            logger.fatal("Error occurred during execution", executionException);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Error occurred during execution", executionException);
             if (executionException instanceof HubSpotException) {
                 HubSpotException exception = (HubSpotException) executionException;
                 System.exit(exception.getCode());
@@ -188,7 +189,7 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
             }
         }
         else if (interrupted) {
-            logger.fatal("Threads have been interrupted");
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Threads have been interrupted");
             System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
         }
         super.terminated();

@@ -7,6 +7,7 @@ import org.hubspot.objects.crm.engagements.Engagement;
 import org.hubspot.objects.crm.engagements.Note;
 import org.hubspot.objects.files.HSFile;
 import org.hubspot.utils.HttpService;
+import org.hubspot.utils.LogMarkers;
 import org.hubspot.utils.exceptions.HubSpotException;
 
 import java.io.Serializable;
@@ -39,7 +40,7 @@ public class CMS implements Serializable {
             FileService.downloadFile(folder, file, httpService, rateLimiter);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to download file {}", file.toString(), e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to download file {}", file.toString(), e);
             System.exit(e.getCode());
         }
     }
@@ -49,7 +50,7 @@ public class CMS implements Serializable {
             FileService.downloadFiles(folder, files, httpService, rateLimiter);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to Download Files", e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to Download Files", e);
             System.exit(e.getCode());
         }
     }
@@ -63,7 +64,7 @@ public class CMS implements Serializable {
             return FileService.getFileMetadata(httpService, rateLimiter, engagementId, fileId);
         }
         catch (HubSpotException e) {
-            logger.fatal("Unable to get File id {}", fileId, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get File id {}", fileId, e);
             System.exit(e.getCode());
             return null;
         }

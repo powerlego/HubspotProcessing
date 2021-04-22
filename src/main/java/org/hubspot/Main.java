@@ -51,7 +51,7 @@ public class Main {
             Files.createDirectories(Paths.get("./cache"));
         }
         catch (IOException e) {
-            logger.fatal("Unable to create cache folder {}", Paths.get("./cache"), e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to create cache folder {}", Paths.get("./cache"), e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
         long lastExecuted = FileUtils.readLastExecution();

@@ -5,26 +5,77 @@
                                  filePattern="logs/$${date:yyyy-MM}/processing-%d{MM-dd-yyyy}-%i.log.gz"
                                  immediateFlush="false">
             <PatternLayout>
-                <Pattern>%d %p %c [%n%m%n%ex]%n</Pattern>
+                <Pattern>%d %markerSimpleName %p %c [%n%m%n%ex]%n</Pattern>
             </PatternLayout>
             <Policies>
                 <TimeBasedTriggeringPolicy/>
                 <SizeBasedTriggeringPolicy size="20 MB"/>
             </Policies>
+            <!--            <ThresholdFilter level="INFO"/>-->
         </RollingRandomAccessFile>
         <RandomAccessFile name="FileDebug" filename="logs/processing-debug.log" append="false" immediateFlush="false">
             <PatternLayout>
                 <Pattern>%d %p %c [%n%m%n%ex]%n</Pattern>
             </PatternLayout>
         </RandomAccessFile>
+        <RandomAccessFile name="CORRECTION" filename="logs/corrections.log" append="false" immediateFlush="false">
+            <PatternLayout>
+                <Pattern>%d %p %c [%n%m%n%ex]%n</Pattern>
+            </PatternLayout>
+        </RandomAccessFile>
+        <RandomAccessFile name="FLOW" filename="logs/flows.log" append="false" immediateFlush="false">
+            <PatternLayout>
+                <Pattern>%d %p %c [%n%m%n%ex]%n</Pattern>
+            </PatternLayout>
+        </RandomAccessFile>
+        <RandomAccessFile name="MISSING" filename="logs/missing.log" append="false" immediateFlush="false">
+            <PatternLayout>
+                <Pattern>%d %p %c [%n%m%n%ex]%n</Pattern>
+            </PatternLayout>
+        </RandomAccessFile>
+        <RandomAccessFile name="CPU_LOAD" filename="logs/cpu_load.log" append="false" immediateFlush="false">
+            <PatternLayout>
+                <Pattern>%d %p %c [%n%m%n%ex]%n</Pattern>
+            </PatternLayout>
+        </RandomAccessFile>
+        <RandomAccessFile name="DELETION" filename="logs/deletion.log" append="false" immediateFlush="false">
+            <PatternLayout>
+                <Pattern>%d %p %c [%n%m%n%ex]%n</Pattern>
+            </PatternLayout>
+        </RandomAccessFile>
+        <RollingRandomAccessFile name="HTTP" filename="logs/http.log"
+                                 filePattern="logs/$${date:yyyy-MM}/http-%d{MM-dd-yyyy}-%i.log.gz"
+                                 immediateFlush="false">
+            <PatternLayout>
+                <Pattern>%d %p %c [%n%m%n%ex]%n</Pattern>
+            </PatternLayout>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="20 MB"/>
+            </Policies>
+            <!--            <ThresholdFilter level="INFO"/>-->
+        </RollingRandomAccessFile>
         <Console name="STDOUT" target="SYSTEM_OUT">
             <PatternLayout pattern="%p %c{2} %m%n"/>
         </Console>
+        <Routing name="Routing">
+            <Routes pattern="$${marker:}">
+                <Route key="CORRECTION" ref="CORRECTION"/>
+                <Route key="ENTER" ref="FLOW"/>
+                <Route key="EXIT" ref="FLOW"/>
+                <Route key="MISSING" ref="MISSING"/>
+                <Route key="CPU_LOAD" ref="CPU_LOAD"/>
+                <Route key="DELETION" ref="DELETION"/>
+                <Route key="HTTP" ref="HTTP"/>
+                <Route key="DEBUG" ref="FileDebug"/>
+                <Route key="ERROR" ref="RollingFile"/>
+                <Route ref="RollingFile"/>
+            </Routes>
+        </Routing>
     </Appenders>
     <Loggers>
         <AsyncLogger name="org.hubspot" level="ALL" additivity="true">
-            <AppenderRef ref="FileDebug" level="debug"/>
-            <AppenderRef ref="RollingFile" level="info"/>
+            <AppenderRef ref="Routing"/>
         </AsyncLogger>
         <Root level="INFO">
             <AppenderRef ref="STDOUT" level="info"/>

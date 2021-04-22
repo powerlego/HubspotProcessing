@@ -63,6 +63,14 @@ public class Call extends Engagement {
                 String recordingURL
     ) {
         super(id);
+        logger.traceEntry("id={}, title={}, toNumber={}, fromNumber={}, durationMilliseconds={}, recordingUrl={}",
+                          id,
+                          title,
+                          toNumber,
+                          fromNumber,
+                          durationMilliseconds,
+                          recordingURL
+        );
         this.title = title;
         this.body = body;
         this.recordingURL = recordingURL;
@@ -73,6 +81,7 @@ public class Call extends Engagement {
         long minute = (durationMilliseconds / (1000 * 60)) % 60;
         long hour = (durationMilliseconds / (1000 * 60 * 60)) % 24;
         duration = String.format("%02d:%02d:%02d.%d", hour, minute, second, millis);
+        logger.traceExit();
     }
 
     /**

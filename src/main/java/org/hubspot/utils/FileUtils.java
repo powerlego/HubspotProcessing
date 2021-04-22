@@ -34,7 +34,7 @@ public class FileUtils {
             Files.walkFileTree(directoryToBeDeleted, new DeletingVisitor(false));
         }
         catch (IOException e) {
-            logger.fatal("Unable to delete directory {}", directoryToBeDeleted, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to delete directory {}", directoryToBeDeleted, e);
         }
     }
 
@@ -50,7 +50,11 @@ public class FileUtils {
                         Files.delete(file.toPath());
                     }
                     catch (IOException e) {
-                        logger.fatal("Unable to delete file {}. Please delete manually.", file, e);
+                        logger.fatal(LogMarkers.ERROR.getMarker(),
+                                     "Unable to delete file {}. Please delete manually.",
+                                     file,
+                                     e
+                        );
                     }
                 }
             }
@@ -106,7 +110,7 @@ public class FileUtils {
             jsonString = readFile(file);
         }
         catch (IOException e) {
-            logger.fatal("Unable to read json string", e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to read json string", e);
             System.exit(ErrorCodes.IO_READ.getErrorCode());
         }
         return jsonString;
@@ -195,7 +199,7 @@ public class FileUtils {
             fileWriter.close();
         }
         catch (IOException e) {
-            logger.fatal("Unable to write file {}", lastExecutedFile, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to write file {}", lastExecutedFile, e);
             System.exit(ErrorCodes.IO_WRITE.getErrorCode());
         }
         return lastExecuted;
@@ -210,7 +214,7 @@ public class FileUtils {
             fileWriter.close();
         }
         catch (IOException e) {
-            logger.fatal("Unable to write file {}", lastFinishedFile, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to write file {}", lastFinishedFile, e);
             System.exit(ErrorCodes.IO_WRITE.getErrorCode());
         }
     }
