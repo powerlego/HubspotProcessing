@@ -26,22 +26,21 @@ public class CRMProperties {
     private static final Logger logger  = LogManager.getLogger();
     private static final String urlBase = "/crm/v3/properties/";
 
-    static PropertyData getAllProperties(final HttpService service,
-                                         final CRMObjectType type,
-                                         final boolean includeHidden,
+    static PropertyData getAllProperties(HttpService service,
+                                         CRMObjectType type,
+                                         boolean includeHidden,
                                          final RateLimiter rateLimiter
-    )
-    throws HubSpotException {
-        final Map<String, Object> properties = new HashMap<>();
-        final ArrayList<String> propertyNames = new ArrayList<>();
+    ) throws HubSpotException {
+        Map<String, Object> properties = new HashMap<>();
+        ArrayList<String> propertyNames = new ArrayList<>();
         rateLimiter.acquire();
-        final JSONObject jsonObject = (JSONObject) service.getRequest(urlBase + type.getValue());
-        final JSONArray results = jsonObject.getJSONArray("results");
-        for (final Object o : results) {
+        JSONObject jsonObject = (JSONObject) service.getRequest(urlBase + type.getValue());
+        JSONArray results = jsonObject.getJSONArray("results");
+        for (Object o : results) {
             if (o instanceof JSONObject) {
-                final JSONObject o1 = (JSONObject) o;
-                final String name = o1.getString("name");
-                final boolean hidden = o1.getBoolean("hidden");
+                JSONObject o1 = (JSONObject) o;
+                String name = o1.getString("name");
+                boolean hidden = o1.getBoolean("hidden");
                 if (!includeHidden && hidden) {
                     continue;
                 }
@@ -53,20 +52,20 @@ public class CRMProperties {
         return new PropertyData(propertyNames, properties);
     }
 
-    static PropertyData getPropertiesByGroupName(final HttpService service,
-                                                 final CRMObjectType type,
-                                                 final String groupName,
-                                                 final boolean includeHidden,
+    static PropertyData getPropertiesByGroupName(HttpService service,
+                                                 CRMObjectType type,
+                                                 String groupName,
+                                                 boolean includeHidden,
                                                  final RateLimiter rateLimiter
     ) throws HubSpotException {
-        final Map<String, Object> properties = new HashMap<>();
-        final ArrayList<String> propertyNames = new ArrayList<>();
+        Map<String, Object> properties = new HashMap<>();
+        ArrayList<String> propertyNames = new ArrayList<>();
         rateLimiter.acquire();
-        final JSONObject jsonObject = (JSONObject) service.getRequest(urlBase + type.getValue());
-        final JSONArray results = jsonObject.getJSONArray("results");
-        for (final Object o : results) {
+        JSONObject jsonObject = (JSONObject) service.getRequest(urlBase + type.getValue());
+        JSONArray results = jsonObject.getJSONArray("results");
+        for (Object o : results) {
             if (o instanceof JSONObject) {
-                final JSONObject o1 = (JSONObject) o;
+                JSONObject o1 = (JSONObject) o;
                 String name = "";
                 String jsonGroupName = "";
                 if (o1.has("groupName")) {
@@ -76,7 +75,7 @@ public class CRMProperties {
                     if (o1.has("name")) {
                         name = o1.getString("name");
                     }
-                    final boolean hidden = o1.getBoolean("hidden");
+                    boolean hidden = o1.getBoolean("hidden");
                     if (!includeHidden && hidden) {
                         continue;
                     }

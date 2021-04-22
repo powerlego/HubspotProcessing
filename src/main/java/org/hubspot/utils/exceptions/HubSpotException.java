@@ -18,21 +18,21 @@ public class HubSpotException extends Exception {
     private              String policyName;
     private              String rawMessage;
 
-    public HubSpotException(final String message) {
+    public HubSpotException(String message) {
         this(message, null, -1, null);
     }
 
-    public HubSpotException(final String message, final String policyName, final int code, final Throwable cause) {
+    public HubSpotException(String message, String policyName, int code, Throwable cause) {
         super(message, cause);
         this.policyName = policyName;
         this.code = code;
     }
 
-    public HubSpotException(final String message, final int code) {
+    public HubSpotException(String message, int code) {
         this(message, null, code, null);
     }
 
-    public HubSpotException(final String message, final int code, final Throwable cause) {
+    public HubSpotException(String message, int code, Throwable cause) {
         this(message, null, code, cause);
     }
 
@@ -41,15 +41,15 @@ public class HubSpotException extends Exception {
         this.code = ErrorCodes.HUBSPOT_EXCEPTION.getErrorCode();
     }
 
-    public HubSpotException(final String message, final String policyName, final int code) {
+    public HubSpotException(String message, String policyName, int code) {
         this(message, policyName, code, null);
     }
 
-    public HubSpotException(final String message, final String policyName) {
+    public HubSpotException(String message, String policyName) {
         this(message, policyName, ErrorCodes.HUBSPOT_EXCEPTION.getErrorCode(), null);
     }
 
-    public HubSpotException(final Throwable cause, final int code) {
+    public HubSpotException(Throwable cause, int code) {
         super(cause);
         this.code = code;
     }
@@ -66,7 +66,7 @@ public class HubSpotException extends Exception {
         return rawMessage;
     }
 
-    public void setRawMessage(final String rawMessage) {
+    public void setRawMessage(String rawMessage) {
         this.rawMessage = rawMessage;
     }
 }

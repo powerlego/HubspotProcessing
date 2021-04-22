@@ -56,13 +56,13 @@ public class Email extends Engagement {
      * @param subject The subject line of the email
      * @param body    The body of the email
      */
-    public Email(final long id,
-                 final List<Details> to,
-                 final List<Details> cc,
-                 final List<Details> bcc,
-                 final Details from,
-                 final String subject,
-                 final String body
+    public Email(long id,
+                 List<Details> to,
+                 List<Details> cc,
+                 List<Details> bcc,
+                 Details from,
+                 String subject,
+                 String body
     ) {
         super(id);
         this.to = to;
@@ -134,9 +134,9 @@ public class Email extends Engagement {
      */
     @Override
     public String toString() {
-        final StringBuilder toBuilder = new StringBuilder();
-        final StringBuilder ccBuilder = new StringBuilder();
-        final StringBuilder bccBuilder = new StringBuilder();
+        StringBuilder toBuilder = new StringBuilder();
+        StringBuilder ccBuilder = new StringBuilder();
+        StringBuilder bccBuilder = new StringBuilder();
         for (int i = 0; i < to.size(); i++) {
             if ((i + 1) == to.size()) {
                 toBuilder.append(to.get(i));
@@ -200,7 +200,7 @@ public class Email extends Engagement {
          * @param lastName     The last name associated to the email address
          * @param emailAddress The email address
          */
-        public Details(final String firstName, final String lastName, final String emailAddress) {
+        public Details(String firstName, String lastName, String emailAddress) {
             this.firstName = firstName;
             this.lastName = lastName;
             this.emailAddress = emailAddress;

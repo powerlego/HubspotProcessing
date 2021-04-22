@@ -18,12 +18,12 @@ public class DeletingVisitor extends SimpleFileVisitor<Path> {
     private static final Logger  logger = LogManager.getLogger();
     private final        boolean testMode;
 
-    public DeletingVisitor(final boolean testMode) {
+    public DeletingVisitor(boolean testMode) {
         this.testMode = testMode;
     }
 
     @Override
-    public FileVisitResult visitFile(final Path file, final BasicFileAttributes attrs) throws IOException {
+    public FileVisitResult visitFile(Path file, BasicFileAttributes attrs) throws IOException {
         if (isTestMode()) {
             logger.debug("Deleting {} (TEST MODE: file not actually deleted)", file);
         }
@@ -34,7 +34,7 @@ public class DeletingVisitor extends SimpleFileVisitor<Path> {
     }
 
     @Override
-    public FileVisitResult visitFileFailed(final Path file, final IOException ioException) throws IOException {
+    public FileVisitResult visitFileFailed(Path file, IOException ioException) throws IOException {
         if (ioException instanceof NoSuchFileException) {
             logger.debug("File {} could not be accessed, it has likely already been deleted", file, ioException);
             return FileVisitResult.CONTINUE;
@@ -45,7 +45,7 @@ public class DeletingVisitor extends SimpleFileVisitor<Path> {
     }
 
     @Override
-    public FileVisitResult postVisitDirectory(final Path dir, final IOException exc) throws IOException {
+    public FileVisitResult postVisitDirectory(Path dir, IOException exc) throws IOException {
         if (isTestMode()) {
             logger.debug("Deleting {} (TEST MODE: directory not actually deleted)", dir);
         }
@@ -57,7 +57,6 @@ public class DeletingVisitor extends SimpleFileVisitor<Path> {
 
     /**
      * Returns {@code true} if files are not deleted even when all conditions accept a path, {@code false} otherwise.
-     *
      * @return {@code true} if files are not deleted even when all conditions accept a path, {@code false} otherwise
      */
     public boolean isTestMode() {
@@ -68,7 +67,7 @@ public class DeletingVisitor extends SimpleFileVisitor<Path> {
      * Deletes the specified file. @param file the file to delete @throws IOException if a problem occurred deleting the
      * file
      */
-    protected void delete(final Path file) throws IOException {
+    protected void delete(Path file) throws IOException {
         logger.trace("Deleting {}", file);
         Files.deleteIfExists(file);
     }

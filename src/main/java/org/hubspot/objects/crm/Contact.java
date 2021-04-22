@@ -59,7 +59,7 @@ public class Contact extends CRMObject {
      *
      * @param id The contact's Hubspot id
      */
-    public Contact(final long id) {
+    public Contact(long id) {
         super(id);
     }
 
@@ -68,7 +68,7 @@ public class Contact extends CRMObject {
      *
      * @param engagementIds The list of engagement ids to associate
      */
-    public void addAllEngagementIds(final List<Long> engagementIds) {
+    public void addAllEngagementIds(List<Long> engagementIds) {
         this.engagementIds.addAll(engagementIds);
     }
 
@@ -77,7 +77,7 @@ public class Contact extends CRMObject {
      *
      * @param engagements The list of engagements to associate
      */
-    public void addAllEngagements(final List<Engagement> engagements) {
+    public void addAllEngagements(List<Engagement> engagements) {
         this.engagements.addAll(engagements);
     }
 
@@ -86,7 +86,7 @@ public class Contact extends CRMObject {
      *
      * @param engagement The engagement to associate
      */
-    public void addEngagement(final Engagement engagement) {
+    public void addEngagement(Engagement engagement) {
         this.engagements.add(engagement);
     }
 
@@ -95,7 +95,7 @@ public class Contact extends CRMObject {
      *
      * @param engagementId The engagement id to associate
      */
-    public void addEngagementId(final long engagementId) {
+    public void addEngagementId(long engagementId) {
         this.engagementIds.add(engagementId);
     }
 
@@ -105,7 +105,7 @@ public class Contact extends CRMObject {
      * @return The associated company id
      */
     public long getAssociatedCompany() {
-        final Object companyIdObject = this.getProperties().get("associatedcompanyid");
+        Object companyIdObject = this.getProperties().get("associatedcompanyid");
         if (companyIdObject instanceof Integer) {
             return (int) companyIdObject;
         }
@@ -138,7 +138,7 @@ public class Contact extends CRMObject {
      *
      * @param engagementIds The list of engagement ids that are associated with this contact
      */
-    public void setEngagementIds(final List<Long> engagementIds) {
+    public void setEngagementIds(List<Long> engagementIds) {
         this.engagementIds = engagementIds;
     }
 
@@ -156,7 +156,7 @@ public class Contact extends CRMObject {
      *
      * @param engagements The list of engagements that are associated with this contact
      */
-    public void setEngagements(final List<Engagement> engagements) {
+    public void setEngagements(List<Engagement> engagements) {
         this.engagements = engagements;
     }
 
@@ -203,7 +203,7 @@ public class Contact extends CRMObject {
      * @param value    The value of the property
      */
     @Override
-    public void setProperty(final String property, final Object value) {
+    public void setProperty(String property, Object value) {
         if (property.equalsIgnoreCase("lifecyclestage")) {
             this.lifeCycleStage = value.toString();
         }
@@ -229,9 +229,9 @@ public class Contact extends CRMObject {
      */
     @Override
     public String toString() {
-        final StringBuilder builder = new StringBuilder(super.toString()).append("\nEngagement IDs {\n");
-        for (final Iterator<Long> iterator = engagementIds.iterator(); iterator.hasNext(); ) {
-            final long engagementId = iterator.next();
+        StringBuilder builder = new StringBuilder(super.toString()).append("\nEngagement IDs {\n");
+        for (Iterator<Long> iterator = engagementIds.iterator(); iterator.hasNext(); ) {
+            long engagementId = iterator.next();
             if (!iterator.hasNext()) {
                 builder.append("\t").append(engagementId).append("\n");
             }
@@ -249,8 +249,8 @@ public class Contact extends CRMObject {
      * @return The json object representation of this contact
      */
     public JSONObject toJson() {
-        final JSONObject jo = new JSONObject(super.getProperties());
-        final JSONArray ja = new JSONArray(engagementIds);
+        JSONObject jo = new JSONObject(super.getProperties());
+        JSONArray ja = new JSONArray(engagementIds);
         return new JSONObject().put("class", this.getClass().getName())
                                .put("id", getId())
                                .put("properties", jo)

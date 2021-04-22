@@ -55,13 +55,13 @@ public class HSFile extends HubSpotObject {
      * @param hidden       Is the file hidden
      * @param url          The download url of the file
      */
-    public HSFile(final long id,
-                  final long engagementId,
-                  final String name,
-                  final String extension,
-                  final long size,
-                  final boolean hidden,
-                  final String url
+    public HSFile(long id,
+                  long engagementId,
+                  String name,
+                  String extension,
+                  long size,
+                  boolean hidden,
+                  String url
     ) {
         super(id);
         this.name = name;

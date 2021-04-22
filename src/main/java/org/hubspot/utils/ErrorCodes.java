@@ -36,7 +36,7 @@ public enum ErrorCodes {
     HTTP_524(12);
     private final int errorCode;
 
-    ErrorCodes(final int errorCode) {
+    ErrorCodes(int errorCode) {
         this.errorCode = errorCode;
     }
 

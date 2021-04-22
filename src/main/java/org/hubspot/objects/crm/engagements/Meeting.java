@@ -46,7 +46,7 @@ public class Meeting extends Engagement {
      * @param body      The body/description of the meeting
      * @param title     The title of the meeting
      */
-    public Meeting(final long id, final long startTime, final long endTime, final String body, final String title) {
+    public Meeting(long id, long startTime, long endTime, String body, String title) {
         super(id);
         if (startTime != -1) {
             this.startTime = new Date(startTime);

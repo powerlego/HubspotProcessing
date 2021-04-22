@@ -16,13 +16,6 @@ import java.util.Map;
 public class PropertyData implements Serializable {
 
     /**
-     * An empty property data
-     */
-    public static final  PropertyData        EMPTY
-                                                              = new PropertyData(new ArrayList<>(List.of("hs_object_id")),
-                                                                                 new HashMap<>()
-    );
-    /**
      * The instance of the logger
      */
     private static final Logger              logger           = LogManager.getLogger();
@@ -30,6 +23,13 @@ public class PropertyData implements Serializable {
      * The serial version UID for this class
      */
     private static final long                serialVersionUID = -6380123557928383335L;
+    /**
+     * An empty property data
+     */
+    public static        PropertyData        EMPTY
+                                                              = new PropertyData(new ArrayList<>(List.of("hs_object_id")),
+                                                                                 new HashMap<>()
+    );
     /**
      * The list of property names
      */
@@ -45,7 +45,7 @@ public class PropertyData implements Serializable {
      * @param propertyNames The property names
      * @param properties    The map of properties
      */
-    public PropertyData(final ArrayList<String> propertyNames, final Map<String, Object> properties) {
+    public PropertyData(ArrayList<String> propertyNames, Map<String, Object> properties) {
         this.properties = properties;
         this.propertyNames = propertyNames;
     }
@@ -66,7 +66,7 @@ public class PropertyData implements Serializable {
      *
      * @return The value of the property
      */
-    public Object getProperty(final String propertyName) {
+    public Object getProperty(String propertyName) {
         return properties.get(propertyName);
     }
 

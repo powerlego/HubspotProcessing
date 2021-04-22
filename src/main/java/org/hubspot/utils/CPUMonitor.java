@@ -21,18 +21,17 @@ public class CPUMonitor {
     /**
      * The instance of the logger
      */
-    private static final Logger                   logger      = LogManager.getLogger();
-    private static final ScheduledExecutorService scheduledExecutorService
-                                                              = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory(
-            "CPUMonitor"));
-    private static final long                     PERIOD      = 100;
-    private static final AtomicDouble             processLoad = new AtomicDouble();
-    private static final AtomicDouble             systemLoad  = new AtomicDouble();
-    private static final SystemInfo               si          = new SystemInfo();
-    private static final long                     pid         = ProcessHandle.current().pid();
-    private static final CentralProcessor         cpu         = si.getHardware().getProcessor();
+    private static final Logger                   logger                   = LogManager.getLogger();
+    private static final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
+            new CustomThreadFactory("CPUMonitor"));
+    private static final long                     PERIOD                   = 100;
+    private static final AtomicDouble             processLoad              = new AtomicDouble();
+    private static final AtomicDouble             systemLoad               = new AtomicDouble();
+    private static final SystemInfo               si                       = new SystemInfo();
+    private static final long                     pid                      = ProcessHandle.current().pid();
+    private static final CentralProcessor         cpu                      = si.getHardware().getProcessor();
     private static       OSProcess                priorProcSnap;
-    private static       long[]                   oldTicks    = new long[TickType.values().length];
+    private static       long[]                   oldTicks                 = new long[TickType.values().length];
 
     public static double getProcessLoad() {
         return processLoad.get();
@@ -44,13 +43,10 @@ public class CPUMonitor {
 
     public static void startMonitoring() {
         scheduledExecutorService.scheduleAtFixedRate(() -> {
-            final OSProcess currentProcess = si.getOperatingSystem().getProcess((int) pid);
-            final double cpuLoad = Utils.round(100d * cpu.getSystemCpuLoadBetweenTicks(oldTicks), 1);
-            final double procLoad = Utils.round(100d *
-                                                currentProcess.getProcessCpuLoadBetweenTicks(priorProcSnap) /
-                                                cpu.getLogicalProcessorCount(),
-                                                1
-            );
+            OSProcess currentProcess = si.getOperatingSystem().getProcess((int) pid);
+            double cpuLoad = Utils.round(100d * cpu.getSystemCpuLoadBetweenTicks(oldTicks), 1);
+            double procLoad = Utils.round(100d * currentProcess.getProcessCpuLoadBetweenTicks(priorProcSnap) /
+                                          cpu.getLogicalProcessorCount(), 1);
             processLoad.set(procLoad);
             priorProcSnap = currentProcess;
             oldTicks = cpu.getSystemCpuLoadTicks();

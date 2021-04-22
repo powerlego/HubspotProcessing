@@ -30,13 +30,13 @@ public class Document extends HSFile {
      * @param hidden       Is the document hidden
      * @param url          The url to download the document
      */
-    public Document(final long id,
-                    final long engagementId,
-                    final String name,
-                    final String extension,
-                    final long size,
-                    final boolean hidden,
-                    final String url
+    public Document(long id,
+                    long engagementId,
+                    String name,
+                    String extension,
+                    long size,
+                    boolean hidden,
+                    String url
     ) {
         super(id, engagementId, name, extension, size, hidden, url);
     }

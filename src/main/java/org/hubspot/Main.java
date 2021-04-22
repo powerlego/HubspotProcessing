@@ -45,12 +45,12 @@ public class Main {
     private static final int    MAX_SIZE           = 75;
     private static final String debugMessageFormat = "Method %-30s\tProcess Load: %f";
 
-    public static void main(final String[] args) {
+    public static void main(String[] args) {
         CPUMonitor.startMonitoring();
         try {
             Files.createDirectories(Paths.get("./cache"));
         }
-        catch (final IOException e) {
+        catch (IOException e) {
             logger.fatal("Unable to create cache folder {}", Paths.get("./cache"), e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
@@ -63,10 +63,10 @@ public class Main {
                 FileUtils.writeLastExecution();
             }
         }
-        final long lastFinished = FileUtils.readLastFinished();
-        final HubSpot hubspot = new HubSpot("6ab73220-900f-462b-b753-b6757d94cd1d");
-        final HashMap<Long, Contact> contacts;
-        final HashMap<Long, Contact> updatedContacts;
+        long lastFinished = FileUtils.readLastFinished();
+        HubSpot hubspot = new HubSpot("6ab73220-900f-462b-b753-b6757d94cd1d");
+        HashMap<Long, Contact> contacts;
+        HashMap<Long, Contact> updatedContacts;
         if (!ContactService.cacheExists()) {
             contacts = hubspot.crm().getAllContacts("contactinformation", true);
             updatedContacts = new HashMap<>();
@@ -78,61 +78,59 @@ public class Main {
             contacts.putAll(updatedContacts);
         }
         Utils.sleep(DELAY);
-        final HashMap<Long, Company> companies;
+        HashMap<Long, Company> companies;
         if (!CompanyService.cacheExists()) {
             companies = hubspot.crm().getAllCompanies("companyinformation", false);
         }
         else {
             companies = hubspot.crm().readCompanyJsons();
             Utils.sleep(DELAY);
-            final HashMap<Long, Company> updatedCompanies = hubspot.crm()
-                                                                   .getUpdatedCompanies("companyinformation",
-                                                                                        false,
-                                                                                        lastExecuted,
-                                                                                        lastFinished
-                                                                   );
+            HashMap<Long, Company> updatedCompanies = hubspot.crm()
+                                                             .getUpdatedCompanies("companyinformation",
+                                                                                  false,
+                                                                                  lastExecuted,
+                                                                                  lastFinished
+                                                             );
             companies.putAll(updatedCompanies);
         }
-        final HashMap<Long, EngagementData> engagements;
+        HashMap<Long, EngagementData> engagements;
         if (!EngagementsProcessor.cacheExists()) {
             engagements = null;
         }
         else {
             engagements = hubspot.crm().readEngagementJsons();
         }
-        //final HashMap<Long, Contact> filteredContacts = hubspot.crm().filterContacts(contacts);
-        final int capacity = (int) Math.ceil(Math.ceil((double) contacts.size() / (double) LIMIT) *
-                                             Math.pow(MAX_SIZE, -0.6));
-        final CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
-                                                                                         STARTING_POOL_SIZE,
-                                                                                         0L,
-                                                                                         TimeUnit.MILLISECONDS,
-                                                                                         new LinkedBlockingQueue<>(Math.max(
-                                                                                                 capacity,
-                                                                                                 Runtime.getRuntime()
-                                                                                                        .availableProcessors()
-                                                                                         )),
-                                                                                         new CustomThreadFactory(
-                                                                                                 "MainThreadPool"),
-                                                                                         new StoringRejectedExecutionHandler()
+        int capacity = (int) Math.ceil(Math.ceil((double) contacts.size() / (double) LIMIT) * Math.pow(MAX_SIZE, -0.6));
+        CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
+                                                                                   STARTING_POOL_SIZE,
+                                                                                   0L,
+                                                                                   TimeUnit.MILLISECONDS,
+                                                                                   new LinkedBlockingQueue<>(Math.max(
+                                                                                           capacity,
+                                                                                           Runtime.getRuntime()
+                                                                                                  .availableProcessors()
+                                                                                   )),
+                                                                                   new CustomThreadFactory(
+                                                                                           "MainThreadPool"),
+                                                                                   new StoringRejectedExecutionHandler()
         );
-        final Iterable<List<Long>> partitions = Iterables.partition(contacts.keySet(), LIMIT);
-        final ScheduledExecutorService scheduledExecutorService
+        Iterable<List<Long>> partitions = Iterables.partition(contacts.keySet(), LIMIT);
+        ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("MainThreadPoolUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
-            final double load = CPUMonitor.getProcessLoad();
-            final String debugMessage = String.format(debugMessageFormat, "Main", load);
+            double load = CPUMonitor.getProcessLoad();
+            String debugMessage = String.format(debugMessageFormat, "Main", load);
             Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
         }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
-        final ProgressBar progressBar = Utils.createProgressBar("Processing Contacts", contacts.size());
+        ProgressBar progressBar = Utils.createProgressBar("Processing Contacts", contacts.size());
         Utils.sleep(WARMUP);
-        final ConcurrentHashMap<Long, Contact> concurrentContacts = new ConcurrentHashMap<>(contacts);
+        ConcurrentHashMap<Long, Contact> concurrentContacts = new ConcurrentHashMap<>(contacts);
         if (engagements == null) {
-            for (final List<Long> partition : partitions) {
+            for (List<Long> partition : partitions) {
                 threadPoolExecutor.submit(() -> {
-                    for (final long contactId : partition) {
-                        final Contact contact = concurrentContacts.get(contactId);
-                        final EngagementData engagementData = hubspot.crm().getContactEngagements(contact);
+                    for (long contactId : partition) {
+                        Contact contact = concurrentContacts.get(contactId);
+                        EngagementData engagementData = hubspot.crm().getContactEngagements(contact);
                         processContact(hubspot, companies, contact, engagementData, progressBar);
                     }
                     return null;
@@ -140,20 +138,18 @@ public class Main {
             }
         }
         else {
-            for (final List<Long> partition : partitions) {
+            for (List<Long> partition : partitions) {
                 threadPoolExecutor.submit(() -> {
-                    for (final Long contactId : partition) {
-                        final Contact contact = concurrentContacts.get(contactId);
-                        final EngagementData engagementData;
+                    for (Long contactId : partition) {
+                        Contact contact = concurrentContacts.get(contactId);
+                        EngagementData engagementData;
                         if (!engagements.containsKey(contactId)) {
                             engagementData = hubspot.crm().getContactEngagements(contact);
                         }
                         else if (updatedContacts.containsKey(contactId)) {
                             engagementData = engagements.get(contactId);
-                            final EngagementData updatedEngagements = hubspot.crm()
-                                                                             .getUpdatedEngagements(contact,
-                                                                                                    lastFinished
-                                                                             );
+                            EngagementData updatedEngagements = hubspot.crm()
+                                                                       .getUpdatedEngagements(contact, lastFinished);
                             engagementData.getEngagementIds().addAll(updatedEngagements.getEngagementIds());
                             engagementData.getEngagements().addAll(updatedEngagements.getEngagements());
                         }
@@ -172,22 +168,22 @@ public class Main {
         CPUMonitor.stopMonitoring();
     }
 
-    private static void processContact(final HubSpot hubspot,
-                                       final HashMap<Long, Company> companies,
-                                       final Contact contact,
-                                       final EngagementData engagementData,
-                                       final ProgressBar progressBar
+    private static void processContact(HubSpot hubspot,
+                                       HashMap<Long, Company> companies,
+                                       Contact contact,
+                                       EngagementData engagementData,
+                                       ProgressBar progressBar
     ) {
         if (!engagementData.getEngagements().isEmpty()) {
             hubspot.cms().getAllNoteAttachments(contact.getId(), engagementData.getEngagements());
         }
         contact.setEngagementIds(engagementData.getEngagementIds());
         contact.setEngagements(engagementData.getEngagements());
-        final String companyProperty = contact.getProperty("company").toString();
+        String companyProperty = contact.getProperty("company").toString();
         if (companyProperty == null || companyProperty.equalsIgnoreCase("null")) {
-            final long associatedCompanyId = contact.getAssociatedCompany();
+            long associatedCompanyId = contact.getAssociatedCompany();
             if (associatedCompanyId != 0) {
-                final Company company = companies.get(associatedCompanyId);
+                Company company = companies.get(associatedCompanyId);
                 contact.setProperty("company", company.getName());
             }
         }

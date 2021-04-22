@@ -17,9 +17,9 @@ public class UpdateThreadPoolExecutor extends CacheThreadPoolExecutor {
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
-    private final        Path   folder;
-    private final        long   lastFinished;
+    private static Logger logger = LogManager.getLogger();
+    private        Path   folder;
+    private        long   lastFinished;
 
     /**
      * Creates a new {@code ThreadPoolExecutor} with the given initial parameters, the default thread factory and the
@@ -42,13 +42,13 @@ public class UpdateThreadPoolExecutor extends CacheThreadPoolExecutor {
      *                                  corePoolSize}
      * @throws NullPointerException     if {@code workQueue} is null
      */
-    public UpdateThreadPoolExecutor(final int corePoolSize,
-                                    final int maximumPoolSize,
-                                    final long keepAliveTime,
-                                    final TimeUnit unit,
-                                    final BlockingQueue<Runnable> workQueue,
-                                    final Path folder,
-                                    final long lastFinished
+    public UpdateThreadPoolExecutor(int corePoolSize,
+                                    int maximumPoolSize,
+                                    long keepAliveTime,
+                                    TimeUnit unit,
+                                    BlockingQueue<Runnable> workQueue,
+                                    Path folder,
+                                    long lastFinished
     ) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, folder);
         this.folder = folder;
@@ -74,14 +74,14 @@ public class UpdateThreadPoolExecutor extends CacheThreadPoolExecutor {
      *                                  corePoolSize}
      * @throws NullPointerException     if {@code workQueue} or {@code threadFactory} is null
      */
-    public UpdateThreadPoolExecutor(final int corePoolSize,
-                                    final int maximumPoolSize,
-                                    final long keepAliveTime,
-                                    final TimeUnit unit,
-                                    final BlockingQueue<Runnable> workQueue,
-                                    final ThreadFactory threadFactory,
-                                    final Path folder,
-                                    final long lastFinished
+    public UpdateThreadPoolExecutor(int corePoolSize,
+                                    int maximumPoolSize,
+                                    long keepAliveTime,
+                                    TimeUnit unit,
+                                    BlockingQueue<Runnable> workQueue,
+                                    ThreadFactory threadFactory,
+                                    Path folder,
+                                    long lastFinished
     ) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, folder);
         this.folder = folder;
@@ -108,14 +108,14 @@ public class UpdateThreadPoolExecutor extends CacheThreadPoolExecutor {
      *                                  corePoolSize}
      * @throws NullPointerException     if {@code workQueue} or {@code handler} is null
      */
-    public UpdateThreadPoolExecutor(final int corePoolSize,
-                                    final int maximumPoolSize,
-                                    final long keepAliveTime,
-                                    final TimeUnit unit,
-                                    final BlockingQueue<Runnable> workQueue,
-                                    final RejectedExecutionHandler handler,
-                                    final Path folder,
-                                    final long lastFinished
+    public UpdateThreadPoolExecutor(int corePoolSize,
+                                    int maximumPoolSize,
+                                    long keepAliveTime,
+                                    TimeUnit unit,
+                                    BlockingQueue<Runnable> workQueue,
+                                    RejectedExecutionHandler handler,
+                                    Path folder,
+                                    long lastFinished
     ) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, handler, folder);
         this.folder = folder;
@@ -142,15 +142,15 @@ public class UpdateThreadPoolExecutor extends CacheThreadPoolExecutor {
      *                                  corePoolSize}
      * @throws NullPointerException     if {@code workQueue} or {@code threadFactory} or {@code handler} is null
      */
-    public UpdateThreadPoolExecutor(final int corePoolSize,
-                                    final int maximumPoolSize,
-                                    final long keepAliveTime,
-                                    final TimeUnit unit,
-                                    final BlockingQueue<Runnable> workQueue,
-                                    final ThreadFactory threadFactory,
-                                    final RejectedExecutionHandler handler,
-                                    final Path folder,
-                                    final long lastFinished
+    public UpdateThreadPoolExecutor(int corePoolSize,
+                                    int maximumPoolSize,
+                                    long keepAliveTime,
+                                    TimeUnit unit,
+                                    BlockingQueue<Runnable> workQueue,
+                                    ThreadFactory threadFactory,
+                                    RejectedExecutionHandler handler,
+                                    Path folder,
+                                    long lastFinished
     ) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler, folder);
         this.folder = folder;
@@ -159,12 +159,12 @@ public class UpdateThreadPoolExecutor extends CacheThreadPoolExecutor {
 
     @Override
     protected void terminated() {
-        final Exception exception = super.getExecutionException();
+        Exception exception = super.getExecutionException();
         if (exception != null) {
             logger.fatal("Error occurred during execution", exception);
             FileUtils.deleteRecentlyUpdated(folder, lastFinished);
             if (exception instanceof HubSpotException) {
-                final HubSpotException hubSpotException = (HubSpotException) exception;
+                HubSpotException hubSpotException = (HubSpotException) exception;
                 System.exit(hubSpotException.getCode());
             }
             else {

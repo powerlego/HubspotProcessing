@@ -29,48 +29,47 @@ public class CMS implements Serializable {
     private final        HttpService httpService;
     private final        RateLimiter rateLimiter;
 
-    public CMS(final HttpService httpService, final RateLimiter rateLimiter) {
+    public CMS(HttpService httpService, final RateLimiter rateLimiter) {
         this.rateLimiter = rateLimiter;
         this.httpService = httpService;
     }
 
-    public void downloadFile(final Path folder, final HSFile file) {
+    public void downloadFile(Path folder, HSFile file) {
         try {
             FileService.downloadFile(folder, file, httpService, rateLimiter);
         }
-        catch (final HubSpotException e) {
+        catch (HubSpotException e) {
             logger.fatal("Unable to download file {}", file.toString(), e);
             System.exit(e.getCode());
         }
     }
 
-    public void downloadFiles(final Path folder, final List<HSFile> files) {
+    public void downloadFiles(Path folder, List<HSFile> files) {
         try {
             FileService.downloadFiles(folder, files, httpService, rateLimiter);
         }
-        catch (final HubSpotException e) {
+        catch (HubSpotException e) {
             logger.fatal("Unable to Download Files", e);
             System.exit(e.getCode());
         }
     }
 
-    public void getAllNoteAttachments(final long contactId, final List<Engagement> engagements) {
+    public void getAllNoteAttachments(long contactId, List<Engagement> engagements) {
         FileService.getAllNoteAttachments(httpService, rateLimiter, contactId, engagements);
     }
 
-    public HSFile getFile(final long engagementId, final long fileId) {
+    public HSFile getFile(long engagementId, long fileId) {
         try {
             return FileService.getFileMetadata(httpService, rateLimiter, engagementId, fileId);
         }
-        catch (final HubSpotException e) {
+        catch (HubSpotException e) {
             logger.fatal("Unable to get File id {}", fileId, e);
             System.exit(e.getCode());
             return null;
         }
     }
 
-    public List<HSFile> getFileMetadatas(final Note note) {
+    public List<HSFile> getFileMetadatas(Note note) {
         return FileService.getFileMetadatas(httpService, rateLimiter, note);
     }
-
 }

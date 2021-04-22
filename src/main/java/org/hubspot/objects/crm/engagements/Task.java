@@ -65,14 +65,14 @@ public class Task extends Engagement {
      * @param remindersMilliseconds      The list of reminders for the task in milliseconds since January 1, 1970,
      *                                   00:00:00 GMT
      */
-    public Task(final long id,
-                final String taskType,
-                final String subject,
-                final String body,
-                final String forObjectType,
-                final String status,
-                final long completionDateMilliseconds,
-                final List<Long> remindersMilliseconds
+    public Task(long id,
+                String taskType,
+                String subject,
+                String body,
+                String forObjectType,
+                String status,
+                long completionDateMilliseconds,
+                List<Long> remindersMilliseconds
     ) {
         super(id);
         this.taskType = taskType;
@@ -87,7 +87,7 @@ public class Task extends Engagement {
             this.completionDate = null;
         }
         reminders = new LinkedList<>();
-        for (final long reminder : remindersMilliseconds) {
+        for (long reminder : remindersMilliseconds) {
             reminders.add(new Date(reminder));
         }
     }
