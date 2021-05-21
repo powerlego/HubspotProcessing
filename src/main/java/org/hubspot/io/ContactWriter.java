@@ -22,7 +22,7 @@ public class ContactWriter {
     /**
      * The instance of the logger
      */
-    private static final Logger logger         = LogManager.getLogger();
+    private static final Logger logger         = LogManager.getLogger(ContactWriter.class);
     /**
      * The directory to write the processed contacts to
      */

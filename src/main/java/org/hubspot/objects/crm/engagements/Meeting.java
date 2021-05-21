@@ -15,7 +15,7 @@ public class Meeting extends Engagement {
     /**
      * The instance of the logger
      */
-    private static final Logger logger           = LogManager.getLogger();
+    private static final Logger logger           = LogManager.getLogger(Meeting.class);
     /**
      * The serial version UID for this class
      */

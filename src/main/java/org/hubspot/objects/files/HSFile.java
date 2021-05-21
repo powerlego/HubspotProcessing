@@ -14,7 +14,7 @@ public class HSFile extends HubSpotObject {
     /**
      * The instance of the logger
      */
-    private static final Logger  logger           = LogManager.getLogger();
+    private static final Logger  logger           = LogManager.getLogger(HSFile.class);
     /**
      * The serial version UID for this class
      */

@@ -14,7 +14,7 @@ public class CustomThreadFactory implements ThreadFactory {
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger logger = LogManager.getLogger(CustomThreadFactory.class);
     private final        String name;
     private              int    counter;
 

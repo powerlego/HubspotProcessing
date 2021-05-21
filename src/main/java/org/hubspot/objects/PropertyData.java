@@ -18,7 +18,7 @@ public class PropertyData implements Serializable {
     /**
      * The instance of the logger
      */
-    private static final Logger              logger           = LogManager.getLogger();
+    private static final Logger              logger           = LogManager.getLogger(PropertyData.class);
     /**
      * The serial version UID for this class
      */

@@ -14,7 +14,7 @@ public class Response {
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger logger = LogManager.getLogger(Response.class);
     private final        String statusText;
     private final        int    statusCode;
     private final        String headers;

@@ -21,7 +21,7 @@ public class HttpService {
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger logger = LogManager.getLogger(HttpService.class);
     private final        String apiKey;
 
     public HttpService(String apiKey, String apiBase) {

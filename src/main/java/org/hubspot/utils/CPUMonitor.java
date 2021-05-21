@@ -21,7 +21,7 @@ public class CPUMonitor {
     /**
      * The instance of the logger
      */
-    private static final Logger                   logger                   = LogManager.getLogger();
+    private static final Logger                   logger                   = LogManager.getLogger(CPUMonitor.class);
     private static final ScheduledExecutorService scheduledExecutorService = Executors.newSingleThreadScheduledExecutor(
             new CustomThreadFactory("CPUMonitor"));
     private static final long                     PERIOD                   = 100;

@@ -22,7 +22,7 @@ public class CMS implements Serializable {
     /**
      * The instance of the logger
      */
-    private static final Logger      logger           = LogManager.getLogger();
+    private static final Logger      logger           = LogManager.getLogger(CMS.class);
     /**
      * The serial version UID for this class
      */

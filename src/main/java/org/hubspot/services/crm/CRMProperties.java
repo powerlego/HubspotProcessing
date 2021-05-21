@@ -23,7 +23,7 @@ public class CRMProperties {
     /**
      * The instance of the logger
      */
-    private static final Logger logger  = LogManager.getLogger();
+    private static final Logger logger  = LogManager.getLogger(CRMProperties.class);
     private static final String urlBase = "/crm/v3/properties/";
 
     static PropertyData getAllProperties(HttpService service,

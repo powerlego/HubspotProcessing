@@ -11,7 +11,7 @@ public class NullException extends Exception {
     /**
      * The instance of the logger
      */
-    private static final Logger logger           = LogManager.getLogger();
+    private static final Logger logger           = LogManager.getLogger(NullException.class);
     private static final long   serialVersionUID = -7761586587464190270L;
 
     public NullException(String message) {

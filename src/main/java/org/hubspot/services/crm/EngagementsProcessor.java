@@ -30,7 +30,7 @@ public class EngagementsProcessor {
     /**
      * The instance of the logger
      */
-    private static final Logger      logger             = LogManager.getLogger();
+    private static final Logger      logger             = LogManager.getLogger(EngagementsProcessor.class);
     private static final int         WORDWRAP           = 80;
     private static final Path        cacheFolder        = Paths.get("./cache/engagements");
     private static final RateLimiter rateLimiter        = RateLimiter.create(13.0);
@@ -85,6 +85,7 @@ public class EngagementsProcessor {
                                                                                  new StoringRejectedExecutionHandler(),
                                                                                  folder
         );
+        Utils.addExecutor(threadPoolExecutor);
         ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("EngagementGrabberUpdater_Contact_" +
                                                                                      contactId));
@@ -129,6 +130,7 @@ public class EngagementsProcessor {
                                                                                            contactId),
                                                                                    new StoringRejectedExecutionHandler()
         );
+        Utils.addExecutor(threadPoolExecutor);
         ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("EngagementIdsUpdater_Contact_" +
                                                                                      contactId));
@@ -411,6 +413,7 @@ public class EngagementsProcessor {
                                                                                    folder,
                                                                                    lastFinished
         );
+        Utils.addExecutor(threadPoolExecutor);
         ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory(
                 "EngagementUpdateGrabberUpdater_Contact_" + contactId));
@@ -466,6 +469,7 @@ public class EngagementsProcessor {
                                                                                                "EngagementsReader"),
                                                                                        new StoringRejectedExecutionHandler()
             );
+            Utils.addExecutor(threadPoolExecutor);
             ScheduledExecutorService scheduledExecutorService
                     = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("EngagementsReaderUpdater"));
             scheduledExecutorService.scheduleAtFixedRate(() -> {
@@ -516,6 +520,7 @@ public class EngagementsProcessor {
                                                                                                contactId),
                                                                                        new StoringRejectedExecutionHandler()
             );
+            Utils.addExecutor(threadPoolExecutor);
             ScheduledExecutorService scheduledExecutorService
                     = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory(
                     "EngagementReaderUpdater_Contact_" + contactId));
@@ -583,6 +588,7 @@ public class EngagementsProcessor {
                                                                                  new StoringRejectedExecutionHandler(),
                                                                                  folder
         );
+        Utils.addExecutor(threadPoolExecutor);
         ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("EngagementJsonsUpdater_Contact_" +
                                                                                      contactId));
@@ -630,6 +636,7 @@ public class EngagementsProcessor {
                                                                                                contactId),
                                                                                        new StoringRejectedExecutionHandler()
             );
+            Utils.addExecutor(threadPoolExecutor);
             ScheduledExecutorService scheduledExecutorService
                     = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory(
                     "EngagementJsonGrabberUpdater_Contact_" + contactId));

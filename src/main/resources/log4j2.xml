@@ -33,11 +33,18 @@
                 <Pattern>%d %p %c [%n%m%n%ex]%n</Pattern>
             </PatternLayout>
         </RandomAccessFile>
-        <RandomAccessFile name="CPU_LOAD" filename="logs/cpu_load.log" append="false" immediateFlush="false">
+        <RollingRandomAccessFile name="CPU_LOAD" filename="logs/cpu_load.log"
+                                 filePattern="logs/$${date:yyyy-MM}/cpu_load-%d{MM-dd-yyyy}-%i.log.gz"
+                                 immediateFlush="false">
             <PatternLayout>
                 <Pattern>%d %p %c [%n%m%n%ex]%n</Pattern>
             </PatternLayout>
-        </RandomAccessFile>
+            <Policies>
+                <TimeBasedTriggeringPolicy/>
+                <SizeBasedTriggeringPolicy size="20 MB"/>
+            </Policies>
+            <!--            <ThresholdFilter level="INFO"/>-->
+        </RollingRandomAccessFile>
         <RandomAccessFile name="DELETION" filename="logs/deletion.log" append="false" immediateFlush="false">
             <PatternLayout>
                 <Pattern>%d %p %c [%n%m%n%ex]%n</Pattern>

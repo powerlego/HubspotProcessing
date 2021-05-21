@@ -35,7 +35,7 @@ public class FileService {
     /**
      * The instance of the logger
      */
-    private static final Logger logger             = LogManager.getLogger();
+    private static final Logger logger             = LogManager.getLogger(FileService.class);
     private static final Path   cacheFolder        = Paths.get("./cache/files/");
     private static final int    LIMIT              = 1;
     private static final long   UPDATE_INTERVAL    = 100;
@@ -98,6 +98,7 @@ public class FileService {
                                                                                  new StoringRejectedExecutionHandler(),
                                                                                  folder
         );
+        Utils.addExecutor(threadPoolExecutor);
         ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("FileGrabberUpdater_Contact_" +
                                                                                      contactId));
@@ -152,6 +153,7 @@ public class FileService {
                                                                                  new StoringRejectedExecutionHandler(),
                                                                                  folder
         );
+        Utils.addExecutor(threadPoolExecutor);
         ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("FileMetadataGrabberUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
@@ -238,6 +240,7 @@ public class FileService {
                                                                                            "FileMetadataGrabber"),
                                                                                    new StoringRejectedExecutionHandler()
         );
+        Utils.addExecutor(threadPoolExecutor);
         ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("FileMetadataGrabberUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {

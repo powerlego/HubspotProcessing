@@ -30,7 +30,7 @@ public class ContactService {
     /**
      * The instance of the logger
      */
-    private static final Logger logger             = LogManager.getLogger();
+    private static final Logger logger             = LogManager.getLogger(ContactService.class);
     private static final int    LIMIT              = 10;
     private static final Path   cacheFolder        = Paths.get("./cache/contacts/");
     private static final String url                = "/crm/v3/objects/contacts/";
@@ -62,6 +62,7 @@ public class ContactService {
                                                                                            "ContactFilter"),
                                                                                    new StoringRejectedExecutionHandler()
         );
+        Utils.addExecutor(threadPoolExecutor);
         ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("ContactFilterUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
@@ -133,6 +134,7 @@ public class ContactService {
                                                                             new StoringRejectedExecutionHandler(),
                                                                             cacheFolder
         );
+        Utils.addExecutor(threadPoolExecutor);
         ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("ContactGrabberUpdater"));
         ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Contacts", count);
@@ -269,6 +271,7 @@ public class ContactService {
                                                                                    cacheFolder,
                                                                                    lastFinished
         );
+        Utils.addExecutor(threadPoolExecutor);
         ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("ContactUpdaterUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
@@ -315,6 +318,7 @@ public class ContactService {
                                                                                                "ContactReader"),
                                                                                        new StoringRejectedExecutionHandler()
             );
+            Utils.addExecutor(threadPoolExecutor);
             ScheduledExecutorService scheduledExecutorService
                     = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("ContactReaderUpdater"));
             scheduledExecutorService.scheduleAtFixedRate(() -> {
@@ -366,6 +370,7 @@ public class ContactService {
                                                                                  new StoringRejectedExecutionHandler(),
                                                                                  cacheFolder
         );
+        Utils.addExecutor(threadPoolExecutor);
         ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("ContactWriterUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {

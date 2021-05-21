@@ -13,7 +13,7 @@ public class Other extends HSFile {
     /**
      * The instance of the logger
      */
-    private static final Logger logger           = LogManager.getLogger();
+    private static final Logger logger           = LogManager.getLogger(Other.class);
     private static final long   serialVersionUID = -4885872607922692974L;
 
     public Other(long id,

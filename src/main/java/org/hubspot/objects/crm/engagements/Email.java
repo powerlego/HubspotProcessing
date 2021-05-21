@@ -15,7 +15,7 @@ public class Email extends Engagement {
     /**
      * The instance of the logger
      */
-    private static final Logger        logger           = LogManager.getLogger();
+    private static final Logger        logger           = LogManager.getLogger(Email.class);
     /**
      * The serial version UID for this class
      */

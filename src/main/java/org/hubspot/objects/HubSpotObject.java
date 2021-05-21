@@ -16,7 +16,7 @@ public class HubSpotObject implements Serializable {
     /**
      * The instance of the logger
      */
-    private static final Logger     logger           = LogManager.getLogger();
+    private static final Logger     logger           = LogManager.getLogger(HubSpotObject.class);
     /**
      * The serial version UID for this class
      */

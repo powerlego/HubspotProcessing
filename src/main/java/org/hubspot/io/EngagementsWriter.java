@@ -33,7 +33,7 @@ public class EngagementsWriter {
     /**
      * The instance of the logger
      */
-    private static final Logger logger             = LogManager.getLogger();
+    private static final Logger logger             = LogManager.getLogger(EngagementsWriter.class);
     /**
      * The folder to store the written engagements
      */
@@ -162,6 +162,7 @@ public class EngagementsWriter {
                                                                                      new StoringRejectedExecutionHandler(),
                                                                                      contact
             );
+            Utils.addExecutor(threadPoolExecutor);
             Iterable<List<Engagement>> partitions = Iterables.partition(engagements, LIMIT);
             ScheduledExecutorService scheduledExecutorService
                     = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("EngagementWriterUpdater"));

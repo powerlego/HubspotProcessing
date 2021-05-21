@@ -13,7 +13,7 @@ public class Image extends HSFile {
     /**
      * The instance of the logger
      */
-    private static final Logger logger           = LogManager.getLogger();
+    private static final Logger logger           = LogManager.getLogger(Image.class);
     /**
      * The serial version UID for this class
      */

@@ -30,7 +30,7 @@ public class CompanyService {
     /**
      * The instance of the logger
      */
-    private static final Logger logger             = LogManager.getLogger();
+    private static final Logger logger             = LogManager.getLogger(CompanyService.class);
     private static final int    LIMIT              = 10;
     private static final String url                = "/crm/v3/objects/companies/";
     private static final Path   cacheFolder        = Paths.get("./cache/companies/");
@@ -70,6 +70,7 @@ public class CompanyService {
                                                                                  new StoringRejectedExecutionHandler(),
                                                                                  cacheFolder
         );
+        Utils.addExecutor(threadPoolExecutor);
         ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("CompanyGrabberUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
@@ -213,6 +214,7 @@ public class CompanyService {
                                                                                    cacheFolder,
                                                                                    lastFinished
         );
+        Utils.addExecutor(threadPoolExecutor);
         ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("CompanyUpdaterUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
@@ -259,6 +261,7 @@ public class CompanyService {
                                                                                                "CompanyReader"),
                                                                                        new StoringRejectedExecutionHandler()
             );
+            Utils.addExecutor(threadPoolExecutor);
             ScheduledExecutorService scheduledExecutorService
                     = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("CompanyReaderUpdater"));
             scheduledExecutorService.scheduleAtFixedRate(() -> {
@@ -310,6 +313,7 @@ public class CompanyService {
                                                                                  new StoringRejectedExecutionHandler(),
                                                                                  cacheFolder
         );
+        Utils.addExecutor(threadPoolExecutor);
         ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("CompanyWriterUpdater"));
         scheduledExecutorService.scheduleAtFixedRate(() -> {

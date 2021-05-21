@@ -9,7 +9,6 @@ import org.hubspot.utils.exceptions.HubSpotException;
 
 import java.nio.file.Path;
 import java.util.concurrent.*;
-import java.util.concurrent.ThreadPoolExecutor.AbortPolicy;
 
 /**
  * @author Nicholas Curl
@@ -19,7 +18,7 @@ public class CacheThreadPoolExecutor extends CustomThreadPoolExecutor {
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger logger = LogManager.getLogger(CacheThreadPoolExecutor.class);
     private final        Path   folder;
 
     /**

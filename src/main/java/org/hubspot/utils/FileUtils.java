@@ -24,7 +24,7 @@ public class FileUtils {
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger logger = LogManager.getLogger(FileUtils.class);
 
     /**
      * Deletes the specified directory @param directoryToBeDeleted The directory to be deleted

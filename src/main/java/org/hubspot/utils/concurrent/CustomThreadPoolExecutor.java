@@ -6,6 +6,7 @@ import org.hubspot.utils.ErrorCodes;
 import org.hubspot.utils.LogMarkers;
 import org.hubspot.utils.exceptions.HubSpotException;
 
+import java.util.List;
 import java.util.concurrent.*;
 
 /**
@@ -16,7 +17,7 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
     /**
      * The instance of the logger
      */
-    private static final Logger    logger             = LogManager.getLogger();
+    private static final Logger    logger             = LogManager.getLogger(CustomThreadPoolExecutor.class);
     private              Exception executionException = null;
     private              boolean   interrupted        = false;
 
@@ -138,6 +139,12 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
                                     RejectedExecutionHandler handler
     ) {
         super(corePoolSize, maximumPoolSize, keepAliveTime, unit, workQueue, threadFactory, handler);
+    }
+
+    @Override
+    public List<Runnable> shutdownNow() {
+        interrupted = true;
+        return super.shutdownNow();
     }
 
     @Override

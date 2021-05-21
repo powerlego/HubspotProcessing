@@ -13,7 +13,7 @@ public class Text extends HSFile {
     /**
      * The instance of the logger
      */
-    private static final Logger logger           = LogManager.getLogger();
+    private static final Logger logger           = LogManager.getLogger(Text.class);
     private static final long   serialVersionUID = 5126768163531293252L;
 
     public Text(long id,

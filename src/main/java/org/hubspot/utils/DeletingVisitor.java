@@ -15,7 +15,7 @@ public class DeletingVisitor extends SimpleFileVisitor<Path> {
     /**
      * The instance of the logger
      */
-    private static final Logger  logger = LogManager.getLogger();
+    private static final Logger  logger = LogManager.getLogger(DeletingVisitor.class);
     private final        boolean testMode;
 
     public DeletingVisitor(boolean testMode) {
@@ -71,8 +71,11 @@ public class DeletingVisitor extends SimpleFileVisitor<Path> {
     }
 
     /**
-     * Deletes the specified file. @param file the file to delete @throws IOException if a problem occurred deleting the
-     * file
+     * Deletes the specified file.
+     *
+     * @param file the file to delete
+     *
+     * @throws IOException if a problem occurred deleting the file
      */
     protected void delete(Path file) throws IOException {
         logger.trace(LogMarkers.DELETION.getMarker(), "Deleting {}", file);

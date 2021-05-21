@@ -12,7 +12,7 @@ public class HubSpotException extends Exception {
     /**
      * The instance of the logger
      */
-    private static final Logger logger           = LogManager.getLogger();
+    private static final Logger logger           = LogManager.getLogger(HubSpotException.class);
     private static final long   serialVersionUID = -5998427833607746958L;
     private final        int    code;
     private              String policyName;

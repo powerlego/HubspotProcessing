@@ -15,7 +15,7 @@ public class StoringRejectedExecutionHandler implements RejectedExecutionHandler
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger logger = LogManager.getLogger(StoringRejectedExecutionHandler.class);
 
     /**
      * Method that may be invoked by a {@link ThreadPoolExecutor} when {@link ThreadPoolExecutor#execute execute} cannot

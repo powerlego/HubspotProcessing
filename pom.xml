@@ -129,9 +129,57 @@
                 <version>${maven.exec.version}</version>
                 <executions>
                     <execution>
-                        <id>debug</id>
+                        <id>debug_main</id>
                         <configuration>
                             <commandlineArgs>debug</commandlineArgs>
+                            <mainClass>org.hubspot.Main</mainClass>
+                        </configuration>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>main</id>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                        <configuration>
+                            <mainClass>org.hubspot.Main</mainClass>
+                        </configuration>
+                    </execution>
+                    <execution>
+                        <id>debug_updater</id>
+                        <configuration>
+                            <mainClass>org.hubspot.Updater</mainClass>
+                            <commandlineArgs>debug</commandlineArgs>
+                        </configuration>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>updater</id>
+                        <configuration>
+                            <mainClass>org.hubspot.Updater</mainClass>
+                        </configuration>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>debug_property</id>
+                        <configuration>
+                            <mainClass>org.hubspot.PropertyGrabber</mainClass>
+                            <commandlineArgs>debug</commandlineArgs>
+                        </configuration>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>property</id>
+                        <configuration>
+                            <mainClass>org.hubspot.PropertyGrabber</mainClass>
                         </configuration>
                         <goals>
                             <goal>java</goal>
@@ -139,7 +187,6 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <mainClass>org.hubspot.Main</mainClass>
                     <cleanupDaemonThreads>false</cleanupDaemonThreads>
                     <systemProperties>
                         <systemProperty>
@@ -149,7 +196,7 @@
                     </systemProperties>
                 </configuration>
             </plugin>
-            <!--<plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
                 <version>3.2.4</version>
@@ -166,7 +213,6 @@
                     </filters>
                     <createDependencyReducedPom>false</createDependencyReducedPom>
                 </configuration>
-
                 <executions>
                     <execution>
                         <phase>package</phase>
@@ -177,14 +223,17 @@
                             <transformers>
                                 <transformer implementation=
                                                      "org.apache.maven.plugins.shade.resource.ManifestResourceTransformer">
-                                    <mainClass>org.dataprocessing.Main</mainClass>
+                                    <mainClass>org.hubspot.Main</mainClass>
+                                    <manifestEntries>
+                                        <Multi-Release>true</Multi-Release>
+                                    </manifestEntries>
                                 </transformer>
                             </transformers>
                         </configuration>
                     </execution>
                 </executions>
             </plugin>
-            <plugin>
+            <!--<plugin>
                 <groupId>com.akathist.maven.plugins.launch4j</groupId>
                 <artifactId>launch4j-maven-plugin</artifactId>
                 <version>1.7.25</version>
@@ -253,8 +302,8 @@
                         </configuration>
                     </execution>
                 </executions>
-            </plugin>-->
-            <!--<plugin>
+            </plugin>
+            <plugin>
                 <artifactId>maven-assembly-plugin</artifactId>
                 <version>2.6</version>
                 <executions>

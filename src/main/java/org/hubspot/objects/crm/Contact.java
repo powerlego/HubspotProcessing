@@ -20,7 +20,7 @@ public class Contact extends CRMObject {
     /**
      * The instance of the logger
      */
-    private static final Logger           logger           = LogManager.getLogger();
+    private static final Logger           logger           = LogManager.getLogger(Contact.class);
     /**
      * The serial version UID for this class
      */

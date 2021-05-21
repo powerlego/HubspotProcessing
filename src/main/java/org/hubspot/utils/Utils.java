@@ -11,9 +11,10 @@ import org.json.JSONObject;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -28,7 +29,16 @@ public class Utils {
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger                   logger    = LogManager.getLogger(Utils.class);
+    private static final List<ThreadPoolExecutor> executors = new ArrayList<>();
+
+    public static void addExecutor(ThreadPoolExecutor executor) {
+        executors.add(executor);
+    }
+
+    public static List<ThreadPoolExecutor> getExecutors() {
+        return executors;
+    }
 
     public static void adjustLoad(ThreadPoolExecutor threadPoolExecutor,
                                   double load,
@@ -214,7 +224,7 @@ public class Utils {
         return bd.doubleValue();
     }
 
-    public static void shutdownExecutors(Logger logger, ExecutorService executorService) {
+    public static void shutdownExecutors(Logger logger, ThreadPoolExecutor executorService) {
         executorService.shutdown();
         try {
             if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
@@ -224,6 +234,7 @@ public class Utils {
         catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+        executors.remove(executorService);
     }
 
     public static void shutdownUpdaters(Logger logger, ScheduledExecutorService scheduledExecutorService) {

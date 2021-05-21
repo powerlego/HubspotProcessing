@@ -13,7 +13,7 @@ public class Document extends HSFile {
     /**
      * The instance of the logger
      */
-    private static final Logger logger           = LogManager.getLogger();
+    private static final Logger logger           = LogManager.getLogger(Document.class);
     /**
      * The serial version UID for this class
      */

@@ -18,7 +18,7 @@ public class CRMObject extends HubSpotObject {
     /**
      * The instance of the logger
      */
-    private static final Logger                  logger           = LogManager.getLogger();
+    private static final Logger                  logger           = LogManager.getLogger(CRMObject.class);
     /**
      * The serial version UID for this class
      */

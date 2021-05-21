@@ -19,7 +19,7 @@ public class HubSpotUtils {
     /**
      * The instance of the logger
      */
-    private static final Logger logger = LogManager.getLogger();
+    private static final Logger logger = LogManager.getLogger(HubSpotUtils.class);
 
     public static long getObjectCount(HttpService service, CRMObjectType type, final RateLimiter rateLimiter) {
         JSONObject body = new JSONObject();
