@@ -26,7 +26,7 @@ public class PropertyGrabber {
 
     public static void main(String[] args) {
         HubSpot hubspot = new HubSpot("6ab73220-900f-462b-b753-b6757d94cd1d");
-        PropertyData propertyData = hubspot.crm().allProperties(CRMObjectType.DEALS, true);
+        PropertyData propertyData = hubspot.crm().propsByGroupName(CRMObjectType.CONTACTS, "contactinformation", true);
         JSONObject jsonNames = new JSONObject();
         JSONObject jsonObject = new JSONObject();
         JSONArray jsonArray = new JSONArray();
@@ -45,18 +45,19 @@ public class PropertyGrabber {
                 jsonObject1.put("label", label);
                 jsonObject1.put("type", type);
                 jsonObject1.put("fieldType", fieldType);
-                jsonObject1.put("description", description);
-                jsonObject1.put("groupName", groupName);
+                //jsonObject1.put("description", description);
+                //jsonObject1.put("groupName", groupName);
                 jsonObject1.put("options", options);
             }
             jsonArray.put(jsonObject1);
         }
         jsonObject.put("properties", jsonArray);
+        //Map<String, Object> map = jsonObject.toMap();
         jsonNames.put("names", propertyData.getPropertyNames());
-        Path correctionFile = Paths.get("./contacts/deal_properties.json");
+        Path correctionFile = Paths.get("./contacts/contact_properties.json");
         Path propertyNames = Paths.get("./contacts/property_names.json");
         try {
-            FileUtils.writeFile(correctionFile, jsonObject.toString(4));
+            FileUtils.writeFile(correctionFile, jsonArray.toString(4));
         }
         catch (IOException e) {
             logger.fatal("Unable to write file {}", correctionFile, e);

@@ -20,12 +20,19 @@ public class Engagement extends HubSpotObject {
      */
     private static final long   serialVersionUID = -2283094077997225535L;
 
+    private final EngagementType engagementType;
+
     /**
      * A constructor for an Engagement object
      *
      * @param id The engagement id
      */
-    public Engagement(long id) {
+    public Engagement(long id, EngagementType engagementType) {
         super(id);
+        this.engagementType = engagementType;
+    }
+
+    public EngagementType getEngagementType() {
+        return engagementType;
     }
 }

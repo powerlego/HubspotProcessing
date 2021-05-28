@@ -34,6 +34,7 @@ public class Call extends Engagement {
      * The duration of the call
      */
     private final        String duration;
+    private final        long   durationMillis;
     /**
      * The phone number that was being called
      */
@@ -62,7 +63,7 @@ public class Call extends Engagement {
                 long durationMilliseconds,
                 String recordingURL
     ) {
-        super(id);
+        super(id, EngagementType.CALL);
         logger.traceEntry("id={}, title={}, toNumber={}, fromNumber={}, durationMilliseconds={}, recordingUrl={}",
                           id,
                           title,
@@ -76,6 +77,7 @@ public class Call extends Engagement {
         this.recordingURL = recordingURL;
         this.toNumber = toNumber;
         this.fromNumber = fromNumber;
+        this.durationMillis = durationMilliseconds;
         long millis = durationMilliseconds % 1000;
         long second = (durationMilliseconds / 1000) % 60;
         long minute = (durationMilliseconds / (1000 * 60)) % 60;
@@ -91,6 +93,10 @@ public class Call extends Engagement {
      */
     public String getBody() {
         return body;
+    }
+
+    public long getDurationMillis() {
+        return durationMillis;
     }
 
     /**
@@ -155,7 +161,7 @@ public class Call extends Engagement {
                body +
                "\nDuration:\n" +
                duration +
-               "Recording URL:\n" +
+               "\nRecording URL:\n" +
                recordingURL;
     }
 }

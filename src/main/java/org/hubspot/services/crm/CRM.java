@@ -7,6 +7,7 @@ import org.hubspot.objects.PropertyData;
 import org.hubspot.objects.crm.CRMObjectType;
 import org.hubspot.objects.crm.Company;
 import org.hubspot.objects.crm.Contact;
+import org.hubspot.objects.crm.Deal;
 import org.hubspot.services.crm.EngagementsProcessor.EngagementData;
 import org.hubspot.utils.FileUtils;
 import org.hubspot.utils.HttpService;
@@ -46,6 +47,24 @@ public class CRM implements Serializable {
         }
         catch (HubSpotException e) {
             logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to filter contacts", e);
+            System.exit(e.getCode());
+            return new HashMap<>();
+        }
+    }
+
+    public HashMap<Long, Deal> getAllDeals(String propertyGroup, boolean includeHiddenProperties) {
+        PropertyData propertyData = propsByGroupName(CRMObjectType.DEALS, propertyGroup, includeHiddenProperties);
+        return getDeals(propertyData);
+    }
+
+    @NotNull
+    private HashMap<Long, Deal> getDeals(PropertyData propertyData) {
+        try {
+            return DealService.getAllDeals(httpService, propertyData, rateLimiter);
+        }
+        catch (HubSpotException e) {
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get all deals", e);
+            FileUtils.deleteDirectory(DealService.getCacheFolder());
             System.exit(e.getCode());
             return new HashMap<>();
         }

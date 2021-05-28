@@ -6,7 +6,7 @@
 
     <groupId>org.hubspot</groupId>
     <artifactId>HubspotProcessing</artifactId>
-    <version>3.4.0</version>
+    <version>3.7.0</version>
 
     <properties>
         <maven.compiler.source>11</maven.compiler.source>
@@ -98,6 +98,16 @@
             <artifactId>commons-collections4</artifactId>
             <version>4.4</version>
         </dependency>
+        <dependency>
+            <groupId>org.postgresql</groupId>
+            <artifactId>postgresql</artifactId>
+            <version>42.2.20</version>
+        </dependency>
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-dbcp2</artifactId>
+            <version>2.8.0</version>
+        </dependency>
 
     </dependencies>
     <dependencyManagement>
@@ -180,6 +190,15 @@
                         <id>property</id>
                         <configuration>
                             <mainClass>org.hubspot.PropertyGrabber</mainClass>
+                        </configuration>
+                        <goals>
+                            <goal>java</goal>
+                        </goals>
+                    </execution>
+                    <execution>
+                        <id>tester</id>
+                        <configuration>
+                            <mainClass>org.hubspot.Tester</mainClass>
                         </configuration>
                         <goals>
                             <goal>java</goal>

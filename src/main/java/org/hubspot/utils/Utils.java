@@ -11,10 +11,13 @@ import org.json.JSONObject;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.text.ParseException;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
@@ -29,15 +32,14 @@ public class Utils {
     /**
      * The instance of the logger
      */
-    private static final Logger                   logger    = LogManager.getLogger(Utils.class);
-    private static final List<ThreadPoolExecutor> executors = new ArrayList<>();
+    private static final Logger                logger             = LogManager.getLogger(Utils.class);
+    private static final List<ExecutorService> executors          = new ArrayList<>();
+    private static final SimpleDateFormat      hubspotDateFormat  = new SimpleDateFormat(
+            "yyyy-MM-dd'T'HH:mm:ss.SSS'Z'");
+    private static final SimpleDateFormat      hubspotDateFormat1 = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss'Z'");
 
     public static void addExecutor(ThreadPoolExecutor executor) {
         executors.add(executor);
-    }
-
-    public static List<ThreadPoolExecutor> getExecutors() {
-        return executors;
     }
 
     public static void adjustLoad(ThreadPoolExecutor threadPoolExecutor,
@@ -136,6 +138,10 @@ public class Utils {
         return (JSONObject) recurseCheckingFormat(jsonObjectToFormat);
     }
 
+    public static List<ExecutorService> getExecutors() {
+        return executors;
+    }
+
     private static Object recurseCheckingConversion(Object object) {
         if (object instanceof kong.unirest.json.JSONObject) {
             kong.unirest.json.JSONObject o = (kong.unirest.json.JSONObject) object;
@@ -161,11 +167,42 @@ public class Utils {
                 return Long.parseLong(o);
             }
             catch (NumberFormatException e) {
-                if (o.equalsIgnoreCase("true") || o.equalsIgnoreCase("false")) {
-                    return Boolean.parseBoolean(o);
+                try {
+                    return Double.parseDouble(o);
                 }
-                else {
-                    return o;
+                catch (NumberFormatException numberFormatException) {
+                    if (o.equalsIgnoreCase("true") || o.equalsIgnoreCase("false")) {
+                        return Boolean.parseBoolean(o);
+                    }
+                    else {
+                        Pattern p = Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}\\.\\d{3}Z");
+                        Matcher m = p.matcher(o);
+                        if (m.matches()) {
+                            try {
+                                return hubspotDateFormat.parse(o);
+                            }
+                            catch (ParseException parseException) {
+                                logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to parse date", parseException);
+                                return JSONObject.NULL;
+                            }
+                        }
+                        else {
+                            p = Pattern.compile("\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z");
+                            m = p.matcher(o);
+                            if (m.matches()) {
+                                try {
+                                    return hubspotDateFormat1.parse(o);
+                                }
+                                catch (ParseException parseException) {
+                                    logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to parse date", parseException);
+                                    return JSONObject.NULL;
+                                }
+                            }
+                            else {
+                                return o;
+                            }
+                        }
+                    }
                 }
             }
         }
@@ -224,7 +261,7 @@ public class Utils {
         return bd.doubleValue();
     }
 
-    public static void shutdownExecutors(Logger logger, ThreadPoolExecutor executorService) {
+    public static void shutdownExecutors(Logger logger, ExecutorService executorService) {
         executorService.shutdown();
         try {
             if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {

@@ -43,7 +43,7 @@ public class Note extends Engagement {
      * @param attachmentIds The list of attachment ids associated with this note
      */
     public Note(long id, String note, List<Long> attachmentIds) {
-        super(id);
+        super(id, EngagementType.NOTE);
         this.note = note;
         this.attachmentIds = attachmentIds;
         this.attachments = new ArrayList<>();

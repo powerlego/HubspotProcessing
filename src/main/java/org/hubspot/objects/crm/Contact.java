@@ -6,6 +6,7 @@ import org.hubspot.objects.crm.engagements.Engagement;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.Collection;
 import java.util.Iterator;
 import java.util.LinkedList;
 import java.util.List;
@@ -36,23 +37,26 @@ public class Contact extends CRMObject {
     /**
      * The lead status of the contact
      */
-    private              String           leadStatus;
+    private String leadStatus;
     /**
      * The life cycle stage of the contact
      */
-    private              String           lifeCycleStage;
+    private String lifeCycleStage;
     /**
      * The first name of the contact
      */
-    private              String           firstName;
+    private String firstName;
     /**
      * The last name of the contact
      */
-    private              String           lastName;
+    private String lastName;
     /**
      * The contact's email address
      */
-    private              String           email;
+    private String email;
+
+    private List<Long> dealIds;
+    private List<Deal> deals;
 
     /**
      * A constructor for a Contact object
@@ -63,12 +67,20 @@ public class Contact extends CRMObject {
         super(id);
     }
 
+    public void addAllDealIds(Collection<? extends Long> dealIds) {
+        this.dealIds.addAll(dealIds);
+    }
+
+    public void addAllDeals(Collection<? extends Deal> deals) {
+        this.deals.addAll(deals);
+    }
+
     /**
      * Associates a list of engagement ids with this contact
      *
      * @param engagementIds The list of engagement ids to associate
      */
-    public void addAllEngagementIds(List<Long> engagementIds) {
+    public void addAllEngagementIds(Collection<? extends Long> engagementIds) {
         this.engagementIds.addAll(engagementIds);
     }
 
@@ -77,8 +89,16 @@ public class Contact extends CRMObject {
      *
      * @param engagements The list of engagements to associate
      */
-    public void addAllEngagements(List<Engagement> engagements) {
+    public void addAllEngagements(Collection<? extends Engagement> engagements) {
         this.engagements.addAll(engagements);
+    }
+
+    public void addDeal(Deal deal) {
+        this.deals.add(deal);
+    }
+
+    public void addDealId(long dealId) {
+        this.dealIds.add(dealId);
     }
 
     /**
@@ -194,6 +214,14 @@ public class Contact extends CRMObject {
      */
     public String getLifeCycleStage() {
         return lifeCycleStage;
+    }
+
+    public void setDealIds(List<Long> dealIds) {
+        this.dealIds = dealIds;
+    }
+
+    public void setDeals(List<Deal> deals) {
+        this.deals = deals;
     }
 
     /**

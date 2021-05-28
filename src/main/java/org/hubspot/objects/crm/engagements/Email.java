@@ -64,7 +64,7 @@ public class Email extends Engagement {
                  String subject,
                  String body
     ) {
-        super(id);
+        super(id, EngagementType.EMAIL);
         logger.traceEntry(() -> id, () -> to, () -> cc, () -> bcc, () -> from, () -> bcc);
         this.to = to;
         this.cc = cc;

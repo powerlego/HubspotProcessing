@@ -40,6 +40,7 @@ public class EngagementsProcessor {
     private static final String      debugMessageFormat = "Method %-30s\tProcess Load: %f";
     private static final int         MAX_SIZE           = 50;
 
+
     public static boolean cacheExists() {
         return cacheFolder.toFile().exists();
     }
@@ -201,6 +202,7 @@ public class EngagementsProcessor {
             case "EMAIL":
             case "INCOMING_EMAIL":
             case "FORWARDED_EMAIL":
+                Email email;
                 JSONArray jsonTo = new JSONArray();
                 JSONArray jsonCc = new JSONArray();
                 JSONArray jsonBcc = new JSONArray();
@@ -251,11 +253,13 @@ public class EngagementsProcessor {
                         String rest = "From:" + bodySplit[i];
                         builder.append(Utils.format(rest, WORDWRAP)).append("\n");
                     }
-                    return new Email(id, to, cc, bcc, from, emailSubject, builder.toString().strip());
+                    email = new Email(id, to, cc, bcc, from, emailSubject, builder.toString().strip());
+
                 }
                 else {
-                    return new Email(id, to, cc, bcc, from, emailSubject, Utils.format(emailBody, WORDWRAP));
+                    email = new Email(id, to, cc, bcc, from, emailSubject, Utils.format(emailBody, WORDWRAP));
                 }
+                return email;
             case "NOTE":
                 String note = "";
                 if (engagementMetadata.has("body")) {

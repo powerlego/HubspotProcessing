@@ -74,7 +74,7 @@ public class Task extends Engagement {
                 long completionDateMilliseconds,
                 List<Long> remindersMilliseconds
     ) {
-        super(id);
+        super(id, EngagementType.TASK);
         this.taskType = taskType;
         this.subject = subject;
         this.body = body;
