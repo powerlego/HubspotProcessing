@@ -121,6 +121,61 @@ public class FileService {
         Utils.shutdownUpdaters(logger, scheduledExecutorService);
     }
 
+    static HSFile getFileMetadata(HttpService httpService,
+                                  final RateLimiter rateLimiter,
+                                  long engagementId,
+                                  long fileId
+    ) throws HubSpotException {
+        String url = "/filemanager/api/v2/files/" + fileId;
+        rateLimiter.acquire(1);
+        JSONObject metadata = (JSONObject) httpService.getRequest(url);
+        return process(engagementId, fileId, metadata);
+    }
+
+    static List<HSFile> getFileMetadatas(HttpService httpService, final RateLimiter rateLimiter, Note note) {
+        List<Long> attachmentIds = note.getAttachmentIds();
+        int capacity = (int) Math.ceil(Math.ceil((double) attachmentIds.size() / (double) LIMIT) *
+                                       Math.pow(MAX_SIZE, -0.6));
+        Iterable<List<Long>> partitions = Iterables.partition(attachmentIds, LIMIT);
+        CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
+                                                                                   STARTING_POOL_SIZE,
+                                                                                   0L,
+                                                                                   TimeUnit.MILLISECONDS,
+                                                                                   new LinkedBlockingQueue<>(Math.max(
+                                                                                           capacity,
+                                                                                           Runtime.getRuntime()
+                                                                                                  .availableProcessors()
+                                                                                   )),
+                                                                                   new CustomThreadFactory(
+                                                                                           "FileMetadataGrabber"),
+                                                                                   new StoringRejectedExecutionHandler()
+        );
+        Utils.addExecutor(threadPoolExecutor);
+        ScheduledExecutorService scheduledExecutorService
+                = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("FileMetadataGrabberUpdater"));
+        scheduledExecutorService.scheduleAtFixedRate(() -> {
+            double load = CPUMonitor.getProcessLoad();
+            String debugMessage = String.format(debugMessageFormat, "getFileMetadatas", load);
+            Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
+        }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
+        List<HSFile> attachments = Collections.synchronizedList(new ArrayList<>());
+        for (List<Long> partition : partitions) {
+            threadPoolExecutor.submit(() -> {
+                for (Long fileId : partition) {
+                    String url = "/filemanager/api/v2/files/" + fileId;
+                    rateLimiter.acquire(1);
+                    JSONObject metadata = (JSONObject) httpService.getRequest(url);
+                    HSFile file = process(note.getId(), fileId, metadata);
+                    attachments.add(file);
+                }
+                return null;
+            });
+        }
+        Utils.shutdownExecutors(logger, threadPoolExecutor);
+        Utils.shutdownUpdaters(logger, scheduledExecutorService);
+        return new ArrayList<>(attachments);
+    }
+
     private static List<HSFile> getFileMetadatas(HttpService httpService,
                                                  final RateLimiter rateLimiter,
                                                  Path folder,
@@ -209,60 +264,5 @@ public class FileService {
             logger.debug(LogMarkers.MISSING.getMarker(), metadata.toString(4));
             return null;
         }
-    }
-
-    static HSFile getFileMetadata(HttpService httpService,
-                                  final RateLimiter rateLimiter,
-                                  long engagementId,
-                                  long fileId
-    ) throws HubSpotException {
-        String url = "/filemanager/api/v2/files/" + fileId;
-        rateLimiter.acquire(1);
-        JSONObject metadata = (JSONObject) httpService.getRequest(url);
-        return process(engagementId, fileId, metadata);
-    }
-
-    static List<HSFile> getFileMetadatas(HttpService httpService, final RateLimiter rateLimiter, Note note) {
-        List<Long> attachmentIds = note.getAttachmentIds();
-        int capacity = (int) Math.ceil(Math.ceil((double) attachmentIds.size() / (double) LIMIT) *
-                                       Math.pow(MAX_SIZE, -0.6));
-        Iterable<List<Long>> partitions = Iterables.partition(attachmentIds, LIMIT);
-        CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
-                                                                                   STARTING_POOL_SIZE,
-                                                                                   0L,
-                                                                                   TimeUnit.MILLISECONDS,
-                                                                                   new LinkedBlockingQueue<>(Math.max(
-                                                                                           capacity,
-                                                                                           Runtime.getRuntime()
-                                                                                                  .availableProcessors()
-                                                                                   )),
-                                                                                   new CustomThreadFactory(
-                                                                                           "FileMetadataGrabber"),
-                                                                                   new StoringRejectedExecutionHandler()
-        );
-        Utils.addExecutor(threadPoolExecutor);
-        ScheduledExecutorService scheduledExecutorService
-                = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("FileMetadataGrabberUpdater"));
-        scheduledExecutorService.scheduleAtFixedRate(() -> {
-            double load = CPUMonitor.getProcessLoad();
-            String debugMessage = String.format(debugMessageFormat, "getFileMetadatas", load);
-            Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
-        }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
-        List<HSFile> attachments = Collections.synchronizedList(new ArrayList<>());
-        for (List<Long> partition : partitions) {
-            threadPoolExecutor.submit(() -> {
-                for (Long fileId : partition) {
-                    String url = "/filemanager/api/v2/files/" + fileId;
-                    rateLimiter.acquire(1);
-                    JSONObject metadata = (JSONObject) httpService.getRequest(url);
-                    HSFile file = process(note.getId(), fileId, metadata);
-                    attachments.add(file);
-                }
-                return null;
-            });
-        }
-        Utils.shutdownExecutors(logger, threadPoolExecutor);
-        Utils.shutdownUpdaters(logger, scheduledExecutorService);
-        return new ArrayList<>(attachments);
     }
 }

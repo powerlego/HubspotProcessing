@@ -44,6 +44,36 @@ public class CompanyService {
         return cacheFolder.toFile().exists();
     }
 
+    public static Path getCacheFolder() {
+        return cacheFolder;
+    }
+
+    static Company getByID(HttpService service, String propertyString, long id, final RateLimiter rateLimiter)
+    throws HubSpotException {
+        String urlString = url + id;
+        rateLimiter.acquire(1);
+        return getCompany(service, propertyString, urlString);
+    }
+
+    @NotNull
+    private static Callable<Void> process(ConcurrentHashMap<Long, Company> companies,
+                                          ProgressBar pb,
+                                          JSONObject jsonObject
+    ) {
+        return () -> {
+            for (Object o : jsonObject.getJSONArray("results")) {
+                JSONObject companyJson = (JSONObject) o;
+                companyJson = Utils.formatJson(companyJson);
+                Company company = parseCompanyData(companyJson);
+                FileUtils.writeJsonCache(cacheFolder, companyJson);
+                companies.put(company.getId(), company);
+                pb.step();
+                Utils.sleep(1);
+            }
+            return null;
+        };
+    }
+
     static HashMap<Long, Company> getAllCompanies(HttpService httpService,
                                                   PropertyData propertyData,
                                                   final RateLimiter rateLimiter
@@ -103,25 +133,6 @@ public class CompanyService {
         return new HashMap<>(companies);
     }
 
-    @NotNull
-    private static Callable<Void> process(ConcurrentHashMap<Long, Company> companies,
-                                          ProgressBar pb,
-                                          JSONObject jsonObject
-    ) {
-        return () -> {
-            for (Object o : jsonObject.getJSONArray("results")) {
-                JSONObject companyJson = (JSONObject) o;
-                companyJson = Utils.formatJson(companyJson);
-                Company company = parseCompanyData(companyJson);
-                FileUtils.writeJsonCache(cacheFolder, companyJson);
-                companies.put(company.getId(), company);
-                pb.step();
-                Utils.sleep(1);
-            }
-            return null;
-        };
-    }
-
     static Company parseCompanyData(JSONObject jsonObject) {
         long id = jsonObject.has("id") ? jsonObject.getLong("id") : 0;
         Company company = new Company(id);
@@ -162,13 +173,6 @@ public class CompanyService {
         return company;
     }
 
-    static Company getByID(HttpService service, String propertyString, long id, final RateLimiter rateLimiter)
-    throws HubSpotException {
-        String urlString = url + id;
-        rateLimiter.acquire(1);
-        return getCompany(service, propertyString, urlString);
-    }
-
     static Company getCompany(HttpService httpService, String propertyString, String url) throws HubSpotException {
         try {
             return parseCompanyData((JSONObject) httpService.getRequest(url, propertyString));
@@ -181,10 +185,6 @@ public class CompanyService {
                 throw e;
             }
         }
-    }
-
-    public static Path getCacheFolder() {
-        return cacheFolder;
     }
 
     static HashMap<Long, Company> getUpdatedCompanies(HttpService httpService,
@@ -243,7 +243,7 @@ public class CompanyService {
     static HashMap<Long, Company> readCompanyJsons() throws HubSpotException {
         ConcurrentHashMap<Long, Company> companies = new ConcurrentHashMap<>();
         File[] files = cacheFolder.toFile().listFiles();
-        if (files != null) {
+        if (!Utils.isArrayNullOrEmpty(files)) {
             List<File> fileList = Arrays.asList(files);
             Iterable<List<File>> partitions = Iterables.partition(fileList, LIMIT);
             int capacity = (int) Math.ceil(Math.ceil((double) fileList.size() / (double) LIMIT) *

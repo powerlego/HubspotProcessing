@@ -44,6 +44,36 @@ public class ContactService {
         return cacheFolder.toFile().exists();
     }
 
+    public static Path getCacheFolder() {
+        return cacheFolder;
+    }
+
+    static Contact getByID(HttpService service, String propertyString, long id, final RateLimiter rateLimiter)
+    throws HubSpotException {
+        String urlString = url + id;
+        rateLimiter.acquire(1);
+        return getContact(service, propertyString, urlString);
+    }
+
+    @NotNull
+    private static Callable<Void> process(ConcurrentHashMap<Long, Contact> contacts,
+                                          ProgressBar pb,
+                                          JSONObject jsonObject
+    ) {
+        return () -> {
+            for (Object o : jsonObject.getJSONArray("results")) {
+                JSONObject contactJson = (JSONObject) o;
+                contactJson = Utils.formatJson(contactJson);
+                Contact contact = parseContactData(contactJson);
+                FileUtils.writeJsonCache(cacheFolder, contactJson);
+                contacts.put(contact.getId(), contact);
+                pb.step();
+                Utils.sleep(1);
+            }
+            return null;
+        };
+    }
+
     static HashMap<Long, Contact> filterContacts(HashMap<Long, Contact> contacts) throws HubSpotException {
         ConcurrentHashMap<Long, Contact> concurrentContacts = new ConcurrentHashMap<>(contacts);
         ConcurrentHashMap<Long, Contact> filteredContacts = new ConcurrentHashMap<>();
@@ -160,25 +190,6 @@ public class ContactService {
         return new HashMap<>(contacts);
     }
 
-    @NotNull
-    private static Callable<Void> process(ConcurrentHashMap<Long, Contact> contacts,
-                                          ProgressBar pb,
-                                          JSONObject jsonObject
-    ) {
-        return () -> {
-            for (Object o : jsonObject.getJSONArray("results")) {
-                JSONObject contactJson = (JSONObject) o;
-                contactJson = Utils.formatJson(contactJson);
-                Contact contact = parseContactData(contactJson);
-                FileUtils.writeJsonCache(cacheFolder, contactJson);
-                contacts.put(contact.getId(), contact);
-                pb.step();
-                Utils.sleep(1);
-            }
-            return null;
-        };
-    }
-
     static Contact parseContactData(JSONObject jsonObject) {
         long id = jsonObject.has("id") ? jsonObject.getLong("id") : 0;
         Contact contact = new Contact(id);
@@ -219,13 +230,6 @@ public class ContactService {
         return contact;
     }
 
-    static Contact getByID(HttpService service, String propertyString, long id, final RateLimiter rateLimiter)
-    throws HubSpotException {
-        String urlString = url + id;
-        rateLimiter.acquire(1);
-        return getContact(service, propertyString, urlString);
-    }
-
     static Contact getContact(HttpService httpService, String propertyString, String url) throws HubSpotException {
         try {
             return parseContactData((JSONObject) httpService.getRequest(url, propertyString));
@@ -238,10 +242,6 @@ public class ContactService {
                 throw e;
             }
         }
-    }
-
-    public static Path getCacheFolder() {
-        return cacheFolder;
     }
 
     static HashMap<Long, Contact> getUpdatedContacts(HttpService httpService,
@@ -300,7 +300,7 @@ public class ContactService {
     static HashMap<Long, Contact> readContactJsons() throws HubSpotException {
         ConcurrentHashMap<Long, Contact> contacts = new ConcurrentHashMap<>();
         File[] files = cacheFolder.toFile().listFiles();
-        if (files != null) {
+        if (!Utils.isArrayNullOrEmpty(files)) {
             List<File> fileList = Arrays.asList(files);
             Iterable<List<File>> partitions = Iterables.partition(fileList, LIMIT);
             int capacity = (int) Math.ceil(Math.ceil((double) fileList.size() / (double) LIMIT) *

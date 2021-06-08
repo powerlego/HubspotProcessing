@@ -147,6 +147,14 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
         return super.shutdownNow();
     }
 
+    public Exception getExecutionException() {
+        return executionException;
+    }
+
+    public boolean isInterrupted() {
+        return interrupted;
+    }
+
     @Override
     protected void afterExecute(Runnable r, Throwable t) {
         super.afterExecute(r, t);
@@ -182,7 +190,6 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
         }
     }
 
-
     @Override
     protected void terminated() {
         if (executionException != null) {
@@ -200,13 +207,5 @@ public class CustomThreadPoolExecutor extends ThreadPoolExecutor {
             System.exit(ErrorCodes.THREAD_INTERRUPT_EXCEPTION.getErrorCode());
         }
         super.terminated();
-    }
-
-    public Exception getExecutionException() {
-        return executionException;
-    }
-
-    public boolean isInterrupted() {
-        return interrupted;
     }
 }

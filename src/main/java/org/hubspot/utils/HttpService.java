@@ -29,76 +29,6 @@ public class HttpService {
         Unirest.config().automaticRetries(true).socketTimeout(0).defaultBaseUrl(apiBase).connectTimeout(0);
     }
 
-    private Object checkResponse(HttpResponse<JsonNode> resp) throws HubSpotException {
-        logger.debug(LogMarkers.HTTP.getMarker(), new Response(resp));
-        if (204 != resp.getStatus() && 200 != resp.getStatus() && 202 != resp.getStatus()) {
-            String message = null;
-            try {
-                message = resp.getStatus() == 429
-                          ? resp.getBody().getObject().getString("message")
-                          : resp.getStatusText();
-            }
-            catch (Exception ignored) {
-            }
-            if (!Strings.isNullOrEmpty(message)) {
-                if (resp.getStatus() == 429) {
-                    String policyName = resp.getBody().getObject().has("policyName")
-                                        ? resp.getBody()
-                                              .getObject()
-                                              .getString("policyName")
-                                        : "";
-                    throw new HubSpotException(resp.getStatus() + " " + message,
-                                               policyName,
-                                               ErrorCodes.HTTP_429.getErrorCode()
-                    );
-                }
-                else {
-                    throw new HubSpotException(resp.getStatus() + " " + message, resp.getStatus() % 256);
-                }
-            }
-            else {
-                throw new HubSpotException(resp.getStatus() + " " + resp.getStatusText(), resp.getStatus() % 256);
-            }
-        }
-        else if (resp.getBody() != null) {
-            return resp.getBody().isArray() ? resp.getBody().getArray() : resp.getBody().getObject();
-        }
-        else {
-            return null;
-        }
-    }
-
-    private Object getObject(HttpResponse<JsonNode> resp) throws HubSpotException {
-        try {
-            JSONObject response = (JSONObject) checkResponse(resp);
-            if (response != null) {
-                return Utils.convertType(response);
-            }
-        }
-        catch (HubSpotException e) {
-            if (e.getCode() == ErrorCodes.HTTP_502.getErrorCode() ||
-                e.getCode() == ErrorCodes.HTTP_503.getErrorCode() ||
-                e.getCode() == ErrorCodes.HTTP_504.getErrorCode() ||
-                e.getCode() == ErrorCodes.HTTP_500.getErrorCode() ||
-                e.getCode() == ErrorCodes.HTTP_524.getErrorCode() ||
-                e.getCode() == ErrorCodes.HTTP_409.getErrorCode()) {
-                Utils.sleep(50L);
-            }
-            else if (e.getCode() == ErrorCodes.HTTP_429.getErrorCode()) {
-                if (e.getPolicyName().equalsIgnoreCase("DAILY")) {
-                    throw new HubSpotException("Daily limit reached", ErrorCodes.DAILY_LIMIT_REACHED.getErrorCode());
-                }
-                else {
-                    Utils.sleep(50L);
-                }
-            }
-            else {
-                throw e;
-            }
-        }
-        return null;
-    }
-
     public Object getRequest(String url, Map<String, Object> queryParams) throws HubSpotException {
         while (true) {
             try {
@@ -204,5 +134,75 @@ public class HttpService {
 
     public Object postRequest(String url, org.json.JSONObject properties, String contentType) throws HubSpotException {
         return postRequest(url, properties.toString(), contentType);
+    }
+
+    private Object checkResponse(HttpResponse<JsonNode> resp) throws HubSpotException {
+        logger.debug(LogMarkers.HTTP.getMarker(), new Response(resp));
+        if (204 != resp.getStatus() && 200 != resp.getStatus() && 202 != resp.getStatus()) {
+            String message = null;
+            try {
+                message = resp.getStatus() == 429
+                          ? resp.getBody().getObject().getString("message")
+                          : resp.getStatusText();
+            }
+            catch (Exception ignored) {
+            }
+            if (!Strings.isNullOrEmpty(message)) {
+                if (resp.getStatus() == 429) {
+                    String policyName = resp.getBody().getObject().has("policyName")
+                                        ? resp.getBody()
+                                              .getObject()
+                                              .getString("policyName")
+                                        : "";
+                    throw new HubSpotException(resp.getStatus() + " " + message,
+                                               policyName,
+                                               ErrorCodes.HTTP_429.getErrorCode()
+                    );
+                }
+                else {
+                    throw new HubSpotException(resp.getStatus() + " " + message, resp.getStatus() % 256);
+                }
+            }
+            else {
+                throw new HubSpotException(resp.getStatus() + " " + resp.getStatusText(), resp.getStatus() % 256);
+            }
+        }
+        else if (resp.getBody() != null) {
+            return resp.getBody().isArray() ? resp.getBody().getArray() : resp.getBody().getObject();
+        }
+        else {
+            return null;
+        }
+    }
+
+    private Object getObject(HttpResponse<JsonNode> resp) throws HubSpotException {
+        try {
+            JSONObject response = (JSONObject) checkResponse(resp);
+            if (response != null) {
+                return Utils.convertType(response);
+            }
+        }
+        catch (HubSpotException e) {
+            if (e.getCode() == ErrorCodes.HTTP_502.getErrorCode() ||
+                e.getCode() == ErrorCodes.HTTP_503.getErrorCode() ||
+                e.getCode() == ErrorCodes.HTTP_504.getErrorCode() ||
+                e.getCode() == ErrorCodes.HTTP_500.getErrorCode() ||
+                e.getCode() == ErrorCodes.HTTP_524.getErrorCode() ||
+                e.getCode() == ErrorCodes.HTTP_409.getErrorCode()) {
+                Utils.sleep(50L);
+            }
+            else if (e.getCode() == ErrorCodes.HTTP_429.getErrorCode()) {
+                if (e.getPolicyName().equalsIgnoreCase("DAILY")) {
+                    throw new HubSpotException("Daily limit reached", ErrorCodes.DAILY_LIMIT_REACHED.getErrorCode());
+                }
+                else {
+                    Utils.sleep(50L);
+                }
+            }
+            else {
+                throw e;
+            }
+        }
+        return null;
     }
 }

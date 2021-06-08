@@ -26,7 +26,8 @@ public class PropertyGrabber {
 
     public static void main(String[] args) {
         HubSpot hubspot = new HubSpot("6ab73220-900f-462b-b753-b6757d94cd1d");
-        PropertyData propertyData = hubspot.crm().propsByGroupName(CRMObjectType.CONTACTS, "contactinformation", true);
+        PropertyData propertyData = hubspot.crm()
+                                           .propertiesByGroupName(CRMObjectType.CONTACTS, "contactinformation", true);
         JSONObject jsonNames = new JSONObject();
         JSONObject jsonObject = new JSONObject();
         JSONArray jsonArray = new JSONArray();

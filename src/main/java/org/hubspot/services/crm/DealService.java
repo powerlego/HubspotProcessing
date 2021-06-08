@@ -1,5 +1,6 @@
 package org.hubspot.services.crm;
 
+import com.google.common.collect.Iterables;
 import com.google.common.util.concurrent.RateLimiter;
 import me.tongfei.progressbar.ProgressBar;
 import org.apache.logging.log4j.LogManager;
@@ -8,20 +9,18 @@ import org.hubspot.objects.PropertyData;
 import org.hubspot.objects.crm.CRMObjectType;
 import org.hubspot.objects.crm.Deal;
 import org.hubspot.utils.*;
-import org.hubspot.utils.concurrent.CacheThreadPoolExecutor;
-import org.hubspot.utils.concurrent.CustomThreadFactory;
-import org.hubspot.utils.concurrent.StoringRejectedExecutionHandler;
+import org.hubspot.utils.concurrent.*;
 import org.hubspot.utils.exceptions.HubSpotException;
 import org.jetbrains.annotations.NotNull;
+import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 import java.util.concurrent.*;
 
 /**
@@ -44,6 +43,84 @@ public class DealService {
 
     public static boolean cacheExists() {
         return cacheFolder.toFile().exists();
+    }
+
+    public static Path getCacheFolder() {
+        return cacheFolder;
+    }
+
+    static Deal getById(HttpService service, String propertyString, long id, final RateLimiter rateLimiter)
+    throws HubSpotException {
+        String urlString = url + id;
+        rateLimiter.acquire(1);
+        return getDeal(service, propertyString, urlString);
+    }
+
+    @NotNull
+    private static Callable<Void> process(ConcurrentHashMap<Long, Deal> deals,
+                                          ProgressBar pb,
+                                          JSONObject jsonObject
+    ) {
+        return () -> {
+            for (Object o : jsonObject.getJSONArray("results")) {
+                JSONObject dealData = (JSONObject) o;
+                dealData = Utils.formatJson(dealData);
+                Deal deal = parseDealData(dealData);
+                FileUtils.writeJsonCache(cacheFolder, dealData);
+                deals.put(deal.getId(), deal);
+                pb.step();
+                Utils.sleep(1);
+            }
+            return null;
+        };
+    }
+
+    static ArrayList<Long> associateDeals(HttpService httpService, long contactId, final RateLimiter rateLimiter)
+    throws HubSpotException {
+        String url = "/crm-associations/v1/associations/" + contactId + "/HUBSPOT_DEFINED/4";
+        Map<String, Object> queryParam = new HashMap<>();
+        queryParam.put("limit", LIMIT);
+        List<Long> dealIds = Collections.synchronizedList(new ArrayList<>());
+        long offset;
+        CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
+                                                                                   STARTING_POOL_SIZE,
+                                                                                   0L,
+                                                                                   TimeUnit.MILLISECONDS,
+                                                                                   new LinkedBlockingQueue<>(200),
+                                                                                   new CustomThreadFactory(
+                                                                                           "DealIds_Contact_" +
+                                                                                           contactId),
+                                                                                   new StoringRejectedExecutionHandler()
+        );
+        Utils.addExecutor(threadPoolExecutor);
+        ScheduledExecutorService scheduledExecutorService
+                = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("DealIdsUpdater_Contact_" +
+                                                                                     contactId));
+        scheduledExecutorService.scheduleAtFixedRate(() -> {
+            double load = CPUMonitor.getProcessLoad();
+            String debugMessage = String.format(debugMessageFormat, "getAllDealIds", load);
+            Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
+        }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
+        while (true) {
+            rateLimiter.acquire(1);
+            JSONObject jsonObject = (JSONObject) httpService.getRequest(url, queryParam);
+            JSONArray jsonDealIds = jsonObject.getJSONArray("results");
+            threadPoolExecutor.submit(() -> {
+                for (int i = 0; i < jsonDealIds.length(); i++) {
+                    dealIds.add(jsonDealIds.getLong(i));
+                    Utils.sleep(1);
+                }
+                return null;
+            });
+            if (!jsonObject.getBoolean("hasMore")) {
+                break;
+            }
+            offset = jsonObject.getLong("offset");
+            queryParam.put("offset", offset);
+        }
+        Utils.shutdownExecutors(logger, threadPoolExecutor);
+        Utils.shutdownUpdaters(logger, scheduledExecutorService);
+        return new ArrayList<>(dealIds);
     }
 
     static HashMap<Long, Deal> getAllDeals(HttpService httpService,
@@ -103,25 +180,6 @@ public class DealService {
         return new HashMap<>(deals);
     }
 
-    @NotNull
-    private static Callable<Void> process(ConcurrentHashMap<Long, Deal> deals,
-                                          ProgressBar pb,
-                                          JSONObject jsonObject
-    ) {
-        return () -> {
-            for (Object o : jsonObject.getJSONArray("results")) {
-                JSONObject dealData = (JSONObject) o;
-                dealData = Utils.formatJson(dealData);
-                Deal deal = parseDealData(dealData);
-                FileUtils.writeJsonCache(cacheFolder, dealData);
-                deals.put(deal.getId(), deal);
-                pb.step();
-                Utils.sleep(1);
-            }
-            return null;
-        };
-    }
-
     static Deal parseDealData(JSONObject jsonObject) {
         long id = jsonObject.has("id") ? jsonObject.getLong("id") : 0;
         Deal deal = new Deal(id);
@@ -162,7 +220,184 @@ public class DealService {
         return deal;
     }
 
-    public static Path getCacheFolder() {
-        return cacheFolder;
+    static Deal getDeal(HttpService httpService, String propertyString, String url) throws HubSpotException {
+        try {
+            return parseDealData((JSONObject) httpService.getRequest(url, propertyString));
+        }
+        catch (HubSpotException e) {
+            if (e.getMessage().equalsIgnoreCase("Not Found")) {
+                return null;
+            }
+            else {
+                throw e;
+            }
+        }
+    }
+
+    static HashMap<Long, Deal> getUpdatedDeals(HttpService httpService,
+                                               PropertyData propertyData,
+                                               long lastExecution,
+                                               long lastFinished
+    ) throws HubSpotException {
+        String url = "/crm/v3/objects/deals/search";
+        final RateLimiter rateLimiter = RateLimiter.create(3.0);
+        ConcurrentHashMap<Long, Deal> deals = new ConcurrentHashMap<>();
+        JSONObject body = HubSpotUtils.getUpdateBody(CRMObjectType.DEALS, propertyData, lastExecution, LIMIT);
+        long after;
+        long count = HubSpotUtils.getUpdateCount(httpService, rateLimiter, CRMObjectType.DEALS, lastExecution);
+        int capacity = (int) Math.ceil(Math.ceil((double) count / (double) LIMIT) * Math.pow(MAX_SIZE, -0.6));
+        UpdateThreadPoolExecutor threadPoolExecutor = new UpdateThreadPoolExecutor(1,
+                                                                                   STARTING_POOL_SIZE,
+                                                                                   0L,
+                                                                                   TimeUnit.MILLISECONDS,
+                                                                                   new LinkedBlockingQueue<>(Math.max(
+                                                                                           capacity,
+                                                                                           Runtime.getRuntime()
+                                                                                                  .availableProcessors()
+                                                                                   )),
+                                                                                   new CustomThreadFactory(
+                                                                                           "DealUpdater"),
+                                                                                   new StoringRejectedExecutionHandler(),
+                                                                                   cacheFolder,
+                                                                                   lastFinished
+        );
+        Utils.addExecutor(threadPoolExecutor);
+        ScheduledExecutorService scheduledExecutorService
+                = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("DealUpdaterUpdater"));
+        scheduledExecutorService.scheduleAtFixedRate(() -> {
+            double load = CPUMonitor.getProcessLoad();
+            String debugMessage = String.format(debugMessageFormat, "getUpdatedDeals", load);
+            Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
+        }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
+        ProgressBar pb = Utils.createProgressBar("Grabbing and Writing Updated Deals", count);
+        Utils.sleep(WARMUP);
+        while (true) {
+            rateLimiter.acquire(1);
+            JSONObject jsonObject = (JSONObject) httpService.postRequest(url, body);
+            threadPoolExecutor.submit(process(deals, pb, jsonObject));
+            if (!jsonObject.has("paging")) {
+                break;
+            }
+            after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
+            body.put("after", after);
+        }
+        Utils.shutdownExecutors(logger, threadPoolExecutor);
+        Utils.shutdownUpdaters(logger, scheduledExecutorService);
+        pb.close();
+        return new HashMap<>(deals);
+    }
+
+    static HashMap<Long, Deal> readDealJsons() throws HubSpotException {
+        ConcurrentHashMap<Long, Deal> deals = new ConcurrentHashMap<>();
+        File[] files = cacheFolder.toFile().listFiles();
+        if (!Utils.isArrayNullOrEmpty(files)) {
+            List<File> fileList = Arrays.asList(files);
+            Iterable<List<File>> partitions = Iterables.partition(fileList, LIMIT);
+            int capacity = (int) Math.ceil(Math.ceil((double) fileList.size() / (double) LIMIT) *
+                                           Math.pow(MAX_SIZE, -0.6));
+            CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
+                                                                                       STARTING_POOL_SIZE,
+                                                                                       0L,
+                                                                                       TimeUnit.MILLISECONDS,
+                                                                                       new LinkedBlockingQueue<>(Math.max(
+                                                                                               capacity,
+                                                                                               Runtime.getRuntime()
+                                                                                                      .availableProcessors()
+                                                                                       )),
+                                                                                       new CustomThreadFactory(
+                                                                                               "DealReader"),
+                                                                                       new StoringRejectedExecutionHandler()
+            );
+            Utils.addExecutor(threadPoolExecutor);
+            ScheduledExecutorService scheduledExecutorService
+                    = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("DealReaderUpdater"));
+            scheduledExecutorService.scheduleAtFixedRate(() -> {
+                double load = CPUMonitor.getProcessLoad();
+                String debugMessage = String.format(debugMessageFormat, "readDealJsons", load);
+                Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
+            }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
+            ProgressBar pb = Utils.createProgressBar("Reading Deals", fileList.size());
+            Utils.sleep(WARMUP);
+            for (List<File> partition : partitions) {
+                threadPoolExecutor.submit(() -> {
+                    for (File file : partition) {
+                        String jsonString = FileUtils.readJsonString(logger, file);
+                        JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
+                        Deal deal = parseDealData(jsonObject);
+                        deals.put(deal.getId(), deal);
+                        pb.step();
+                        Utils.sleep(1);
+                    }
+                    return null;
+                });
+            }
+            Utils.shutdownExecutors(logger, threadPoolExecutor);
+            Utils.shutdownUpdaters(logger, scheduledExecutorService);
+            pb.close();
+        }
+        return new HashMap<>(deals);
+    }
+
+    static void writeDealJson(HttpService httpService, PropertyData propertyData, final RateLimiter rateLimiter)
+    throws HubSpotException {
+        Map<String, Object> map = new HashMap<>();
+        map.put("limit", LIMIT);
+        map.put("properties", propertyData.getPropertyNamesString());
+        map.put("archived", false);
+        long after;
+        long count = HubSpotUtils.getObjectCount(httpService, CRMObjectType.CONTACTS, rateLimiter);
+        int capacity = (int) Math.ceil(Math.ceil((double) count / (double) LIMIT) * Math.pow(MAX_SIZE, -0.6));
+        CacheThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,
+                                                                                 STARTING_POOL_SIZE,
+                                                                                 0L,
+                                                                                 TimeUnit.MILLISECONDS,
+                                                                                 new LinkedBlockingQueue<>(Math.max(
+                                                                                         capacity,
+                                                                                         Runtime.getRuntime()
+                                                                                                .availableProcessors()
+                                                                                 )),
+                                                                                 new CustomThreadFactory("ContactWriter"),
+                                                                                 new StoringRejectedExecutionHandler(),
+                                                                                 cacheFolder
+        );
+        Utils.addExecutor(threadPoolExecutor);
+        ScheduledExecutorService scheduledExecutorService
+                = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("ContactWriterUpdater"));
+        scheduledExecutorService.scheduleAtFixedRate(() -> {
+            double load = CPUMonitor.getProcessLoad();
+            String debugMessage = String.format(debugMessageFormat, "writeContactJson", load);
+            Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
+        }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
+        try {
+            Files.createDirectories(cacheFolder);
+        }
+        catch (IOException e) {
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to create folder {}", cacheFolder, e);
+            System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
+        }
+        ProgressBar pb = Utils.createProgressBar("Writing Contacts", count);
+        Utils.sleep(WARMUP);
+        while (true) {
+            rateLimiter.acquire(1);
+            JSONObject jsonObject = (JSONObject) httpService.getRequest(url, map);
+            threadPoolExecutor.submit(() -> {
+                for (Object o : jsonObject.getJSONArray("results")) {
+                    JSONObject contactJson = (JSONObject) o;
+                    contactJson = Utils.formatJson(contactJson);
+                    FileUtils.writeJsonCache(cacheFolder, contactJson);
+                    pb.step();
+                    Utils.sleep(1);
+                }
+                return null;
+            });
+            if (!jsonObject.has("paging")) {
+                break;
+            }
+            after = jsonObject.getJSONObject("paging").getJSONObject("next").getLong("after");
+            map.put("after", after);
+        }
+        Utils.shutdownExecutors(logger, threadPoolExecutor);
+        Utils.shutdownUpdaters(logger, scheduledExecutorService);
+        pb.close();
     }
 }

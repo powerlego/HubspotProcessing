@@ -36,22 +36,6 @@ public class HubSpotUtils {
         return getCount(service, type, rateLimiter, body);
     }
 
-    private static long getCount(HttpService service,
-                                 CRMObjectType type,
-                                 final RateLimiter rateLimiter,
-                                 JSONObject body
-    ) {
-        try {
-            rateLimiter.acquire(1);
-            JSONObject resp = (JSONObject) service.postRequest("/crm/v3/objects/" + type.getValue() + "/search", body);
-            return resp.getLong("total");
-        }
-        catch (HubSpotException e) {
-            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get object count.", e);
-            return 0;
-        }
-    }
-
     public static long getUpdateCount(HttpService service,
                                       final RateLimiter rateLimiter,
                                       CRMObjectType type,
@@ -93,6 +77,22 @@ public class HubSpotUtils {
         JSONArray propertyArray = new JSONArray(propertyData.getPropertyNames());
         body.put("filterGroups", filterGroupsArray).put("properties", propertyArray).put("limit", limit);
         return body;
+    }
+
+    private static long getCount(HttpService service,
+                                 CRMObjectType type,
+                                 final RateLimiter rateLimiter,
+                                 JSONObject body
+    ) {
+        try {
+            rateLimiter.acquire(1);
+            JSONObject resp = (JSONObject) service.postRequest("/crm/v3/objects/" + type.getValue() + "/search", body);
+            return resp.getLong("total");
+        }
+        catch (HubSpotException e) {
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get object count.", e);
+            return 0;
+        }
     }
 
     public static String propertyListToString(List<String> properties) {

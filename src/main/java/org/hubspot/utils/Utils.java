@@ -142,6 +142,56 @@ public class Utils {
         return executors;
     }
 
+    public static boolean isArrayNullOrEmpty(Object[] arry) {
+        return arry == null || arry.length <= 0;
+    }
+
+    public static float round(float value, int places) {
+        return (float) round((double) value, places);
+    }
+
+    public static double round(double value, int places) {
+        if (places < 0) {
+            throw new IllegalArgumentException();
+        }
+        BigDecimal bd = BigDecimal.valueOf(value).setScale(places, RoundingMode.HALF_UP);
+        return bd.doubleValue();
+    }
+
+    public static void shutdownExecutors(Logger logger, ExecutorService executorService) {
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                logger.warn(LogMarkers.ERROR.getMarker(), "Termination Timeout");
+            }
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+        executors.remove(executorService);
+    }
+
+    public static void shutdownUpdaters(Logger logger, ScheduledExecutorService scheduledExecutorService) {
+        scheduledExecutorService.shutdown();
+        try {
+            if (!scheduledExecutorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
+                logger.warn(LogMarkers.ERROR.getMarker(), "Termination Timeout");
+            }
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+    public static void sleep(long milliseconds) {
+        try {
+            Thread.sleep(milliseconds);
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
     private static Object recurseCheckingConversion(Object object) {
         if (object instanceof kong.unirest.json.JSONObject) {
             kong.unirest.json.JSONObject o = (kong.unirest.json.JSONObject) object;
@@ -246,52 +296,6 @@ public class Utils {
         }
         else {
             return Objects.requireNonNullElse(object, JSONObject.NULL);
-        }
-    }
-
-    public static float round(float value, int places) {
-        return (float) round((double) value, places);
-    }
-
-    public static double round(double value, int places) {
-        if (places < 0) {
-            throw new IllegalArgumentException();
-        }
-        BigDecimal bd = BigDecimal.valueOf(value).setScale(places, RoundingMode.HALF_UP);
-        return bd.doubleValue();
-    }
-
-    public static void shutdownExecutors(Logger logger, ExecutorService executorService) {
-        executorService.shutdown();
-        try {
-            if (!executorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
-                logger.warn(LogMarkers.ERROR.getMarker(), "Termination Timeout");
-            }
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-        executors.remove(executorService);
-    }
-
-    public static void shutdownUpdaters(Logger logger, ScheduledExecutorService scheduledExecutorService) {
-        scheduledExecutorService.shutdown();
-        try {
-            if (!scheduledExecutorService.awaitTermination(Long.MAX_VALUE, TimeUnit.NANOSECONDS)) {
-                logger.warn(LogMarkers.ERROR.getMarker(), "Termination Timeout");
-            }
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
-
-    public static void sleep(long milliseconds) {
-        try {
-            Thread.sleep(milliseconds);
-        }
-        catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
         }
     }
 }

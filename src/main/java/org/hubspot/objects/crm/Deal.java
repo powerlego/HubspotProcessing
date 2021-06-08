@@ -49,14 +49,6 @@ public class Deal extends CRMObject {
         return createDate;
     }
 
-    public String getDealName() {
-        return dealName;
-    }
-
-    public String getDealStage() {
-        return dealStage;
-    }
-
     public String getPipeline() {
         return pipeline;
     }
@@ -85,6 +77,14 @@ public class Deal extends CRMObject {
      */
     public JSONObject toJson() {
         return new JSONObject().put("id", getId()).put("properties", super.getProperties());
+    }
+
+    public String getDealName() {
+        return dealName;
+    }
+
+    public String getDealStage() {
+        return dealStage;
     }
 
     /**

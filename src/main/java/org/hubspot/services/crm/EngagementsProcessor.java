@@ -40,157 +40,28 @@ public class EngagementsProcessor {
     private static final String      debugMessageFormat = "Method %-30s\tProcess Load: %f";
     private static final int         MAX_SIZE           = 50;
 
-
     public static boolean cacheExists() {
         return cacheFolder.toFile().exists();
     }
 
-    static EngagementData getAllEngagements(HttpService httpService, long contactId) throws HubSpotException {
-        ArrayList<Long> engagementIdsToIterate = getAllEngagementIds(httpService, contactId);
-        Iterable<List<Long>> partitions = Iterables.partition(engagementIdsToIterate, LIMIT);
-        int capacity = (int) Math.ceil(Math.ceil((double) engagementIdsToIterate.size() / (double) LIMIT) *
-                                       Math.pow(MAX_SIZE, -0.6));
-        List<Long> engagementIds = Collections.synchronizedList(new ArrayList<>(engagementIdsToIterate));
-        List<Engagement> engagements = Collections.synchronizedList(new ArrayList<>());
-        try {
-            Files.createDirectories(cacheFolder);
-        }
-        catch (IOException e) {
-            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to create folder {}", cacheFolder, e);
-            System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
-        }
-        Path folder = cacheFolder.resolve(contactId + "/");
-        try {
-            Files.createDirectories(folder);
-        }
-        catch (IOException e) {
-            logger.fatal(LogMarkers.ERROR.getMarker(),
-                         "Unable to write engagement jsons for contact id {}",
-                         contactId,
-                         e
-            );
-            System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
-        }
-        CacheThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,
-                                                                                 STARTING_POOL_SIZE,
-                                                                                 0L,
-                                                                                 TimeUnit.MILLISECONDS,
-                                                                                 new LinkedBlockingQueue<>(Math.max(
-                                                                                         capacity,
-                                                                                         Runtime.getRuntime()
-                                                                                                .availableProcessors()
-                                                                                 )),
-                                                                                 new CustomThreadFactory(
-                                                                                         "EngagementGrabber_Contact_" +
-                                                                                         contactId),
-                                                                                 new StoringRejectedExecutionHandler(),
-                                                                                 folder
-        );
-        Utils.addExecutor(threadPoolExecutor);
-        ScheduledExecutorService scheduledExecutorService
-                = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("EngagementGrabberUpdater_Contact_" +
-                                                                                     contactId));
-        scheduledExecutorService.scheduleAtFixedRate(() -> {
-            double load = CPUMonitor.getProcessLoad();
-            String debugMessage = String.format(debugMessageFormat, "getAllEngagements", load);
-            Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
-        }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
-        for (List<Long> partition : partitions) {
-            threadPoolExecutor.submit(() -> {
-                for (Long engagementId : partition) {
-                    Engagement engagement = getEngagement(httpService, folder, engagementId);
-                    if (engagement == null) {
-                        engagementIds.remove(engagementId);
-                    }
-                    else {
-                        engagements.add(engagement);
-                    }
-                    Utils.sleep(1);
-                }
-                return null;
-            });
-        }
-        Utils.shutdownExecutors(logger, threadPoolExecutor);
-        Utils.shutdownUpdaters(logger, scheduledExecutorService);
-        return new EngagementData(new ArrayList<>(engagementIds), new ArrayList<>(engagements));
+    public static Path getCacheFolder() {
+        return cacheFolder;
     }
 
-    static ArrayList<Long> getAllEngagementIds(HttpService httpService, long contactId) throws HubSpotException {
-        String url = "/crm-associations/v1/associations/" + contactId + "/HUBSPOT_DEFINED/9";
-        Map<String, Object> queryParam = new HashMap<>();
-        queryParam.put("limit", LIMIT);
-        List<Long> engagementIds = Collections.synchronizedList(new ArrayList<>());
-        long offset;
-        CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
-                                                                                   STARTING_POOL_SIZE,
-                                                                                   0L,
-                                                                                   TimeUnit.MILLISECONDS,
-                                                                                   new LinkedBlockingQueue<>(200),
-                                                                                   new CustomThreadFactory(
-                                                                                           "EngagementIds_Contact_" +
-                                                                                           contactId),
-                                                                                   new StoringRejectedExecutionHandler()
-        );
-        Utils.addExecutor(threadPoolExecutor);
-        ScheduledExecutorService scheduledExecutorService
-                = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("EngagementIdsUpdater_Contact_" +
-                                                                                     contactId));
-        scheduledExecutorService.scheduleAtFixedRate(() -> {
-            double load = CPUMonitor.getProcessLoad();
-            String debugMessage = String.format(debugMessageFormat, "getAllEngagementIds", load);
-            Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
-        }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
-        while (true) {
-            rateLimiter.acquire(1);
-            JSONObject jsonObject = (JSONObject) httpService.getRequest(url, queryParam);
-            JSONArray jsonEngagementIds = jsonObject.getJSONArray("results");
-            threadPoolExecutor.submit(() -> {
-                for (int i = 0; i < jsonEngagementIds.length(); i++) {
-                    engagementIds.add(jsonEngagementIds.getLong(i));
-                    Utils.sleep(1);
-                }
-                return null;
-            });
-            if (!jsonObject.getBoolean("hasMore")) {
-                break;
-            }
-            offset = jsonObject.getLong("offset");
-            queryParam.put("offset", offset);
+    private static Details emailDetails(JSONObject jsonDetails) {
+        String firstName = "";
+        String lastName = "";
+        String email = "";
+        if (jsonDetails.has("firstName")) {
+            firstName = jsonDetails.get("firstName").toString();
         }
-        Utils.shutdownExecutors(logger, threadPoolExecutor);
-        Utils.shutdownUpdaters(logger, scheduledExecutorService);
-        return new ArrayList<>(engagementIds);
-    }
-
-    static Engagement getEngagement(HttpService service, Path folder, long engagementId) throws HubSpotException {
-        String engagementUrl = "/engagements/v1/engagements/" + engagementId;
-        rateLimiter.acquire(1);
-        JSONObject engagementJson = (JSONObject) service.getRequest(engagementUrl);
-        if (engagementJson == null) {
-            throw new HubSpotException(new NullException("Unable to grab engagement"),
-                                       ErrorCodes.NULL_EXCEPTION.getErrorCode()
-            );
+        if (jsonDetails.has("lastName")) {
+            lastName = jsonDetails.get("lastName").toString();
         }
-        Engagement engagement = process(engagementJson);
-        if (engagement == null) {
-            JSONObject engagementDataJson = engagementJson.getJSONObject("engagement");
-            String type = engagementDataJson.getString("type");
-            if (!type.toLowerCase().contains("conversation")) {
-                throw new HubSpotException("Invalid engagement type", ErrorCodes.INVALID_ENGAGEMENT.getErrorCode());
-            }
-            else {
-                return null;
-            }
+        if (jsonDetails.has("email")) {
+            email = jsonDetails.get("email").toString();
         }
-        else {
-            try {
-                FileUtils.writeJsonCache(folder, engagementJson);
-            }
-            catch (IOException e) {
-                throw new HubSpotException("Unable to write json to cache", ErrorCodes.IO_WRITE.getErrorCode(), e);
-            }
-            return engagement;
-        }
+        return new Details(firstName, lastName, email);
     }
 
     private static Engagement process(JSONObject engagementJson) {
@@ -372,24 +243,152 @@ public class EngagementsProcessor {
         }
     }
 
-    private static Details emailDetails(JSONObject jsonDetails) {
-        String firstName = "";
-        String lastName = "";
-        String email = "";
-        if (jsonDetails.has("firstName")) {
-            firstName = jsonDetails.get("firstName").toString();
+    static ArrayList<Long> getAllEngagementIds(HttpService httpService, long contactId) throws HubSpotException {
+        String url = "/crm-associations/v1/associations/" + contactId + "/HUBSPOT_DEFINED/9";
+        Map<String, Object> queryParam = new HashMap<>();
+        queryParam.put("limit", LIMIT);
+        List<Long> engagementIds = Collections.synchronizedList(new ArrayList<>());
+        long offset;
+        CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
+                                                                                   STARTING_POOL_SIZE,
+                                                                                   0L,
+                                                                                   TimeUnit.MILLISECONDS,
+                                                                                   new LinkedBlockingQueue<>(200),
+                                                                                   new CustomThreadFactory(
+                                                                                           "EngagementIds_Contact_" +
+                                                                                           contactId),
+                                                                                   new StoringRejectedExecutionHandler()
+        );
+        Utils.addExecutor(threadPoolExecutor);
+        ScheduledExecutorService scheduledExecutorService
+                = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("EngagementIdsUpdater_Contact_" +
+                                                                                     contactId));
+        scheduledExecutorService.scheduleAtFixedRate(() -> {
+            double load = CPUMonitor.getProcessLoad();
+            String debugMessage = String.format(debugMessageFormat, "getAllEngagementIds", load);
+            Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
+        }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
+        while (true) {
+            rateLimiter.acquire(1);
+            JSONObject jsonObject = (JSONObject) httpService.getRequest(url, queryParam);
+            JSONArray jsonEngagementIds = jsonObject.getJSONArray("results");
+            threadPoolExecutor.submit(() -> {
+                for (int i = 0; i < jsonEngagementIds.length(); i++) {
+                    engagementIds.add(jsonEngagementIds.getLong(i));
+                    Utils.sleep(1);
+                }
+                return null;
+            });
+            if (!jsonObject.getBoolean("hasMore")) {
+                break;
+            }
+            offset = jsonObject.getLong("offset");
+            queryParam.put("offset", offset);
         }
-        if (jsonDetails.has("lastName")) {
-            lastName = jsonDetails.get("lastName").toString();
-        }
-        if (jsonDetails.has("email")) {
-            email = jsonDetails.get("email").toString();
-        }
-        return new Details(firstName, lastName, email);
+        Utils.shutdownExecutors(logger, threadPoolExecutor);
+        Utils.shutdownUpdaters(logger, scheduledExecutorService);
+        return new ArrayList<>(engagementIds);
     }
 
-    public static Path getCacheFolder() {
-        return cacheFolder;
+    static EngagementData getAllEngagements(HttpService httpService, long contactId) throws HubSpotException {
+        ArrayList<Long> engagementIdsToIterate = getAllEngagementIds(httpService, contactId);
+        Iterable<List<Long>> partitions = Iterables.partition(engagementIdsToIterate, LIMIT);
+        int capacity = (int) Math.ceil(Math.ceil((double) engagementIdsToIterate.size() / (double) LIMIT) *
+                                       Math.pow(MAX_SIZE, -0.6));
+        List<Long> engagementIds = Collections.synchronizedList(new ArrayList<>(engagementIdsToIterate));
+        List<Engagement> engagements = Collections.synchronizedList(new ArrayList<>());
+        try {
+            Files.createDirectories(cacheFolder);
+        }
+        catch (IOException e) {
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to create folder {}", cacheFolder, e);
+            System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
+        }
+        Path folder = cacheFolder.resolve(contactId + "/");
+        try {
+            Files.createDirectories(folder);
+        }
+        catch (IOException e) {
+            logger.fatal(LogMarkers.ERROR.getMarker(),
+                         "Unable to write engagement jsons for contact id {}",
+                         contactId,
+                         e
+            );
+            System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
+        }
+        CacheThreadPoolExecutor threadPoolExecutor = new CacheThreadPoolExecutor(1,
+                                                                                 STARTING_POOL_SIZE,
+                                                                                 0L,
+                                                                                 TimeUnit.MILLISECONDS,
+                                                                                 new LinkedBlockingQueue<>(Math.max(
+                                                                                         capacity,
+                                                                                         Runtime.getRuntime()
+                                                                                                .availableProcessors()
+                                                                                 )),
+                                                                                 new CustomThreadFactory(
+                                                                                         "EngagementGrabber_Contact_" +
+                                                                                         contactId),
+                                                                                 new StoringRejectedExecutionHandler(),
+                                                                                 folder
+        );
+        Utils.addExecutor(threadPoolExecutor);
+        ScheduledExecutorService scheduledExecutorService
+                = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("EngagementGrabberUpdater_Contact_" +
+                                                                                     contactId));
+        scheduledExecutorService.scheduleAtFixedRate(() -> {
+            double load = CPUMonitor.getProcessLoad();
+            String debugMessage = String.format(debugMessageFormat, "getAllEngagements", load);
+            Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
+        }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
+        for (List<Long> partition : partitions) {
+            threadPoolExecutor.submit(() -> {
+                for (Long engagementId : partition) {
+                    Engagement engagement = getEngagement(httpService, folder, engagementId);
+                    if (engagement == null) {
+                        engagementIds.remove(engagementId);
+                    }
+                    else {
+                        engagements.add(engagement);
+                    }
+                    Utils.sleep(1);
+                }
+                return null;
+            });
+        }
+        Utils.shutdownExecutors(logger, threadPoolExecutor);
+        Utils.shutdownUpdaters(logger, scheduledExecutorService);
+        return new EngagementData(new ArrayList<>(engagementIds), new ArrayList<>(engagements));
+    }
+
+    static Engagement getEngagement(HttpService service, Path folder, long engagementId) throws HubSpotException {
+        String engagementUrl = "/engagements/v1/engagements/" + engagementId;
+        rateLimiter.acquire(1);
+        JSONObject engagementJson = (JSONObject) service.getRequest(engagementUrl);
+        if (engagementJson == null) {
+            throw new HubSpotException(new NullException("Unable to grab engagement"),
+                                       ErrorCodes.NULL_EXCEPTION.getErrorCode()
+            );
+        }
+        Engagement engagement = process(engagementJson);
+        if (engagement == null) {
+            JSONObject engagementDataJson = engagementJson.getJSONObject("engagement");
+            String type = engagementDataJson.getString("type");
+            if (!type.toLowerCase().contains("conversation")) {
+                throw new HubSpotException("Invalid engagement type", ErrorCodes.INVALID_ENGAGEMENT.getErrorCode());
+            }
+            else {
+                return null;
+            }
+        }
+        else {
+            try {
+                FileUtils.writeJsonCache(folder, engagementJson);
+            }
+            catch (IOException e) {
+                throw new HubSpotException("Unable to write json to cache", ErrorCodes.IO_WRITE.getErrorCode(), e);
+            }
+            return engagement;
+        }
     }
 
     static EngagementData getUpdatedEngagements(HttpService httpService, long contactId, long lastFinished)
@@ -499,58 +498,6 @@ public class EngagementsProcessor {
             pb.close();
         }
         return new HashMap<>(contactsEngagementData);
-    }
-
-    private static EngagementData readContactEngagementJsons(File contactFolder, long contactId) {
-        File[] files = contactFolder.listFiles();
-        List<Long> engagementIds = Collections.synchronizedList(new ArrayList<>());
-        List<Engagement> engagements = Collections.synchronizedList(new ArrayList<>());
-        if (files != null) {
-            List<File> fileList = Arrays.asList(files);
-            Iterable<List<File>> partitions = Iterables.partition(fileList, LIMIT);
-            int capacity = (int) Math.ceil(Math.ceil((double) fileList.size() / (double) LIMIT) *
-                                           Math.pow(MAX_SIZE, -0.6));
-            CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
-                                                                                       STARTING_POOL_SIZE,
-                                                                                       0L,
-                                                                                       TimeUnit.MILLISECONDS,
-                                                                                       new LinkedBlockingQueue<>(Math.max(
-                                                                                               capacity,
-                                                                                               Runtime.getRuntime()
-                                                                                                      .availableProcessors()
-                                                                                       )),
-                                                                                       new CustomThreadFactory(
-                                                                                               "EngagementReader_Contact_" +
-                                                                                               contactId),
-                                                                                       new StoringRejectedExecutionHandler()
-            );
-            Utils.addExecutor(threadPoolExecutor);
-            ScheduledExecutorService scheduledExecutorService
-                    = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory(
-                    "EngagementReaderUpdater_Contact_" + contactId));
-            scheduledExecutorService.scheduleAtFixedRate(() -> {
-                double load = CPUMonitor.getProcessLoad();
-                String debugMessage = String.format(debugMessageFormat, "readContactEngagementJsons", load);
-                Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
-            }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
-            for (List<File> partition : partitions) {
-                threadPoolExecutor.submit(() -> {
-                    for (File file : partition) {
-                        String jsonString = FileUtils.readJsonString(logger, file);
-                        JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
-                        long engagementId = jsonObject.getJSONObject("engagement").getLong("id");
-                        Engagement engagement = process(jsonObject);
-                        engagementIds.add(engagementId);
-                        engagements.add(engagement);
-                        Utils.sleep(1);
-                    }
-                    return null;
-                });
-            }
-            Utils.shutdownExecutors(logger, threadPoolExecutor);
-            Utils.shutdownUpdaters(logger, scheduledExecutorService);
-        }
-        return new EngagementData(new ArrayList<>(engagementIds), new ArrayList<>(engagements));
     }
 
     static void writeContactEngagementJsons(HttpService httpService, long contactId) throws HubSpotException {
@@ -684,6 +631,58 @@ public class EngagementsProcessor {
                 throw e;
             }
         }
+    }
+
+    private static EngagementData readContactEngagementJsons(File contactFolder, long contactId) {
+        File[] files = contactFolder.listFiles();
+        List<Long> engagementIds = Collections.synchronizedList(new ArrayList<>());
+        List<Engagement> engagements = Collections.synchronizedList(new ArrayList<>());
+        if (files != null) {
+            List<File> fileList = Arrays.asList(files);
+            Iterable<List<File>> partitions = Iterables.partition(fileList, LIMIT);
+            int capacity = (int) Math.ceil(Math.ceil((double) fileList.size() / (double) LIMIT) *
+                                           Math.pow(MAX_SIZE, -0.6));
+            CustomThreadPoolExecutor threadPoolExecutor = new CustomThreadPoolExecutor(1,
+                                                                                       STARTING_POOL_SIZE,
+                                                                                       0L,
+                                                                                       TimeUnit.MILLISECONDS,
+                                                                                       new LinkedBlockingQueue<>(Math.max(
+                                                                                               capacity,
+                                                                                               Runtime.getRuntime()
+                                                                                                      .availableProcessors()
+                                                                                       )),
+                                                                                       new CustomThreadFactory(
+                                                                                               "EngagementReader_Contact_" +
+                                                                                               contactId),
+                                                                                       new StoringRejectedExecutionHandler()
+            );
+            Utils.addExecutor(threadPoolExecutor);
+            ScheduledExecutorService scheduledExecutorService
+                    = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory(
+                    "EngagementReaderUpdater_Contact_" + contactId));
+            scheduledExecutorService.scheduleAtFixedRate(() -> {
+                double load = CPUMonitor.getProcessLoad();
+                String debugMessage = String.format(debugMessageFormat, "readContactEngagementJsons", load);
+                Utils.adjustLoad(threadPoolExecutor, load, debugMessage, logger, MAX_SIZE);
+            }, 0, UPDATE_INTERVAL, TimeUnit.MILLISECONDS);
+            for (List<File> partition : partitions) {
+                threadPoolExecutor.submit(() -> {
+                    for (File file : partition) {
+                        String jsonString = FileUtils.readJsonString(logger, file);
+                        JSONObject jsonObject = Utils.formatJson(new JSONObject(jsonString));
+                        long engagementId = jsonObject.getJSONObject("engagement").getLong("id");
+                        Engagement engagement = process(jsonObject);
+                        engagementIds.add(engagementId);
+                        engagements.add(engagement);
+                        Utils.sleep(1);
+                    }
+                    return null;
+                });
+            }
+            Utils.shutdownExecutors(logger, threadPoolExecutor);
+            Utils.shutdownUpdaters(logger, scheduledExecutorService);
+        }
+        return new EngagementData(new ArrayList<>(engagementIds), new ArrayList<>(engagements));
     }
 
     public static class EngagementData {

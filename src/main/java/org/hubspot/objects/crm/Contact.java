@@ -37,26 +37,25 @@ public class Contact extends CRMObject {
     /**
      * The lead status of the contact
      */
-    private String leadStatus;
+    private              String           leadStatus;
     /**
      * The life cycle stage of the contact
      */
-    private String lifeCycleStage;
+    private              String           lifeCycleStage;
     /**
      * The first name of the contact
      */
-    private String firstName;
+    private              String           firstName;
     /**
      * The last name of the contact
      */
-    private String lastName;
+    private              String           lastName;
     /**
      * The contact's email address
      */
-    private String email;
-
-    private List<Long> dealIds;
-    private List<Deal> deals;
+    private              String           email;
+    private              List<Long>       dealIds;
+    private              List<Deal>       deals;
 
     /**
      * A constructor for a Contact object
@@ -67,12 +66,124 @@ public class Contact extends CRMObject {
         super(id);
     }
 
+    /**
+     * Gets the email address of this contact
+     *
+     * @return The email address of this contact
+     */
+    public String getEmail() {
+        return email;
+    }
+
+    /**
+     * Gets the first name of this contact
+     *
+     * @return The first name of this contact
+     */
+    public String getFirstName() {
+        return firstName;
+    }
+
+    /**
+     * Gets the last name of this contact
+     *
+     * @return The last name of this contact
+     */
+    public String getLastName() {
+        return lastName;
+    }
+
+    /**
+     * Gets the lead status of this contact
+     *
+     * @return The lead status of this contact
+     */
+    public String getLeadStatus() {
+        return leadStatus;
+    }
+
+    /**
+     * Gets the life cycle stage of this contact
+     *
+     * @return The life cycle stage of this contact
+     */
+    public String getLifeCycleStage() {
+        return lifeCycleStage;
+    }
+
+    /**
+     * Returns the string representation of this contact
+     *
+     * @return The string representation of this contact
+     */
+    @Override
+    public String toString() {
+        StringBuilder builder = new StringBuilder(super.toString()).append("\nEngagement IDs {\n");
+        for (Iterator<Long> iterator = engagementIds.iterator(); iterator.hasNext(); ) {
+            long engagementId = iterator.next();
+            if (!iterator.hasNext()) {
+                builder.append("\t").append(engagementId).append("\n");
+            }
+            else {
+                builder.append("\t").append(engagementId).append(",\n");
+            }
+        }
+        builder.append("}");
+        return builder.toString();
+    }
+
+    /**
+     * Converts this contact into a json object
+     *
+     * @return The json object representation of this contact
+     */
+    public JSONObject toJson() {
+        JSONObject jo = new JSONObject(super.getProperties());
+        JSONArray ja = new JSONArray(engagementIds);
+        return new JSONObject().put("class", this.getClass().getName())
+                               .put("id", getId())
+                               .put("properties", jo)
+                               .put("engagements", ja);
+    }
+
+    /**
+     * Gets the associated company id of this contact
+     *
+     * @return The associated company id
+     */
+    public long getAssociatedCompany() {
+        Object companyIdObject = this.getProperties().get("associatedcompanyid");
+        if (companyIdObject instanceof Integer) {
+            return (int) companyIdObject;
+        }
+        if (companyIdObject.toString().equalsIgnoreCase("null")) {
+            return 0;
+        }
+        return (long) this.getProperties().get("associatedcompanyid");
+    }
+
     public void addAllDealIds(Collection<? extends Long> dealIds) {
         this.dealIds.addAll(dealIds);
     }
 
     public void addAllDeals(Collection<? extends Deal> deals) {
         this.deals.addAll(deals);
+    }
+
+    public void addDeal(Deal deal) {
+        this.deals.add(deal);
+    }
+
+    public void addDealId(long dealId) {
+        this.dealIds.add(dealId);
+    }
+
+    public void setDealIds(List<Long> dealIds) {
+        this.dealIds = dealIds;
+    }
+
+    public void setDeals(List<Deal> deals) {
+        this.deals = deals;
     }
 
     /**
@@ -93,14 +204,6 @@ public class Contact extends CRMObject {
         this.engagements.addAll(engagements);
     }
 
-    public void addDeal(Deal deal) {
-        this.deals.add(deal);
-    }
-
-    public void addDealId(long dealId) {
-        this.dealIds.add(dealId);
-    }
-
     /**
      * Associate an engagement with this contact
      *
@@ -117,31 +220,6 @@ public class Contact extends CRMObject {
      */
     public void addEngagementId(long engagementId) {
         this.engagementIds.add(engagementId);
-    }
-
-    /**
-     * Gets the associated company id of this contact
-     *
-     * @return The associated company id
-     */
-    public long getAssociatedCompany() {
-        Object companyIdObject = this.getProperties().get("associatedcompanyid");
-        if (companyIdObject instanceof Integer) {
-            return (int) companyIdObject;
-        }
-        if (companyIdObject.toString().equalsIgnoreCase("null")) {
-            return 0;
-        }
-        return (long) this.getProperties().get("associatedcompanyid");
-    }
-
-    /**
-     * Gets the email address of this contact
-     *
-     * @return The email address of this contact
-     */
-    public String getEmail() {
-        return email;
     }
 
     /**
@@ -181,50 +259,6 @@ public class Contact extends CRMObject {
     }
 
     /**
-     * Gets the first name of this contact
-     *
-     * @return The first name of this contact
-     */
-    public String getFirstName() {
-        return firstName;
-    }
-
-    /**
-     * Gets the last name of this contact
-     *
-     * @return The last name of this contact
-     */
-    public String getLastName() {
-        return lastName;
-    }
-
-    /**
-     * Gets the lead status of this contact
-     *
-     * @return The lead status of this contact
-     */
-    public String getLeadStatus() {
-        return leadStatus;
-    }
-
-    /**
-     * Gets the life cycle stage of this contact
-     *
-     * @return The life cycle stage of this contact
-     */
-    public String getLifeCycleStage() {
-        return lifeCycleStage;
-    }
-
-    public void setDealIds(List<Long> dealIds) {
-        this.dealIds = dealIds;
-    }
-
-    public void setDeals(List<Deal> deals) {
-        this.deals = deals;
-    }
-
-    /**
      * Sets/Adds a property to the contact
      *
      * @param property The property to set/add
@@ -248,40 +282,5 @@ public class Contact extends CRMObject {
             this.lastName = value.toString();
         }
         super.setProperty(property, value);
-    }
-
-    /**
-     * Returns the string representation of this contact
-     *
-     * @return The string representation of this contact
-     */
-    @Override
-    public String toString() {
-        StringBuilder builder = new StringBuilder(super.toString()).append("\nEngagement IDs {\n");
-        for (Iterator<Long> iterator = engagementIds.iterator(); iterator.hasNext(); ) {
-            long engagementId = iterator.next();
-            if (!iterator.hasNext()) {
-                builder.append("\t").append(engagementId).append("\n");
-            }
-            else {
-                builder.append("\t").append(engagementId).append(",\n");
-            }
-        }
-        builder.append("}");
-        return builder.toString();
-    }
-
-    /**
-     * Converts this contact into a json object
-     *
-     * @return The json object representation of this contact
-     */
-    public JSONObject toJson() {
-        JSONObject jo = new JSONObject(super.getProperties());
-        JSONArray ja = new JSONArray(engagementIds);
-        return new JSONObject().put("class", this.getClass().getName())
-                               .put("id", getId())
-                               .put("properties", jo)
-                               .put("engagements", ja);
     }
 }

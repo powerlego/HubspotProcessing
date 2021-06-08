@@ -176,20 +176,6 @@ public class FileUtils {
         fileWriter.close();
     }
 
-    private static Path getFilePath(Path folder, JSONObject jsonObject) {
-        long id;
-        if (jsonObject.has("id")) {
-            id = jsonObject.getLong("id");
-        }
-        else if (jsonObject.has("engagement")) {
-            id = jsonObject.getJSONObject("engagement").getLong("id");
-        }
-        else {
-            id = 0;
-        }
-        return folder.resolve(id + ".json");
-    }
-
     public static long writeLastExecution() {
         long lastExecuted = Instant.now().toEpochMilli();
         Path lastExecutedFile = Paths.get("./cache/last_executed.txt");
@@ -217,5 +203,19 @@ public class FileUtils {
             logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to write file {}", lastFinishedFile, e);
             System.exit(ErrorCodes.IO_WRITE.getErrorCode());
         }
+    }
+
+    private static Path getFilePath(Path folder, JSONObject jsonObject) {
+        long id;
+        if (jsonObject.has("id")) {
+            id = jsonObject.getLong("id");
+        }
+        else if (jsonObject.has("engagement")) {
+            id = jsonObject.getJSONObject("engagement").getLong("id");
+        }
+        else {
+            id = 0;
+        }
+        return folder.resolve(id + ".json");
     }
 }

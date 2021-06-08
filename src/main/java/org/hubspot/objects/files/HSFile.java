@@ -73,15 +73,6 @@ public class HSFile extends HubSpotObject {
     }
 
     /**
-     * Get the engagement id that this file is associated with
-     *
-     * @return The engagement id that this file is associated with
-     */
-    public long getEngagementId() {
-        return engagementId;
-    }
-
-    /**
      * Gets the extension of this file
      *
      * @return The extension of this file
@@ -135,5 +126,14 @@ public class HSFile extends HubSpotObject {
     @Override
     public String toString() {
         return name + "." + extension;
+    }
+
+    /**
+     * Get the engagement id that this file is associated with
+     *
+     * @return The engagement id that this file is associated with
+     */
+    public long getEngagementId() {
+        return engagementId;
     }
 }
