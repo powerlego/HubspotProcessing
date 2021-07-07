@@ -7,6 +7,7 @@ import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.PropertyData;
 import org.hubspot.objects.crm.CRMObjectType;
+import org.hubspot.objects.crm.Contact;
 import org.hubspot.objects.crm.Deal;
 import org.hubspot.utils.*;
 import org.hubspot.utils.concurrent.*;
@@ -75,9 +76,9 @@ public class DealService {
         };
     }
 
-    static ArrayList<Long> associateDeals(HttpService httpService, long contactId, final RateLimiter rateLimiter)
+    static ArrayList<Long> associateDeals(HttpService httpService, Contact contact, final RateLimiter rateLimiter)
     throws HubSpotException {
-        String url = "/crm-associations/v1/associations/" + contactId + "/HUBSPOT_DEFINED/4";
+        String url = "/crm-associations/v1/associations/" + contact.getId() + "/HUBSPOT_DEFINED/4";
         Map<String, Object> queryParam = new HashMap<>();
         queryParam.put("limit", LIMIT);
         List<Long> dealIds = Collections.synchronizedList(new ArrayList<>());

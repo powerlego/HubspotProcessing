@@ -311,12 +311,16 @@ public class CRM implements Serializable {
     //endregion Companies
 
     //region Deals
-    public ArrayList<Long> associateDeals(long contactId) {
+    public ArrayList<Long> associateDeals(Contact contact) {
         try {
-            return DealService.associateDeals(httpService, contactId, rateLimiter);
+            return DealService.associateDeals(httpService, contact, rateLimiter);
         }
         catch (HubSpotException e) {
-            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to associate deals for contact id {}", contactId, e);
+            logger.fatal(LogMarkers.ERROR.getMarker(),
+                         "Unable to associate deals for contact id {}",
+                         contact.getId(),
+                         e
+            );
             return new ArrayList<>();
         }
     }
