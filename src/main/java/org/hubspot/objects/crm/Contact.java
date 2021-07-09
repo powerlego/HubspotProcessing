@@ -258,6 +258,8 @@ public class Contact extends CRMObject {
         this.engagements = engagements;
     }
 
+    public List<Deal> getDeals() { return this.deals; }
+
     /**
      * Sets/Adds a property to the contact
      *

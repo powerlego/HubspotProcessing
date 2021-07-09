@@ -19,6 +19,7 @@ import java.io.Serializable;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 /**
  * @author Nicholas Curl
@@ -311,9 +312,10 @@ public class CRM implements Serializable {
     //endregion Companies
 
     //region Deals
-    public ArrayList<Long> associateDeals(Contact contact) {
+    public void associateDeals(Contact contact) {
         try {
-            return DealService.associateDeals(httpService, contact, rateLimiter);
+            List<Long> dealIDs = DealService.associateDeals(httpService, contact, rateLimiter);
+            contact.setDealIds(dealIDs);
         }
         catch (HubSpotException e) {
             logger.fatal(LogMarkers.ERROR.getMarker(),
@@ -321,13 +323,36 @@ public class CRM implements Serializable {
                          contact.getId(),
                          e
             );
-            return new ArrayList<>();
+            contact.setDealIds(new ArrayList<>());
         }
     }
 
     public HashMap<Long, Deal> getAllDeals(String propertyGroup, boolean includeHiddenProperties) {
         PropertyData propertyData = propertiesByGroupName(CRMObjectType.DEALS, propertyGroup, includeHiddenProperties);
         return getDeals(propertyData);
+    }
+
+    public HashMap<Long, Deal> getUpdatedDeals(String propertyGroup,
+                                                     boolean includeHiddenProperties,
+                                                     long lastExecuted,
+                                                     long lastFinished
+    ) {
+        PropertyData propertyData = propertiesByGroupName(CRMObjectType.CONTACTS,
+                                                          propertyGroup,
+                                                          includeHiddenProperties
+        );
+        return getDeals(propertyData);
+    }
+
+    public HashMap<Long, Deal> readDealJsons() {
+        try {
+            return DealService.readDealJsons();
+        }
+        catch (HubSpotException e) {
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to read deal jsons", e);
+            System.exit(e.getCode());
+            return new HashMap<>();
+        }
     }
 
     @NotNull
@@ -338,6 +363,22 @@ public class CRM implements Serializable {
         catch (HubSpotException e) {
             logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get all deals", e);
             FileUtils.deleteDirectory(DealService.getCacheFolder());
+            System.exit(e.getCode());
+            return new HashMap<>();
+        }
+    }
+
+    @NotNull
+    private HashMap<Long, Deal> getDeals(long lastExecuted, PropertyData propertyData, long lastFinished) {
+        if (lastFinished == -1) {
+            lastFinished = FileUtils.findMostRecentModification(DealService.getCacheFolder());
+        }
+        try {
+            return DealService.getUpdatedDeals(httpService, propertyData, lastExecuted, lastFinished);
+        }
+        catch (HubSpotException e) {
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to get updated deals", e);
+            FileUtils.deleteRecentlyUpdated(DealService.getCacheFolder(), lastFinished);
             System.exit(e.getCode());
             return new HashMap<>();
         }

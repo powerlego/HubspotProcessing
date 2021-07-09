@@ -45,7 +45,7 @@ public class Tester {
         Pattern pattern = Pattern.compile("^(?=.*?Contacts?)(?:(?!Engagements?).)*$");
         CPUMonitor.startMonitoring();
         HubSpot hubspot = new HubSpot("6ab73220-900f-462b-b753-b6757d94cd1d");
-        ArrayList<Long> associated = hubspot.crm().associateDeals(11321890L);
+        //ArrayList<Long> associated = hubspot.crm().associateDeals(11321890L);
         CPUMonitor.stopMonitoring();
         /*Utils.shutdownExecutors(logger,executorService);
         progressBar.close();

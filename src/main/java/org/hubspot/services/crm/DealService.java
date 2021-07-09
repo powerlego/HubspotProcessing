@@ -90,13 +90,13 @@ public class DealService {
                                                                                    new LinkedBlockingQueue<>(200),
                                                                                    new CustomThreadFactory(
                                                                                            "DealIds_Contact_" +
-                                                                                           contactId),
+                                                                                           contact.getId()),
                                                                                    new StoringRejectedExecutionHandler()
         );
         Utils.addExecutor(threadPoolExecutor);
         ScheduledExecutorService scheduledExecutorService
                 = Executors.newSingleThreadScheduledExecutor(new CustomThreadFactory("DealIdsUpdater_Contact_" +
-                                                                                     contactId));
+                                                                                     contact.getId()));
         scheduledExecutorService.scheduleAtFixedRate(() -> {
             double load = CPUMonitor.getProcessLoad();
             String debugMessage = String.format(debugMessageFormat, "getAllDealIds", load);

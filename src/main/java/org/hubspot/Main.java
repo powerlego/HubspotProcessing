@@ -5,12 +5,15 @@ import me.tongfei.progressbar.ProgressBar;
 import org.apache.logging.log4j.LogManager;
 import org.apache.logging.log4j.Logger;
 import org.hubspot.io.ContactWriter;
+import org.hubspot.io.DealsWriter;
 import org.hubspot.io.EngagementsWriter;
 import org.hubspot.objects.crm.Company;
 import org.hubspot.objects.crm.Contact;
+import org.hubspot.objects.crm.Deal;
 import org.hubspot.services.HubSpot;
 import org.hubspot.services.crm.CompanyService;
 import org.hubspot.services.crm.ContactService;
+import org.hubspot.services.crm.DealService;
 import org.hubspot.services.crm.EngagementsProcessor;
 import org.hubspot.services.crm.EngagementsProcessor.EngagementData;
 import org.hubspot.utils.*;
@@ -21,6 +24,7 @@ import org.hubspot.utils.concurrent.StoringRejectedExecutionHandler;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.concurrent.*;
@@ -90,6 +94,19 @@ public class Main {
                                                              );
             companies.putAll(updatedCompanies);
         }
+        Utils.sleep(DELAY);
+        HashMap<Long, Deal> deals;
+        HashMap<Long, Deal> updatedDeals;
+        if (!DealService.cacheExists()) {
+            deals = hubspot.crm().getAllDeals("dealinformation", true); //TODO: double check propertyGroup
+            updatedDeals = new HashMap<>();
+        }
+        else {
+            deals = hubspot.crm().readDealJsons();
+            Utils.sleep(DELAY);
+            updatedDeals = hubspot.crm().getUpdatedDeals("dealinformation", true, lastExecuted, lastFinished);
+            deals.putAll(updatedDeals);
+        }
         HashMap<Long, EngagementData> engagements;
         if (!EngagementsProcessor.cacheExists()) {
             engagements = null;
@@ -129,7 +146,7 @@ public class Main {
                     for (long contactId : partition) {
                         Contact contact = concurrentContacts.get(contactId);
                         EngagementData engagementData = hubspot.crm().getContactEngagements(contact);
-                        processContact(hubspot, companies, contact, engagementData, progressBar);
+                        processContact(hubspot, companies, deals, contact, engagementData, progressBar);
                     }
                     return null;
                 });
@@ -154,7 +171,7 @@ public class Main {
                         else {
                             engagementData = engagements.get(contactId);
                         }
-                        processContact(hubspot, companies, contact, engagementData, progressBar);
+                        processContact(hubspot, companies, deals, contact, engagementData, progressBar);
                     }
                 });
             }
@@ -168,6 +185,7 @@ public class Main {
 
     private static void processContact(HubSpot hubspot,
                                        HashMap<Long, Company> companies,
+                                       HashMap<Long, Deal> deals,
                                        Contact contact,
                                        EngagementData engagementData,
                                        ProgressBar progressBar
@@ -185,9 +203,15 @@ public class Main {
                 contact.setProperty("company", company.getName());
             }
         }
+        ArrayList<Deal> dealList = new ArrayList<>();
+        contact.setDeals(dealList);
+        for (Deal deal :deals.values()) {
+            contact.addDeal(deal);
+        }
         contact.setData(contact.toJson());
-        ContactWriter.write(contact);
+        //ContactWriter.write(contact);
         EngagementsWriter.write(hubspot, contact.getId(), engagementData.getEngagements());
+        DealsWriter.write(hubspot, contact.getId(), contact.getDeals());
         progressBar.step();
     }
 }

@@ -141,4 +141,9 @@ public class Deal extends CRMObject {
         }
         super.setProperty(property, value);
     }
+
+    @Override
+    public String toString() {
+        return this.toJson().toString(4);
+    }
 }
