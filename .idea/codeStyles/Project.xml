@@ -3,10 +3,7 @@
     <JavaCodeStyleSettings>
       <option name="ANNOTATION_PARAMETER_WRAP" value="5" />
       <option name="ALIGN_MULTILINE_ANNOTATION_PARAMETERS" value="true" />
-      <option name="ALIGN_MULTILINE_TEXT_BLOCKS" value="true" />
       <option name="INSERT_INNER_CLASS_IMPORTS" value="true" />
-      <option name="RECORD_COMPONENTS_WRAP" value="5" />
-      <option name="RPAREN_ON_NEW_LINE_IN_RECORD_HEADER" value="true" />
       <option name="JD_ADD_BLANK_AFTER_PARM_COMMENTS" value="true" />
       <option name="JD_ADD_BLANK_AFTER_RETURN" value="true" />
       <option name="JD_PRESERVE_LINE_FEEDS" value="true" />
@@ -61,12 +58,16 @@
       <option name="PARAMETER_ANNOTATION_WRAP" value="5" />
       <option name="VARIABLE_ANNOTATION_WRAP" value="5" />
       <option name="ENUM_CONSTANTS_WRAP" value="5" />
-      <option name="KEEP_BUILDER_METHODS_INDENTS" value="true" />
       <option name="WRAP_ON_TYPING" value="0" />
       <arrangement>
         <tokens>
-          <token id="visibility" name="visibility">
+          <token id="class" name="class">
             <rules>
+              <rule>
+                <match>
+                  <NAME>CRM</NAME>
+                </match>
+              </rule>
               <rule>
                 <match>
                   <PUBLIC>true</PUBLIC>
@@ -89,13 +90,8 @@
               </rule>
             </rules>
           </token>
-          <token id="class" name="class">
+          <token id="visibility" name="visibility">
             <rules>
-              <rule>
-                <match>
-                  <NAME>CRM</NAME>
-                </match>
-              </rule>
               <rule>
                 <match>
                   <PUBLIC>true</PUBLIC>

@@ -312,7 +312,7 @@ public class CRM implements Serializable {
     //endregion Companies
 
     //region Deals
-    public void associateDeals(Contact contact) {
+    public void associateDeals(Contact contact) throws HubSpotException {
         try {
             List<Long> dealIDs = DealService.associateDeals(httpService, contact, rateLimiter);
             contact.setDealIds(dealIDs);
@@ -324,6 +324,7 @@ public class CRM implements Serializable {
                          e
             );
             contact.setDealIds(new ArrayList<>());
+            throw e;
         }
     }
 
@@ -341,7 +342,7 @@ public class CRM implements Serializable {
                                                           propertyGroup,
                                                           includeHiddenProperties
         );
-        return getDeals(propertyData);
+        return getDeals(lastExecuted, propertyData, lastFinished);
     }
 
     public HashMap<Long, Deal> readDealJsons() {

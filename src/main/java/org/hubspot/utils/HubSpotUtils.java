@@ -52,11 +52,11 @@ public class HubSpotUtils {
     ) {
         JSONObject body = new JSONObject();
         JSONArray filterGroupsArray = new JSONArray();
-        JSONObject filters1 = new JSONObject();
         JSONArray filtersArray1 = new JSONArray();
-        JSONObject filter1 = new JSONObject();
-        JSONObject filters2 = new JSONObject();
         JSONArray filtersArray2 = new JSONArray();
+        JSONObject filters1 = new JSONObject();
+        JSONObject filters2 = new JSONObject();
+        JSONObject filter1 = new JSONObject();
         JSONObject filter2 = new JSONObject();
         filter1.put("propertyName", "createdate").put("operator", "GTE").put("value", lastExecution);
         filtersArray1.put(filter1);

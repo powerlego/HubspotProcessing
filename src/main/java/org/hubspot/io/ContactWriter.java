@@ -5,6 +5,7 @@ import org.apache.logging.log4j.Logger;
 import org.hubspot.objects.crm.Contact;
 import org.hubspot.utils.ErrorCodes;
 import org.hubspot.utils.LogMarkers;
+import org.hubspot.utils.exceptions.HubSpotException;
 
 import java.io.FileWriter;
 import java.io.IOException;
@@ -90,12 +91,20 @@ public class ContactWriter {
             writer.close();
         }
         catch (IOException e) {
-            if (e.getMessage().contains("(The filename, directory name, or volume label syntax is incorrect)")) {
-                logger.debug(LogMarkers.CORRECTION.getMarker(), "Needs to be corrected: {}", contact);
+            try {
+                filePath = contactsFolder.resolve(contact.getId()+".txt");
+                FileWriter writer = new FileWriter(filePath.toFile());
+                writer.write(contact.toString());
+                writer.close();
             }
-            else {
-                logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to write to file {}", filePath, e);
-                System.exit(ErrorCodes.IO_WRITE.getErrorCode());
+            catch (IOException exception){
+                if (exception.getMessage().contains("(The filename, directory name, or volume label syntax is incorrect)")) {
+                    logger.debug(LogMarkers.CORRECTION.getMarker(), "Needs to be corrected: {}", contact);
+                }
+                else {
+                    logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to write to file {}", filePath, exception);
+                    System.exit(ErrorCodes.IO_WRITE.getErrorCode());
+                }
             }
         }
     }

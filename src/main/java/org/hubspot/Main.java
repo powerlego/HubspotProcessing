@@ -20,6 +20,7 @@ import org.hubspot.utils.*;
 import org.hubspot.utils.concurrent.CustomThreadFactory;
 import org.hubspot.utils.concurrent.CustomThreadPoolExecutor;
 import org.hubspot.utils.concurrent.StoringRejectedExecutionHandler;
+import org.hubspot.utils.exceptions.HubSpotException;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -67,7 +68,7 @@ public class Main {
         long lastFinished = FileUtils.readLastFinished();
         HubSpot hubspot = new HubSpot("6ab73220-900f-462b-b753-b6757d94cd1d");
         HashMap<Long, Contact> contacts;
-        HashMap<Long, Contact> updatedContacts;
+        HashMap<Long, Contact> updatedContacts; // TODO: 7/13/21 associatedContact.txt update any contacts in file
         if (!ContactService.cacheExists()) {
             contacts = hubspot.crm().getAllContacts("contactinformation", true);
             updatedContacts = new HashMap<>();
@@ -98,8 +99,8 @@ public class Main {
         HashMap<Long, Deal> deals;
         HashMap<Long, Deal> updatedDeals;
         if (!DealService.cacheExists()) {
-            deals = hubspot.crm().getAllDeals("dealinformation", true); //TODO: double check propertyGroup
-            updatedDeals = new HashMap<>();
+            deals = hubspot.crm().getAllDeals("dealinformation", true);
+            updatedDeals = new HashMap<>(); // TODO: 7/13/21  associatedContacts.txt update if contactID in updatedDeals
         }
         else {
             deals = hubspot.crm().readDealJsons();
@@ -203,13 +204,20 @@ public class Main {
                 contact.setProperty("company", company.getName());
             }
         }
-        ArrayList<Deal> dealList = new ArrayList<>();
-        contact.setDeals(dealList);
-        for (Deal deal :deals.values()) {
-            contact.addDeal(deal);
+        try {
+            ArrayList<Deal> dealList = new ArrayList<>();
+            hubspot.crm().associateDeals(contact);
+            contact.setDeals(dealList);
+            for (long dealId : contact.getDealIds()) {
+                contact.addDeal(deals.get(dealId));
+            }
+        } catch (HubSpotException e){
+            if(e.getCode()!=ErrorCodes.DAILY_LIMIT_REACHED.getErrorCode()){
+                System.exit(e.getCode());
+            }
         }
         contact.setData(contact.toJson());
-        //ContactWriter.write(contact);
+        ContactWriter.write(contact);
         EngagementsWriter.write(hubspot, contact.getId(), engagementData.getEngagements());
         DealsWriter.write(hubspot, contact.getId(), contact.getDeals());
         progressBar.step();

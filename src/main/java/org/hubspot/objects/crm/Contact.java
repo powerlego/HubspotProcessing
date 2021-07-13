@@ -260,6 +260,10 @@ public class Contact extends CRMObject {
 
     public List<Deal> getDeals() { return this.deals; }
 
+    public List<Long> getDealIds(){
+        return this.dealIds;
+    }
+
     /**
      * Sets/Adds a property to the contact
      *
