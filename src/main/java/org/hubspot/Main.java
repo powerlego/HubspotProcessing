@@ -22,6 +22,7 @@ import org.hubspot.utils.concurrent.CustomThreadPoolExecutor;
 import org.hubspot.utils.concurrent.StoringRejectedExecutionHandler;
 import org.hubspot.utils.exceptions.HubSpotException;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -56,6 +57,7 @@ public class Main {
             logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to create cache folder {}", Paths.get("./cache"), e);
             System.exit(ErrorCodes.IO_CREATE_DIRECTORY.getErrorCode());
         }
+
         long lastExecuted = FileUtils.readLastExecution();
         if (lastExecuted == -1) {
             lastExecuted = FileUtils.writeLastExecution();
@@ -67,8 +69,9 @@ public class Main {
         }
         long lastFinished = FileUtils.readLastFinished();
         HubSpot hubspot = new HubSpot("6ab73220-900f-462b-b753-b6757d94cd1d");
+        List<Long> associatedContacts = FileUtils.readAssociatedContacts();
         HashMap<Long, Contact> contacts;
-        HashMap<Long, Contact> updatedContacts; // TODO: 7/13/21 associatedContact.txt update any contacts in file
+        HashMap<Long, Contact> updatedContacts;
         if (!ContactService.cacheExists()) {
             contacts = hubspot.crm().getAllContacts("contactinformation", true);
             updatedContacts = new HashMap<>();
@@ -78,6 +81,10 @@ public class Main {
             Utils.sleep(DELAY);
             updatedContacts = hubspot.crm().getUpdatedContacts("contactinformation", true, lastExecuted, lastFinished);
             contacts.putAll(updatedContacts);
+
+            for (Long contactId : updatedContacts.keySet()) {
+                associatedContacts.remove(contactId);
+            }
         }
         Utils.sleep(DELAY);
         HashMap<Long, Company> companies;
@@ -100,7 +107,7 @@ public class Main {
         HashMap<Long, Deal> updatedDeals;
         if (!DealService.cacheExists()) {
             deals = hubspot.crm().getAllDeals("dealinformation", true);
-            updatedDeals = new HashMap<>(); // TODO: 7/13/21  associatedContacts.txt update if contactID in updatedDeals
+            updatedDeals = new HashMap<>();
         }
         else {
             deals = hubspot.crm().readDealJsons();
@@ -145,9 +152,12 @@ public class Main {
             for (List<Long> partition : partitions) {
                 threadPoolExecutor.submit(() -> {
                     for (long contactId : partition) {
+                        if (associatedContacts.contains(contactId)) {
+                            continue;
+                        }
                         Contact contact = concurrentContacts.get(contactId);
                         EngagementData engagementData = hubspot.crm().getContactEngagements(contact);
-                        processContact(hubspot, companies, deals, contact, engagementData, progressBar);
+                        processContact(hubspot, companies, deals, contact, engagementData, associatedContacts, progressBar);
                     }
                     return null;
                 });
@@ -159,7 +169,11 @@ public class Main {
                     for (Long contactId : partition) {
                         Contact contact = concurrentContacts.get(contactId);
                         EngagementData engagementData;
-                        if (!engagements.containsKey(contactId)) {
+                        if (associatedContacts.contains(contactId)) {
+                            progressBar.step();
+                            continue;
+                        }
+                        else if (!engagements.containsKey(contactId)) {
                             engagementData = hubspot.crm().getContactEngagements(contact);
                         }
                         else if (updatedContacts.containsKey(contactId)) {
@@ -172,7 +186,7 @@ public class Main {
                         else {
                             engagementData = engagements.get(contactId);
                         }
-                        processContact(hubspot, companies, deals, contact, engagementData, progressBar);
+                        processContact(hubspot, companies, deals, contact, engagementData, associatedContacts, progressBar);
                     }
                 });
             }
@@ -189,6 +203,7 @@ public class Main {
                                        HashMap<Long, Deal> deals,
                                        Contact contact,
                                        EngagementData engagementData,
+                                       List<Long> associatedContacts,
                                        ProgressBar progressBar
     ) {
         if (!engagementData.getEngagements().isEmpty()) {
@@ -212,6 +227,7 @@ public class Main {
                 contact.addDeal(deals.get(dealId));
             }
         } catch (HubSpotException e){
+            // Only stop if an error code is something other than the Daily limit.
             if(e.getCode()!=ErrorCodes.DAILY_LIMIT_REACHED.getErrorCode()){
                 System.exit(e.getCode());
             }
@@ -220,6 +236,9 @@ public class Main {
         ContactWriter.write(contact);
         EngagementsWriter.write(hubspot, contact.getId(), engagementData.getEngagements());
         DealsWriter.write(hubspot, contact.getId(), contact.getDeals());
+        // Write the contactId to the associatedContacts file so that it knows it is currently up to date.
+        FileUtils.writeAssociatedContacts(contact.getId(), true);
+        associatedContacts.add(contact.getId());
         progressBar.step();
     }
 }

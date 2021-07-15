@@ -14,7 +14,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Scanner;
 
 /**
  * @author Nicholas Curl
@@ -116,6 +119,20 @@ public class FileUtils {
         return jsonString;
     }
 
+    public static List<Long> readContactFile(File file) {
+        List<Long> contactIds = new ArrayList<>();
+        Scanner scanner = null;
+        try {
+            scanner = new Scanner(file);
+        }
+        catch (FileNotFoundException e) {
+            e.printStackTrace();
+        }
+        while (scanner.hasNextLine()) {
+            contactIds.add(Long.parseLong(scanner.nextLine()));
+        }
+        return contactIds;
+    }
     public static String readFile(File file) throws IOException {
         String fileString;
         FileInputStream inputStream = new FileInputStream(file);
@@ -141,6 +158,37 @@ public class FileUtils {
         catch (NumberFormatException | IOException ignored) {
         }
         return lastExecuted;
+    }
+
+    /**
+     * Reads the associated_contacts.txt file if it exists, if it doesn't then it is created.
+     * @return List of contactIds
+     */
+    public static List<Long> readAssociatedContacts() {
+        Path associatedContactsFile = Paths.get("./cache/associated_contacts.txt");
+        List<Long> associatedContacts = new ArrayList<>();
+
+        if (associatedContactsFile.toFile().exists()) {
+            associatedContacts = readContactFile(associatedContactsFile.toFile());
+        }
+        else {
+            writeAssociatedContacts(-1, false);
+        }
+        return associatedContacts;
+    }
+
+    public static void writeAssociatedContacts(long contactId, boolean append) {
+        Path associatedContactsFile = Paths.get("./cache/associated_contacts.txt");
+
+        try {
+            FileWriter fileWriter = new FileWriter(associatedContactsFile.toFile(), append);
+            fileWriter.write(String.valueOf(contactId) + "\n");
+            fileWriter.close();
+
+        } catch (IOException e) {
+            logger.fatal(LogMarkers.ERROR.getMarker(), "Unable to write file {}", associatedContactsFile, e);
+            System.exit(ErrorCodes.IO_WRITE.getErrorCode());
+        }
     }
 
     public static String readFile(Path path) throws IOException {
